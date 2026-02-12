@@ -1,0 +1,2696 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão de Frota - 6º BBM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #d32f2f;
+            --primary-dark: #9a0007;
+            --secondary: #ffa000;
+            --bg-dark: #0a0e27;
+            --bg-card: #151b3d;
+            --bg-hover: #1e2850;
+            --text: #e8eaf6;
+            --text-muted: #9fa8da;
+            --success: #00c853;
+            --warning: #ffa000;
+            --danger: #d32f2f;
+            --border: #283593;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f45 100%);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            z-index: 1000;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        .header {
+            background: linear-gradient(to right, var(--primary-dark), var(--primary));
+            padding: 1.5rem 2rem;
+            box-shadow: 0 4px 20px rgba(211, 47, 47, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--secondary);
+        }
+
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-badge {
+            width: 50px;
+            height: 50px;
+            background: var(--secondary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--bg-dark);
+            box-shadow: 0 0 20px rgba(255, 160, 0, 0.5);
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(211, 47, 47, 0.3);
+        }
+
+        .stat-card:hover::before {
+            width: 8px;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text);
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .stat-icon {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 2rem;
+            opacity: 0.2;
+        }
+
+        .controls {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(211, 47, 47, 0.4);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(211, 47, 47, 0.6);
+        }
+
+        .btn-secondary {
+            background: var(--bg-hover);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+        }
+
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        select {
+            padding: 0.75rem 1rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .table-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            animation: slideUp 0.8s ease-out;
+            animation-delay: 0.2s;
+            animation-fill-mode: both;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: var(--bg-dark);
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            color: var(--secondary);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        tbody tr:hover {
+            background: var(--bg-hover);
+            transform: scale(1.01);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-success {
+            background: rgba(0, 200, 83, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .badge-warning {
+            background: rgba(255, 160, 0, 0.2);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+        }
+
+        .badge-danger {
+            background: rgba(211, 47, 47, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .badge-info {
+            background: rgba(159, 168, 218, 0.2);
+            color: var(--text-muted);
+            border: 1px solid var(--text-muted);
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .btn-icon:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.4s ease;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .close-modal {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .close-modal:hover {
+            color: var(--danger);
+            transform: rotate(90deg);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(211, 47, 47, 0.3);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.active {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+
+        .alert-success {
+            background: rgba(0, 200, 83, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.5rem;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* === NOVOS ESTILOS PARA TABS === */
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            background: var(--bg-card);
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(211, 47, 47, 0.4);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* === ESTILOS PARA GRÁFICOS === */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* === ESTILOS PARA RELATÓRIOS === */
+        .report-section {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .report-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--secondary);
+            text-transform: uppercase;
+        }
+
+        .report-filters {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .report-table th {
+            background: var(--bg-dark);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .report-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .report-table tr:hover {
+            background: var(--bg-hover);
+        }
+
+        .total-row {
+            font-weight: 700;
+            background: var(--bg-dark) !important;
+            color: var(--secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        /* === ESTILOS PARA CONFIGURAÇÕES GOOGLE SHEETS === */
+        .google-sheets-config {
+            background: var(--bg-dark);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        .config-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--danger);
+        }
+
+        .status-indicator.connected {
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        .user-badge {
+            background: var(--bg-dark);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            border: 1px solid var(--secondary);
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+
+            .report-filters {
+                flex-direction: column;
+            }
+
+            .report-table {
+                font-size: 0.85rem;
+            }
+
+            .report-table th,
+            .report-table td {
+                padding: 0.5rem;
+            }
+        }
+    /* ===============================
+   Tema CBMMG (vermelho/laranja/azul/branco)
+   =============================== */
+:root{
+    --primary: #D32F2F;          /* vermelho */
+    --primary-dark: #8E0000;
+    --secondary: #FF8F00;        /* laranja */
+    --accent-blue: #1976D2;      /* azul */
+    --accent-blue-dark: #0D47A1;
+    --white: #FFFFFF;
+}
+
+body{
+    background: radial-gradient(1200px 600px at 20% 0%, rgba(255,143,0,0.18) 0%, rgba(10,14,39,0) 60%),
+                radial-gradient(900px 500px at 80% 10%, rgba(25,118,210,0.18) 0%, rgba(10,14,39,0) 55%),
+                linear-gradient(135deg, #071026 0%, #0B1636 55%, #0A0E27 100%);
+}
+
+.header{
+    background: linear-gradient(90deg, var(--primary-dark) 0%, var(--primary) 55%, var(--secondary) 100%);
+    border-bottom: 3px solid var(--accent-blue);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+}
+
+.header::after{
+    content:"";
+    position:absolute;
+    left:0; right:0; bottom:-3px;
+    height:6px;
+    background: linear-gradient(90deg, var(--accent-blue) 0%, rgba(255,255,255,0.85) 50%, var(--accent-blue) 100%);
+    opacity: .85;
+}
+
+.logo{
+    color: var(--white);
+    text-shadow: 0 2px 10px rgba(0,0,0,.35);
+}
+
+/* Indicador de confiança no cabeçalho */
+#syncStatus{
+    display:inline-flex;
+    align-items:center;
+    gap:.5rem;
+    padding:.25rem .6rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.18);
+    backdrop-filter: blur(6px);
+}
+#syncStatus #lastSyncAt{ color: rgba(255,255,255,.9); }
+#syncStatus #lastSyncOk{ text-shadow: 0 1px 6px rgba(0,0,0,.25); }
+
+/* Botões */
+.btn-primary{
+    background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+    box-shadow: 0 8px 22px rgba(211,47,47,.35);
+}
+.btn-secondary{
+    background: linear-gradient(180deg, rgba(25,118,210,.95) 0%, rgba(13,71,161,.95) 100%);
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,.15);
+    box-shadow: 0 8px 22px rgba(25,118,210,.28);
+}
+.btn-secondary:hover{
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+}
+
+.btn-icon:hover{
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+}
+
+/* Cards e tabela */
+.stat-card::before{
+    background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 60%, var(--accent-blue) 100%);
+}
+
+thead{
+    background: linear-gradient(90deg, rgba(25,118,210,.35) 0%, rgba(255,143,0,.25) 55%, rgba(211,47,47,.25) 100%);
+}
+
+table{
+    border: 1px solid rgba(25,118,210,.35);
+}
+
+.badge-info{
+    background: rgba(25,118,210, 0.18);
+    color: rgba(255,255,255,0.92);
+    border: 1px solid rgba(25,118,210, 0.65);
+}
+
+</style>
+</head>
+<body>
+    <div class="grain"></div>
+    
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-badge">6º</div>
+                <div>
+                    <h1>Sistema de Gestão de Frota</h1>
+
+            <div id="syncStatus" style="margin-top:6px; font-size:12px; opacity:0.9; display: flex; align-items: center; gap: 8px;">
+                Última atualização da planilha: <span id="lastSyncAt">—</span>
+                <span id="lastSyncOk" style="margin-left:8px; font-weight:600;"></span>
+                <button onclick="syncFleetFromSheet(true)" style="margin-left: 8px; padding: 4px 8px; background: rgba(25,118,210,0.7); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white; cursor: pointer; font-size: 11px;" title="Sincronizar agora com a planilha">🔄 Sincronizar</button>
+            </div>
+
+                    <div class="subtitle">6º Batalhão de Bombeiros Militar - Minas Gerais</div>
+                </div>
+            </div>
+            <div class="user-badge" id="userBadge">👤 Visitante</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Tabs de Navegação -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('frota')">🚒 Frota</button>
+            <button class="tab" onclick="switchTab('graficos')">📊 Gráficos</button>
+            <button class="tab" onclick="switchTab('relatorios')">📈 Relatórios</button>
+            <button class="tab" id="configTab" onclick="switchTab('config')" style="display: none;">⚙️ Configurações</button>
+        </div>
+
+        <!-- Conteúdo Tab Frota (Conteúdo Original) -->
+        <div id="frota" class="tab-content active">
+        <div class="dashboard" id="dashboard">
+            <div class="stat-card">
+                <div class="stat-icon">🚒</div>
+                <div class="stat-label">Total de Viaturas</div>
+                <div class="stat-value" id="totalVehicles">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-label">Disponíveis</div>
+                <div class="stat-value" id="availableVehicles">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-label">Em Manutenção</div>
+                <div class="stat-value" id="maintenanceVehicles">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔧</div>
+                <div class="stat-label">Baixadas</div>
+                <div class="stat-value" id="inactiveVehicles">0</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="openAddModal()">➕ Adicionar Viatura</button>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar por placa, prefixo ou modelo..." onkeyup="filterVehicles()">
+            </div>
+            <select id="filterSituation" onchange="filterVehicles()">
+                <option value="">Todas Situações</option>
+                <option value="DISPONÍVEL">Disponível</option>
+                <option value="BAIXADA">Baixada</option>
+                <option value="ACIDENTADA">Acidentada</option>
+                <option value="PROCESSO DE DESCARGA">Processo de Descarga</option>
+            </select>
+            <select id="filterCity" onchange="filterVehicles()">
+                <option value="">Todas Cidades</option>
+            </select>
+        </div>
+
+        <div class="alert alert-success" id="alertSuccess"></div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Placa</th>
+                        <th>Prefixo</th>
+                        <th>Subclasse</th>
+                        <th>Cidade de Lotação</th>
+                        <th>Hodômetro</th>
+                        <th>Óleo</th>
+                        <th>Freios</th>
+                        <th>Situação</th>
+                        <th>Última movimentação no SIAD</th>
+                        <th>Manutenções</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="vehicleTableBody">
+                    <tr>
+                        <td colspan="11" class="loading">
+                            <div class="spinner"></div>
+                            Carregando dados da frota...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        </div>
+        <!-- Fim Tab Frota -->
+
+        <!-- Tab Gráficos -->
+        <div id="graficos" class="tab-content">
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-title">📊 Situação da Frota</div>
+                    <canvas id="situationChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">🏙️ Distribuição por Cidade</div>
+                    <canvas id="cityChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">🚒 Tipos de Viatura</div>
+                    <canvas id="typeChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">🔧 Manutenções por Tipo</div>
+                    <canvas id="maintenanceTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Fim Tab Gráficos -->
+
+        <!-- Tab Relatórios -->
+        <div id="relatorios" class="tab-content">
+            <div class="report-section">
+                <div class="report-header">
+                    <div class="report-title">📊 Relatório de Manutenções</div>
+                    <div>
+                        <button class="btn btn-primary" onclick="exportToPDF()">📄 Exportar PDF</button>
+                    </div>
+                </div>
+
+                <div class="report-filters">
+                    <input type="month" id="reportMonth" onchange="updateReports()">
+                    <select id="reportVehicle" onchange="updateReports()">
+                        <option value="">Todas as Viaturas</option>
+                    </select>
+                    <select id="reportType" onchange="updateReports()">
+                        <option value="">Todos os Tipos</option>
+                        <option value="PREVENTIVA">Preventiva</option>
+                        <option value="CORRETIVA">Corretiva</option>
+                        <option value="PREDITIVA">Preditiva</option>
+                        <option value="REVISÃO">Revisão</option>
+                    </select>
+                </div>
+
+                <div id="reportContent">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Selecione um mês para gerar o relatório</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-title">💰 Custos de Manutenção Mensais</div>
+                <canvas id="costChart"></canvas>
+            </div>
+        </div>
+        <!-- Fim Tab Relatórios -->
+
+        <!-- Tab Configurações (apenas para gestor) -->
+        <div id="config" class="tab-content">
+            <div class="report-section">
+                <div class="report-header">
+                    <div class="report-title">⚙️ Configurações do Gestor</div>
+                </div>
+
+                <div class="google-sheets-config">
+                    <h3>🔗 Integração Google Sheets</h3>
+                    <p style="color: var(--text-muted); margin: 1rem 0;">
+                        Configure a integração com Google Sheets para sincronizar automaticamente os registros de manutenção.
+                    </p>
+
+                    <div class="form-group">
+                        <label>URL da Planilha Google Sheets</label>
+                        <input type="text" id="sheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Chave da API Web App (Google Apps Script)</label>
+                        <input type="text" id="apiKey" placeholder="Cole aqui a URL do Web App deploy">
+                    </div>
+
+                    <button class="btn btn-primary" onclick="saveGoogleSheetsConfig()">💾 Salvar Configuração</button>
+                    <button class="btn btn-secondary" onclick="testConnection()">🔌 Testar Conexão</button>
+
+                    <div class="config-status">
+                        <div class="status-indicator" id="connectionStatus"></div>
+                        <span id="connectionText">Não configurado</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--secondary);">
+                    <h4 style="margin-bottom: 1rem;">📋 Instruções de Configuração:</h4>
+                    <ol style="line-height: 1.8; color: var(--text-muted);">
+                        <li>Crie uma planilha no Google Sheets</li>
+                        <li>Acesse Extensões → Apps Script</li>
+                        <li>Cole o código fornecido</li>
+                        <li>Implante como Web App com acesso "Qualquer pessoa"</li>
+                        <li>Cole a URL do Web App no campo acima</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        <!-- Fim Tab Config -->
+
+    </div>
+    <!-- Fim Container -->
+
+    <!-- Modal Adicionar/Editar -->
+    <div class="modal" id="vehicleModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Adicionar Viatura</h2>
+                <button class="close-modal" onclick="closeModal()">✕</button>
+            </div>
+            <form id="vehicleForm" onsubmit="saveVehicle(event)">
+                <input type="hidden" id="vehicleId">
+                
+                <div class="form-group">
+                    <label>Placa *</label>
+                    <input type="text" id="placa" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Prefixo *</label>
+                    <input type="text" id="prefixo" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo de Viatura *</label>
+                    <select id="tipo" required>
+                        <option value="">Selecione...</option>
+                        <option value="ABTS">ABTS - Auto Bomba Tanque Salvamento</option>
+                        <option value="ABT">ABT - Auto Bomba Tanque</option>
+                        <option value="ABS">ABS - Auto Bomba Salvamento</option>
+                        <option value="ASL">ASL - Auto Salvamento Leve</option>
+                        <option value="ASM">ASM - Auto Salvamento Médio</option>
+                        <option value="ASF">ASF - Auto Salvamento Florestal</option>
+                        <option value="UR">UR - Unidade de Resgate</option>
+                        <option value="APV">APV - Auto Prevenção e Vistoria</option>
+                        <option value="TLP">TLP - Transporte Leve de Pessoal</option>
+                        <option value="TC">TC - Transporte de Carga</option>
+                        <option value="MO">MO - Moto Operacional</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Cidade *</label>
+                    <input type="text" id="cidade" required placeholder="Ex: Teófilo Otoni">
+                </div>
+
+                <div class="form-group">
+                    <label>Hodômetro (km)</label>
+                    <input type="number" id="hodometro" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Situação *</label>
+                    <select id="situacao" required>
+                        <option value="DISPONÍVEL">Disponível</option>
+                        <option value="EM MANUTENÇÃO">Em Manutenção</option>
+                        <option value="BAIXADA">Baixada</option>
+                        <option value="ACIDENTADA">Acidentada</option>
+                        <option value="PROCESSO DE DESCARGA">Processo de Descarga</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Última movimentação no SIAD</label>
+                    <input type="text" id="ultimaMovimentacaoSiad" placeholder="dd/mm/aaaa ou texto">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">💾 Salvar</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Manutenções -->
+    <div class="modal" id="maintenanceModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>🔧 Manutenções - <span id="maintenanceVehiclePlate"></span></h2>
+                <button class="close-modal" onclick="closeMaintenanceModal()">✕</button>
+            </div>
+            
+            <div style="margin-bottom: 2rem;">
+                <button class="btn btn-primary" onclick="showAddMaintenance()">➕ Adicionar Manutenção</button>
+            </div>
+
+            <!-- Formulário de nova manutenção -->
+            <div id="addMaintenanceForm" style="display: none; background: var(--bg-dark); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1rem; font-size: 1.2rem;">Nova Manutenção</h3>
+                <form onsubmit="saveMaintenanceRecord(event)">
+                    <div class="form-group">
+                        <label>Data da Manutenção *</label>
+                        <input type="date" id="maintenanceDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo de Manutenção *</label>
+                        <select id="maintenanceType" required>
+                            <option value="">Selecione...</option>
+                            <option value="PREVENTIVA">Preventiva</option>
+                            <option value="CORRETIVA">Corretiva</option>
+                            <option value="PREDITIVA">Preditiva</option>
+                            <option value="REVISÃO">Revisão</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descrição do Serviço *</label>
+                        <input type="text" id="maintenanceDescription" required placeholder="Ex: Troca de óleo e filtros">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Hodômetro no Momento (km)</label>
+                        <input type="number" id="maintenanceKm" placeholder="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Custo (R$)</label>
+                        <input type="number" id="maintenanceCost" step="0.01" placeholder="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Responsável</label>
+                        <input type="text" id="maintenanceResponsible" placeholder="Nome do responsável">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Matrícula do Bombeiro</label>
+                        <input type="text" id="maintenanceMatricula" placeholder="000.000-0" maxlength="9" oninput="formatMatricula(this)">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Observações</label>
+                        <textarea id="maintenanceNotes" rows="3" style="width: 100%; padding: 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Rajdhani', sans-serif; resize: vertical;"></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">💾 Salvar Manutenção</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideAddMaintenance()">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Lista de manutenções -->
+            <div id="maintenanceList">
+                <h3 style="margin-bottom: 1rem; font-size: 1.2rem;">Histórico de Manutenções</h3>
+                <div id="maintenanceRecords"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dados iniciais da frota (carregados da planilha)
+        let vehicles = [];
+        let maintenances = {}; // { vehicleId: [maintenance records] }
+        let editingId = null;
+        let currentMaintenanceVehicleId = null;
+        let currentMaintenanceVehicle = null;
+        
+        // Novas variáveis para recursos adicionados
+        let isManager = false;
+        let googleSheetsConfig = null;
+        let charts = {};
+
+// =====================================
+// SINCRONIZAÇÃO COM PLANILHA (FONTE VERDADE)
+// =====================================
+const FLEET_API = "https://script.google.com/macros/s/AKfycbz-Wdo8vAl3tpNnKBH_m3iYpjN6Am6vGZoGxbDEb0MWPUSk6mzZAIWwP1BH6pQpcbbGjQ/exec";
+
+async function syncFleetFromSheet(force = true) {
+    const statusEl = document.getElementById("syncStatus");
+    try {
+        if (statusEl) {
+            const syncButton = statusEl.querySelector('button');
+            if (syncButton) syncButton.disabled = true;
+            statusEl.querySelector('#lastSyncOk').textContent = "● sincronizando...";
+        }
+        
+        console.log('Iniciando sincronização com planilha verdade...');
+        const url = `${FLEET_API}?action=fleet&callback=cb&_=${Date.now()}`;
+        console.log('URL de sincronização:', url);
+        
+        const res = await fetch(url, { 
+            cache: "no-store",
+            mode: 'cors'
+        });
+        
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        const txt = await res.text();
+        console.log('Resposta recebida (primeiros 200 caracteres):', txt.substring(0, 200));
+
+        // JSONP: cb({...});
+        let jsonText = txt.replace(/^cb\(/, "").replace(/\);\s*$/, "");
+        
+        // LIMPEZA ROBUSTA: remover caracteres de controle que quebram o JSON
+        // MAS preservar escapes válidos do JSON
+        jsonText = jsonText.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, ''); // Remove controle (exceto \t \n \r)
+        
+        // Log para debug - mostrar área problemática
+        if (jsonText.length > 770046) {
+            console.log('Contexto ao redor da posição 770046:');
+            console.log(jsonText.substring(770000, 770100));
+        }
+        
+        const data = JSON.parse(jsonText);
+        
+        console.log('Dados parseados:', {
+            success: data.success,
+            vehiclesCount: (data.vehicles || []).length,
+            updatedAt: data.updatedAt
+        });
+        
+        // LOG: Mostrar dados brutos da primeira viatura COM TODOS OS CAMPOS
+        if (data.vehicles && data.vehicles.length > 0) {
+            console.log('=== DADOS BRUTOS DA PRIMEIRA VIATURA (TODOS OS CAMPOS) ===');
+            console.log('Chaves disponíveis:', Object.keys(data.vehicles[0]));
+            console.log('Dados completos:', data.vehicles[0]);
+            console.log('===========================================================');
+        }
+
+        if (!data.success) throw new Error(data.message || "Falha no WebApp");
+
+        const cleaned = (data.vehicles || [])
+            .filter(v => {
+                const placa = v.placa;
+                return placa && String(placa).trim() && String(placa).trim() !== "#REF!";
+            })
+            .map(v => {
+                // USAR OS NOMES EXATOS QUE O APPS SCRIPT ENVIA:
+                // ['placa', 'prefixo', 'situacao', 'hodometro', 'tipo', 'cidade', 'unidade', 'ultimaMovimentacaoSiad']
+                
+                const placa = String(v.placa || '').trim().toUpperCase();
+                const prefixo = String(v.prefixo || '').trim();
+                const subclasse = String(v.tipo || '').trim(); // 'tipo' é a subclasse
+                const unidadeCompleta = String(v.unidade || '').trim();
+                const cidadeRaw = String(v.cidade || '').trim();
+                const situacao = String(v.situacao || '').trim();
+                const hodometro = Number(v.hodometro) || 0;
+                const dataUltimaMovimentacao = String(v.ultimaMovimentacaoSiad || '').trim();
+                
+                // Usar a cidade que já vem do Apps Script
+                const cidade = mapLotacaoToPadrao(cidadeRaw || unidadeCompleta);
+                
+                return {
+                    id: placa,
+                    placa: placa,
+                    prefixo: prefixo,
+                    subclasse: subclasse,
+                    unidade: unidadeCompleta,
+                    cidade: cidade,
+                    situacao: situacao,
+                    hodometro: hodometro,
+                    dataUltimaSituacao: '',
+                    dataUltimaMovimentacao: dataUltimaMovimentacao,
+                    tempoParada: 0,
+                    anoFabricacao: '',
+                    marcaModelo: '',
+                    valorVenal: '',
+                    combustivel: '',
+                    comando: '',
+                    unidadePrincipal: '',
+                };
+            });
+        
+        console.log(`${cleaned.length} viaturas processadas após limpeza`);
+        
+        // LOG DE DEPURAÇÃO: Mostrar primeiras 3 viaturas
+        if (cleaned.length > 0) {
+            console.log('=== PRIMEIRAS 3 VIATURAS SINCRONIZADAS ===');
+            cleaned.slice(0, 3).forEach((v, idx) => {
+                console.log(`Viatura ${idx + 1}:`, {
+                    placa: v.placa,
+                    prefixo: v.prefixo,
+                    subclasse: v.subclasse,
+                    cidade: v.cidade,
+                    unidade: v.unidade,
+                    hodometro: v.hodometro,
+                    situacao: v.situacao,
+                    dataUltimaMovimentacao: v.dataUltimaMovimentacao
+                });
+            });
+            console.log('==========================================');
+        }
+
+        // Planilha = fonte da verdade (substitui tudo)
+        vehicles = cleaned;
+
+        // Cache local só como fallback rápido
+        try {
+            localStorage.setItem("vehicles_cache", JSON.stringify({
+                updatedAt: data.updatedAt || new Date().toISOString(),
+                vehicles
+            }));
+            console.log('Cache local atualizado');
+        } catch (e) {
+            console.warn('Erro ao salvar cache local:', e);
+        }
+
+        if (typeof renderVehicles === "function") {
+            renderVehicles();
+            updateStats();
+            populateCityFilter();
+            console.log('Interface atualizada');
+        }
+
+        const upd = data.updatedAt ? new Date(data.updatedAt) : new Date();
+        if (statusEl) {
+            statusEl.querySelector('#lastSyncAt').textContent = upd.toLocaleString("pt-BR");
+            statusEl.querySelector('#lastSyncOk').textContent = "● sincronizado ✓";
+            statusEl.querySelector('#lastSyncOk').style.color = 'lightgreen';
+            const syncButton = statusEl.querySelector('button');
+            if (syncButton) syncButton.disabled = false;
+        }
+        console.log('Sincronização concluída com sucesso');
+        return true;
+    } catch (err) {
+        console.error("Erro ao sincronizar frota:", err);
+        if (statusEl) {
+            statusEl.querySelector('#lastSyncOk').textContent = `● falha (${err.message})`;
+            statusEl.querySelector('#lastSyncOk').style.color = 'crimson';
+            const syncButton = statusEl.querySelector('button');
+            if (syncButton) syncButton.disabled = false;
+        }
+        
+        // Tenta usar cache local como fallback
+        try {
+            const cached = JSON.parse(localStorage.getItem("vehicles_cache") || "null");
+            if (cached && Array.isArray(cached.vehicles) && cached.vehicles.length) {
+                vehicles = cached.vehicles;
+                if (typeof renderVehicles === "function") {
+                    renderVehicles();
+                    updateStats();
+                    populateCityFilter();
+                }
+                if (statusEl) {
+                    statusEl.querySelector('#lastSyncOk').textContent += ' [cache local]';
+                    statusEl.querySelector('#lastSyncOk').style.color = 'orange';
+                }
+                console.log('Usando dados do cache local');
+            }
+        } catch (cacheErr) {
+            console.error('Erro ao carregar cache:', cacheErr);
+        }
+        
+        return false;
+    }
+}
+
+async function bootSyncPlanilhaVerdade() {
+    // Carrega cache rápido (opcional) e sincroniza com a planilha verdade
+    try {
+        const cached = JSON.parse(localStorage.getItem("vehicles_cache") || "null");
+        if (cached && Array.isArray(cached.vehicles) && cached.vehicles.length) {
+            vehicles = cached.vehicles;
+            if (typeof renderVehicles === "function") {
+                renderVehicles();
+                updateStats();
+                populateCityFilter();
+            }
+            console.log('Cache carregado temporariamente');
+        }
+    } catch (e) {
+        console.warn('Nenhum cache disponível');
+    }
+
+    await syncFleetFromSheet(true);
+
+    // Atualização automática (a cada 5 minutos)
+    setInterval(() => {
+        syncFleetFromSheet(false);
+    }, 5 * 60 * 1000);
+}
+
+// =========================
+// MANUTENÇÕES (Planilha Seção Transporte) - Apps Script Web App (JSONP)
+// =========================
+const MAINT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbymLlluCMny9seKJ0TXZkC9PrLdk13U1M7mRVAEp7hZLpWD3YdnAHA-XjIYt1f4Npxmaw/exec";
+
+function jsonpRequest(url, params) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'cb_' + Math.random().toString(36).slice(2);
+        const qs = new URLSearchParams({ ...params, callback: callbackName }).toString();
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error('Timeout ao chamar Apps Script'));
+        }, 15000);
+
+        function cleanup() {
+            clearTimeout(timeout);
+            if (script && script.parentNode) script.parentNode.removeChild(script);
+            try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
+        }
+
+        window[callbackName] = (data) => {
+            cleanup();
+            resolve(data);
+        };
+
+        script.onerror = () => {
+            cleanup();
+            reject(new Error('Falha ao carregar script JSONP'));
+        };
+
+        script.src = url + (url.includes('?') ? '&' : '?') + qs;
+        document.body.appendChild(script);
+    });
+}
+
+async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
+    if (!MAINT_WEBAPP_URL) throw new Error('MAINT_WEBAPP_URL não configurada');
+
+    const payload = {
+        action: 'addMaintenance',
+        id: maintenance.id, // usamos o mesmo ID local para permitir exclusão sincronizada
+        data: maintenance.date,
+        prefixo: (vehicle && vehicle.prefixo) ? vehicle.prefixo : "",
+        placa: (vehicle && vehicle.placa) ? vehicle.placa : "",
+        cidade: (vehicle && vehicle.cidade) ? vehicle.cidade : "",
+        tipoViatura: (vehicle && (vehicle.tipo || vehicle.subclasse || vehicle.subClasse)) ? (vehicle.tipo || vehicle.subclasse || vehicle.subClasse) : "",
+        tipo: maintenance.type,
+        descricao: maintenance.description,
+        km: maintenance.km,
+        custo: maintenance.cost,
+        responsavel: maintenance.responsible,
+        matricula: maintenance.matricula,
+        observacoes: maintenance.notes
+    };
+
+    const res = await jsonpRequest(MAINT_WEBAPP_URL, payload);
+    if (!res || res.success !== true) {
+        throw new Error((res && res.message) ? res.message : 'Falha ao registrar na planilha');
+    }
+    return res;
+}
+
+async function deleteMaintenanceFromTransportSheet(maintenanceId) {
+    if (!MAINT_WEBAPP_URL) throw new Error('MAINT_WEBAPP_URL não configurada');
+    const res = await jsonpRequest(MAINT_WEBAPP_URL, { action: 'deleteMaintenance', id: maintenanceId });
+    if (!res || res.success !== true) {
+        throw new Error((res && res.message) ? res.message : 'Falha ao remover da planilha');
+    }
+    return res;
+}
+        function setSyncIndicator(ok, updatedAtIso) {
+            const at = document.getElementById('lastSyncAt');
+            const okEl = document.getElementById('lastSyncOk');
+            if (!at || !okEl) return;
+        
+            if (updatedAtIso) {
+                const d = new Date(updatedAtIso);
+                at.textContent = isNaN(d.getTime())
+                    ? String(updatedAtIso)
+                    : d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+            }
+        
+            okEl.textContent = ok ? '● sincronizado' : '● falha ao sincronizar';
+            okEl.style.color = ok ? 'green' : 'crimson';
+        }
+
+        // === AUTENTICAÇÃO ===
+        function checkAuth() {
+            const password = localStorage.getItem('manager-auth');
+            if (password === 'gestor6bbm2025') {
+                isManager = true;
+                document.getElementById('userBadge').textContent = '👨‍💼 Gestor da Frota';
+                document.getElementById('configTab').style.display = 'block';
+            }
+        }
+
+        function becomeManager() {
+            const password = prompt('Digite a senha do gestor:');
+            if (password === 'gestor6bbm2025') {
+                localStorage.setItem('manager-auth', password);
+                isManager = true;
+                document.getElementById('userBadge').textContent = '👨‍💼 Gestor da Frota';
+                document.getElementById('configTab').style.display = 'block';
+                showAlert('Acesso de gestor ativado!');
+            } else {
+                alert('Senha incorreta!');
+            }
+        }
+
+        // Log para facilitar acesso do gestor
+
+        // === FORMATAÇÃO DE MATRÍCULA ===
+        function formatMatricula(input) {
+            let value = input.value.replace(/\D/g, ''); // Remove tudo que não é número
+            
+            if (value.length > 6) {
+                value = value.substring(0, 3) + '.' + value.substring(3, 6) + '-' + value.substring(6, 7);
+            } else if (value.length > 3) {
+                value = value.substring(0, 3) + '.' + value.substring(3);
+            }
+            
+            input.value = value;
+        }
+
+        // === NAVEGAÇÃO POR TABS ===
+        function switchTab(tabName) {
+            // Remover active de todas as tabs
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Ativar tab selecionada
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+
+            // Atualizar gráficos se necessário
+            if (tabName === 'graficos') {
+                updateCharts();
+            } else if (tabName === 'relatorios') {
+                populateReportFilters();
+                updateReports();
+            }
+        }
+
+        // Inicializar dados
+        function initializeData() {
+            // Carregar manutenções salvas
+            const savedMaintenances = loadFromStorage('manutencoes-6bbm');
+            googleSheetsConfig = loadFromStorage('google-sheets-config');
+            
+            // Verificar autenticação
+            checkAuth();
+            
+            // Carregar config do Google Sheets se existir
+            if (googleSheetsConfig && googleSheetsConfig.apiKey) {
+                const sheetsUrlInput = document.getElementById('sheetsUrl');
+                const apiKeyInput = document.getElementById('apiKey');
+                if (sheetsUrlInput) sheetsUrlInput.value = googleSheetsConfig.sheetsUrl || '';
+                if (apiKeyInput) apiKeyInput.value = googleSheetsConfig.apiKey || '';
+                const statusIndicator = document.getElementById('connectionStatus');
+                const statusText = document.getElementById('connectionText');
+                if (statusIndicator) statusIndicator.classList.add('connected');
+                if (statusText) statusText.textContent = 'Configurado';
+            }
+            
+            // IMPORTANTE: Não carregar dados hardcoded nem do localStorage para viaturas
+            // A planilha do Google Sheets é a ÚNICA fonte da verdade
+            // Os dados serão carregados pela função syncFleetFromSheet()
+            
+            // Tentar carregar cache apenas como visualização temporária até a sincronização
+            try {
+                const cached = JSON.parse(localStorage.getItem("vehicles_cache") || "null");
+                if (cached && Array.isArray(cached.vehicles) && cached.vehicles.length) {
+                    vehicles = cached.vehicles;
+                    console.log('Carregando cache temporário até sincronização...', vehicles.length, 'viaturas');
+                }
+            } catch (e) {
+                console.warn('Cache local não disponível');
+            }
+
+            if (savedMaintenances) {
+                maintenances = savedMaintenances;
+            }
+            
+            renderVehicles();
+            updateStats();
+            populateCityFilter();
+        }
+
+        // Armazenamento persistente
+        
+        
+        function saveToStorage(key, data) {
+            try {
+                localStorage.setItem(key, JSON.stringify(data));
+            } catch (e) {
+                console.error('Erro ao salvar:', e);
+            }
+        }
+
+        function loadFromStorage(key) {
+            try {
+                const raw = localStorage.getItem(key);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) {
+                console.error('Erro ao carregar:', e);
+                return null;
+            }
+        }
+
+        // Renderizar tabela
+
+
+        // =========================
+// Regra de Troca de Óleo
+// Próxima troca = (último km + 10.000) OU (última data + 1 ano) – o que ocorrer primeiro
+// =========================
+const OIL_INTERVAL_KM = 10000;
+const OIL_WARN_KM = 1000;      // alerta quando faltar <= 1.000 km
+const OIL_WARN_DAYS = 30;      // alerta quando faltar <= 30 dias
+
+function normalizeText(str) {
+    return (str ?? '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}// =========================
+// Padronização de "Cidade de Lotação" (coluna G da planilha verdade)
+// Regras definidas pela Seção de Transporte
+// =========================
+function mapLotacaoToPadrao(lotacaoRaw) {
+    const s = String(lotacaoRaw || "").toUpperCase();
+
+    if (s.includes("ARACUAI")) return "6º BBM - PELOTÃO ARAÇUAÍ";
+    if (s.includes("ITAOBIM")) return "6º BBM - PELOTÃO ITAOBIM";
+    if (s.includes("GUANHAES")) return "6º BBM - POSTO AVANÇADO DE GUANHÃES";
+    if (s.includes("RESPLENDOR")) return "6º BBM - PELOTÃO RESPLENDOR";
+    if (s.includes("SAO J. EVANGELISTA") || s.includes("SAO J EVANGELISTA") || s.includes("SAO JOAO EVANGELISTA")) {
+        return "6º BBM - PELOTÃO SÃO JOÃO EVANGELISTA";
+    }
+    if (s.includes("TEOFILO OTONI")) return "6º BBM - COMPANHIA TEÓFILO OTONI";
+    if (s.includes("ALMENARA")) return "6º BBM - PELOTÃO ALMENARA";
+
+    return "6º BBM - SEDE";
+}
+
+function isOilChangeMaintenance(m) {
+    const desc = normalizeText((m && (m.descricao || m.description)) || '');
+    if (!desc.includes('oleo')) return false;
+    if (desc.includes('troca')) return true;
+    if (desc.includes('filtro')) return true;
+    return true;
+}
+
+function parseKmValue(val) {
+    const n = Number(String(val ?? '').replace(/[^0-9]/g, ''));
+    return Number.isFinite(n) ? n : NaN;
+}
+
+function parseDateValue(val) {
+    if (!val) return null;
+    const s = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const parts = s.split('-');
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = Number(parts[2]);
+        return new Date(y, m - 1, d);
+    }
+    const dt = new Date(s);
+    return isNaN(dt.getTime()) ? null : dt;
+}
+
+function addYears(dateObj, years) {
+    const d = new Date(dateObj.getTime());
+    d.setFullYear(d.getFullYear() + years);
+    return d;
+}
+
+function daysBetween(a, b) {
+    const ms = b.getTime() - a.getTime();
+    return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+function getLastOilChangeForVehicle(vehicleId) {
+    const list = (maintenances && maintenances[vehicleId]) ? maintenances[vehicleId] : [];
+    const oils = list.filter(isOilChangeMaintenance);
+    if (!oils.length) return null;
+
+    oils.sort((x, y) => {
+        const dx = parseDateValue((x && (x.dataManutencao || x.data || x.timestamp))) || new Date(0);
+        const dy = parseDateValue((y && (y.dataManutencao || y.data || y.timestamp))) || new Date(0);
+        const t = dx.getTime() - dy.getTime();
+        if (t !== 0) return t;
+        const kx = parseKmValue((x && (x.km || x.hodometro)) || 0);
+        const ky = parseKmValue((y && (y.km || y.hodometro)) || 0);
+        return (kx || 0) - (ky || 0);
+    });
+
+    return oils[oils.length - 1];
+}
+
+function getOilStatusForVehicle(v) {
+    const last = getLastOilChangeForVehicle(v.id);
+    if (!last) {
+        return {
+            level: 'unknown',
+            label: 'SEM REGISTRO',
+            title: 'Sem registro de troca de óleo. Registre uma manutenção com descrição contendo "troca de óleo".'
+        };
+    }
+
+    const lastKm = parseKmValue(last.km) || parseKmValue(v.hodometro) || 0;
+    const lastDate = parseDateValue(last.dataManutencao || last.data || last.timestamp) || new Date();
+
+    const dueKm = lastKm + OIL_INTERVAL_KM;
+    const dueDate = addYears(lastDate, 1);
+
+    const now = new Date();
+    const currentKm = Number(v.hodometro) || 0;
+
+    const overdueByKm = currentKm >= dueKm;
+    const overdueByDate = now.getTime() >= dueDate.getTime();
+
+    const kmLeft = dueKm - currentKm;
+    const daysLeft = daysBetween(now, dueDate);
+
+    let level = 'ok';
+    if (overdueByKm || overdueByDate) level = 'overdue';
+    else if (kmLeft <= OIL_WARN_KM || daysLeft <= OIL_WARN_DAYS) level = 'warn';
+
+    const title = `Última: ${lastKm.toLocaleString('pt-BR')} km em ${lastDate.toLocaleDateString('pt-BR')} | Próxima: ${dueKm.toLocaleString('pt-BR')} km ou ${dueDate.toLocaleDateString('pt-BR')} (o que ocorrer primeiro)`;
+    const label = (level === 'overdue') ? 'VENCIDO' : (level === 'warn') ? 'ATENÇÃO' : 'OK';
+
+    return { level, label, title };
+}
+
+function renderOilBadge(v) {
+    const st = getOilStatusForVehicle(v);
+    const cls = (st.level === 'overdue') ? 'badge-danger'
+             : (st.level === 'warn') ? 'badge-warning'
+             : (st.level === 'ok') ? 'badge-success'
+             : 'badge-info';
+    const safeTitle = String(st.title || '').replace(/"/g, '&quot;');
+    return `<span class="badge ${cls}" title="${safeTitle}">${st.label}</span>`;
+}
+
+
+// =========================
+// Regra de Freios (Pastilhas / Lonas / Discos / Tambor)
+// Próxima manutenção = (último km + 30.000) OU (última data + 1 ano) – o que ocorrer primeiro
+// =========================
+const BRAKE_INTERVAL_KM = 30000;
+const BRAKE_WARN_KM = 5000;    // alerta quando faltar <= 5.000 km
+const BRAKE_WARN_DAYS = 60;    // alerta quando faltar <= 60 dias
+
+function isBrakeMaintenance(m) {
+    const desc = normalizeText((m && (m.descricao || m.description)) || '');
+    // palavras-chave principais
+    const keys = ['freio', 'pastilha', 'lona', 'disco', 'tambor'];
+    for (const k of keys) {
+        if (desc.includes(k)) return true;
+    }
+    return false;
+}
+
+function getLastBrakeMaintenanceForVehicle(vehicleId) {
+    const list = (maintenances && maintenances[vehicleId]) ? maintenances[vehicleId] : [];
+    const brakes = list.filter(isBrakeMaintenance);
+    if (!brakes.length) return null;
+
+    brakes.sort((x, y) => {
+        const dx = parseDateValue((x && (x.dataManutencao || x.data || x.timestamp))) || new Date(0);
+        const dy = parseDateValue((y && (y.dataManutencao || y.data || y.timestamp))) || new Date(0);
+        const t = dx.getTime() - dy.getTime();
+        if (t !== 0) return t;
+        const kx = parseKmValue((x && (x.km || x.hodometro)) || 0);
+        const ky = parseKmValue((y && (y.km || y.hodometro)) || 0);
+        return (kx || 0) - (ky || 0);
+    });
+
+    return brakes[brakes.length - 1];
+}
+
+function getBrakeStatusForVehicle(v) {
+    const last = getLastBrakeMaintenanceForVehicle(v.id);
+    if (!last) {
+        return {
+            level: 'unknown',
+            label: 'SEM REGISTRO',
+            title: 'Sem registro de manutenção de freios. Registre uma manutenção com descrição contendo "freio", "pastilha", "lona", "disco" ou "tambor".'
+        };
+    }
+
+    const lastKm = parseKmValue(last.km) || parseKmValue(v.hodometro) || 0;
+    const lastDate = parseDateValue(last.dataManutencao || last.data || last.timestamp) || new Date();
+
+    const dueKm = lastKm + BRAKE_INTERVAL_KM;
+    const dueDate = addYears(lastDate, 1);
+
+    const now = new Date();
+    const currentKm = Number(v.hodometro) || 0;
+
+    const overdueByKm = currentKm >= dueKm;
+    const overdueByDate = now.getTime() >= dueDate.getTime();
+
+    const kmLeft = dueKm - currentKm;
+    const daysLeft = daysBetween(now, dueDate);
+
+    let level = 'ok';
+    if (overdueByKm || overdueByDate) level = 'overdue';
+    else if (kmLeft <= BRAKE_WARN_KM || daysLeft <= BRAKE_WARN_DAYS) level = 'warn';
+
+    const title = `Última: ${lastKm.toLocaleString('pt-BR')} km em ${lastDate.toLocaleDateString('pt-BR')} | Próxima: ${dueKm.toLocaleString('pt-BR')} km ou ${dueDate.toLocaleDateString('pt-BR')} (o que ocorrer primeiro)`;
+    const label = (level === 'overdue') ? 'VENCIDO' : (level === 'warn') ? 'ATENÇÃO' : 'OK';
+
+    return { level, label, title };
+}
+
+function renderBrakeBadge(v) {
+    const st = getBrakeStatusForVehicle(v);
+    const cls = (st.level === 'overdue') ? 'badge-danger'
+             : (st.level === 'warn') ? 'badge-warning'
+             : (st.level === 'ok') ? 'badge-success'
+             : 'badge-info';
+    const safeTitle = String(st.title || '').replace(/"/g, '&quot;');
+    return `<span class="badge ${cls}" title="${safeTitle}">${st.label}</span>`;
+}
+
+        function renderVehicles() {
+            const tbody = document.getElementById('vehicleTableBody');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filterSit = document.getElementById('filterSituation').value;
+            const filterCty = document.getElementById('filterCity').value;
+
+            let filtered = vehicles.filter(v => {
+                const matchSearch = !search || 
+                    v.placa.toLowerCase().includes(search) ||
+                    v.prefixo.toLowerCase().includes(search) ||
+                    (v.subclasse || '').toLowerCase().includes(search) ||
+                    (v.cidade || '').toLowerCase().includes(search) ||
+                    (v.unidade || '').toLowerCase().includes(search);
+                const matchSituation = !filterSit || v.situacao === filterSit;
+                const matchCity = !filterCty || (v.cidade || '').includes(filterCty);
+                return matchSearch && matchSituation && matchCity;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="loading">Nenhuma viatura encontrada</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(v => {
+                const maintenanceCount = maintenances[v.id] ? maintenances[v.id].length : 0;
+                
+                // Formatar data da última movimentação
+                let dataFormatada = '—';
+                if (v.dataUltimaMovimentacao && v.dataUltimaMovimentacao !== '') {
+                    // Se já está no formato DD/MM/YYYY
+                    if (v.dataUltimaMovimentacao.includes('/')) {
+                        dataFormatada = v.dataUltimaMovimentacao;
+                    } else {
+                        // Tentar parsear como data
+                        try {
+                            const data = new Date(v.dataUltimaMovimentacao);
+                            if (!isNaN(data.getTime())) {
+                                dataFormatada = data.toLocaleDateString('pt-BR');
+                            } else {
+                                dataFormatada = v.dataUltimaMovimentacao;
+                            }
+                        } catch (e) {
+                            dataFormatada = v.dataUltimaMovimentacao;
+                        }
+                    }
+                }
+                
+                // Adicionar indicador de tempo parado (se disponível)
+                let tempoParadoInfo = '';
+                if (v.tempoParada && v.tempoParada > 0) {
+                    const dias = v.tempoParada;
+                    if (dias > 30) {
+                        tempoParadoInfo = ` <span style="color: #ff6b6b; font-size: 0.85em;">(${dias} dias parada)</span>`;
+                    } else if (dias > 7) {
+                        tempoParadoInfo = ` <span style="color: #ffa000; font-size: 0.85em;">(${dias} dias)</span>`;
+                    }
+                }
+                
+                return `
+                <tr>
+                    <td><strong>${v.placa || '—'}</strong></td>
+                    <td><strong>${v.prefixo || '—'}</strong></td>
+                    <td>${v.subclasse || '—'}</td>
+                    <td><strong style="color: var(--secondary);">${v.cidade || v.unidade || '—'}</strong></td>
+                    <td>${v.hodometro ? v.hodometro.toLocaleString('pt-BR') : '0'} km</td>
+                    <td>${renderOilBadge(v)}</td>
+                    <td>${renderBrakeBadge(v)}</td>
+                    <td><span class="badge ${getBadgeClass(v.situacao)}">${v.situacao || 'N/A'}</span></td>
+                    <td>${dataFormatada}${tempoParadoInfo}</td>
+                    <td>
+                        <button class="btn-icon" onclick="openMaintenanceModal('${v.id}')" title="Ver Manutenções">
+                            🔧 ${maintenanceCount > 0 ? `(${maintenanceCount})` : ''}
+                        </button>
+                    </td>
+                    <td class="actions">
+                        <button class="btn-icon" onclick="editVehicle('${v.id}')" title="Editar">✏️</button>
+                        <button class="btn-icon" onclick="deleteVehicle('${v.id}')" title="Excluir">🗑️</button>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function getBadgeClass(situacao) {
+            if (situacao === 'DISPONÍVEL') return 'badge-success';
+            if (situacao === 'BAIXADA') return 'badge-danger';
+            if (situacao === 'ACIDENTADA') return 'badge-danger';
+            if (situacao === 'EM MANUTENÇÃO') return 'badge-warning';
+            return 'badge-info';
+        }
+
+        // Atualizar estatísticas
+        function updateStats() {
+            const total = vehicles.length;
+            const available = vehicles.filter(v => v.situacao === 'DISPONÍVEL').length;
+            const maintenance = vehicles.filter(v => v.situacao === 'EM MANUTENÇÃO').length;
+            const inactive = vehicles.filter(v => v.situacao === 'BAIXADA' || v.situacao === 'PROCESSO DE DESCARGA' || v.situacao === 'ACIDENTADA' || v.situacao === 'ACIDENTADO').length;
+
+            document.getElementById('totalVehicles').textContent = total;
+            document.getElementById('availableVehicles').textContent = available;
+            document.getElementById('maintenanceVehicles').textContent = maintenance;
+            document.getElementById('inactiveVehicles').textContent = inactive;
+        }
+
+        // Popular filtro de cidades/unidades
+        function populateCityFilter() {
+            const cidades = [...new Set(vehicles.map(v => v.cidade).filter(c => c && c !== 'N/D'))].sort();
+            const select = document.getElementById('filterCity');
+            select.innerHTML = '<option value="">Todas Cidades</option>' + 
+                cidades.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        // Filtrar viaturas
+        function filterVehicles() {
+            renderVehicles();
+        }
+
+        // Modal
+        function openAddModal() {
+            editingId = null;
+            document.getElementById('modalTitle').textContent = 'Adicionar Viatura';
+            document.getElementById('vehicleForm').reset();
+            document.getElementById('vehicleId').value = '';
+            document.getElementById('vehicleModal').classList.add('active');
+        }
+
+        function editVehicle(id) {
+            editingId = id;
+            const vehicle = vehicles.find(v => v.id === id);
+            if (!vehicle) return;
+
+            document.getElementById('modalTitle').textContent = 'Editar Viatura';
+            document.getElementById('vehicleId').value = id;
+            document.getElementById('placa').value = vehicle.placa;
+            document.getElementById('prefixo').value = vehicle.prefixo;
+            document.getElementById('tipo').value = vehicle.tipo;
+            document.getElementById('cidade').value = vehicle.cidade;
+            document.getElementById('hodometro').value = vehicle.hodometro;
+            document.getElementById('situacao').value = vehicle.situacao;
+            document.getElementById('ultimaMovimentacaoSiad').value = vehicle.ultimaMovimentacaoSiad;
+            
+            document.getElementById('vehicleModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('vehicleModal').classList.remove('active');
+        }
+
+        // Salvar viatura
+        async function saveVehicle(event) {
+            event.preventDefault();
+
+            const data = {
+                placa: document.getElementById('placa').value.toUpperCase(),
+                prefixo: document.getElementById('prefixo').value.toUpperCase(),
+                tipo: document.getElementById('tipo').value,
+                cidade: document.getElementById('cidade').value,
+                hodometro: parseInt(document.getElementById('hodometro').value) || 0,
+                situacao: document.getElementById('situacao').value,
+                ultimaMovimentacaoSiad: document.getElementById('ultimaMovimentacaoSiad').value.trim() || 0
+            };
+
+            if (editingId) {
+                const index = vehicles.findIndex(v => v.id === editingId);
+                vehicles[index] = { ...vehicles[index], ...data };
+                showAlert('Viatura atualizada com sucesso!');
+            } else {
+                const newId = Math.max(0, ...vehicles.map(v => v.id)) + 1;
+                vehicles.push({ id: newId, ...data });
+                showAlert('Viatura adicionada com sucesso!');
+            }
+
+            saveToStorage('frota-6bbm', vehicles);
+            renderVehicles();
+            updateStats();
+            populateCityFilter();
+            closeModal();
+        }
+
+        // Excluir viatura
+        async function deleteVehicle(id) {
+            if (!confirm('Tem certeza que deseja excluir esta viatura?')) return;
+            
+            vehicles = vehicles.filter(v => v.id !== id);
+            // Também excluir manutenções associadas
+            delete maintenances[id];
+            
+            saveToStorage('frota-6bbm', vehicles);
+            saveToStorage('manutencoes-6bbm', maintenances);
+            renderVehicles();
+            updateStats();
+            populateCityFilter();
+            showAlert('Viatura excluída com sucesso!');
+        }
+
+        // === FUNÇÕES DE MANUTENÇÃO ===
+        
+        function openMaintenanceModal(vehicleId) {
+            currentMaintenanceVehicleId = vehicleId;
+            const vehicle = vehicles.find(v => v.id === vehicleId);
+            
+                        currentMaintenanceVehicle = vehicle || null;
+document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${vehicle.placa} - ${vehicle.prefixo}` : 'Viatura não encontrada';
+            document.getElementById('maintenanceModal').classList.add('active');
+            document.getElementById('addMaintenanceForm').style.display = 'none';
+            
+            renderMaintenanceList();
+        }
+
+        function closeMaintenanceModal() {
+            document.getElementById('maintenanceModal').classList.remove('active');
+            currentMaintenanceVehicleId = null;
+            currentMaintenanceVehicle = null;
+            renderVehicles();
+        }
+
+        function showAddMaintenance() {
+            document.getElementById('addMaintenanceForm').style.display = 'block';
+            // Definir data de hoje como padrão
+            document.getElementById('maintenanceDate').valueAsDate = new Date();
+        }
+
+        function hideAddMaintenance() {
+            document.getElementById('addMaintenanceForm').style.display = 'none';
+            // Limpar formulário
+            document.getElementById('addMaintenanceForm').querySelector('form').reset();
+        }
+
+        async function saveMaintenanceRecord(event) {
+            event.preventDefault();
+
+            const maintenance = {
+                id: Date.now(),
+                date: document.getElementById('maintenanceDate').value,
+                type: document.getElementById('maintenanceType').value,
+                description: document.getElementById('maintenanceDescription').value,
+                km: parseInt(document.getElementById('maintenanceKm').value) || 0,
+                cost: parseFloat(document.getElementById('maintenanceCost').value) || 0,
+                responsible: document.getElementById('maintenanceResponsible').value,
+                matricula: document.getElementById('maintenanceMatricula').value,
+                notes: document.getElementById('maintenanceNotes').value
+            };
+
+            if (!maintenances[currentMaintenanceVehicleId]) {
+                maintenances[currentMaintenanceVehicleId] = [];
+            }
+
+            maintenances[currentMaintenanceVehicleId].push(maintenance);
+            saveToStorage('manutencoes-6bbm', maintenances);
+
+// Sincronizar com a planilha de Manutenções (Seção Transporte) + enviar e-mail (Apps Script)
+try {
+    const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
+    await syncMaintenanceToTransportSheet(maintenance, vehicle);
+} catch (err) {
+    console.error(err);
+    showAlert('Manutenção salva localmente, mas falhou ao sincronizar com a planilha: ' + (err.message || err), 'error');
+}
+
+hideAddMaintenance();
+            renderMaintenanceList();
+            showAlert('Manutenção registrada com sucesso!');
+        }
+
+        function renderMaintenanceList() {
+            const container = document.getElementById('maintenanceRecords');
+            const records = maintenances[currentMaintenanceVehicleId] || [];
+
+            if (records.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma manutenção registrada ainda.</div>';
+                return;
+            }
+
+            // Ordenar por data (mais recente primeiro)
+            const sorted = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            container.innerHTML = sorted.map(m => `
+                <div style="background: var(--bg-dark); padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid ${getMaintenanceTypeColor(m.type)};">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div>
+                            <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">
+                                ${m.description}
+                            </div>
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <span class="badge ${getMaintenanceTypeBadge(m.type)}">${m.type}</span>
+                                <span style="color: var(--text-muted);">📅 ${formatDate(m.date)}</span>
+                                ${m.km > 0 ? `<span style="color: var(--text-muted);">🛣️ ${m.km.toLocaleString('pt-BR')} km</span>` : ''}
+                                ${m.cost > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${m.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
+                            </div>
+                        </div>
+                        <button class="btn-icon" onclick="deleteMaintenance(${m.id})" title="Excluir">🗑️</button>
+                    </div>
+                    ${m.responsible ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${m.responsible}${m.matricula ? ` - <strong>Matrícula:</strong> ${m.matricula}` : ''}</div>` : ''}
+                    ${m.notes ? `<div style="color: var(--text-muted); font-size: 0.95rem;">${m.notes}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function deleteMaintenance(maintenanceId) {
+            if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
+
+            // Encontrar a manutenção antes de deletar
+            const maintenanceToDelete = maintenances[currentMaintenanceVehicleId].find(m => m.id === maintenanceId);
+
+            maintenances[currentMaintenanceVehicleId] = maintenances[currentMaintenanceVehicleId].filter(m => m.id !== maintenanceId);
+            
+            if (maintenances[currentMaintenanceVehicleId].length === 0) {
+                delete maintenances[currentMaintenanceVehicleId];
+            }
+
+            saveToStorage('manutencoes-6bbm', maintenances);
+
+// Remover também da planilha (Seção Transporte)
+try {
+    if (maintenanceToDelete && maintenanceToDelete.id) {
+        await deleteMaintenanceFromTransportSheet(String(maintenanceToDelete.id));
+    }
+} catch (err) {
+    console.error(err);
+    showAlert('Registro excluído localmente, mas falhou ao remover da planilha: ' + (err.message || err), 'error');
+}
+
+renderMaintenanceList();
+            showAlert('Registro de manutenção excluído!');
+        }
+
+        function getMaintenanceTypeColor(type) {
+            const colors = {
+                'PREVENTIVA': 'var(--success)',
+                'CORRETIVA': 'var(--warning)',
+                'PREDITIVA': 'var(--secondary)',
+                'REVISÃO': 'var(--primary)'
+            };
+            return colors[type] || 'var(--border)';
+        }
+
+        function getMaintenanceTypeBadge(type) {
+            const badges = {
+                'PREVENTIVA': 'badge-success',
+                'CORRETIVA': 'badge-warning',
+                'PREDITIVA': 'badge-info',
+                'REVISÃO': 'badge-danger'
+            };
+            return badges[type] || 'badge-info';
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString + 'T00:00:00');
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        // Alert
+        function showAlert(message) {
+            const alert = document.getElementById('alertSuccess');
+            alert.textContent = message;
+            alert.classList.add('active');
+            setTimeout(() => alert.classList.remove('active'), 3000);
+        }
+
+        // === FUNÇÕES DE GRÁFICOS ===
+        function updateCharts() {
+            updateSituationChart();
+            updateCityChart();
+            updateTypeChart();
+            updateMaintenanceTypeChart();
+            updateCostChart();
+        }
+
+        function updateSituationChart() {
+            const ctx = document.getElementById('situationChart');
+            if (!ctx) return;
+            
+            const data = {
+                'DISPONÍVEL': vehicles.filter(v => v.situacao === 'DISPONÍVEL').length,
+                'EM MANUTENÇÃO': vehicles.filter(v => v.situacao === 'EM MANUTENÇÃO').length,
+                'BAIXADA': vehicles.filter(v => v.situacao === 'BAIXADA').length,
+                'ACIDENTADA': vehicles.filter(v => v.situacao === 'ACIDENTADA').length,
+                'PROCESSO DE DESCARGA': vehicles.filter(v => v.situacao === 'PROCESSO DE DESCARGA').length
+            };
+
+            if (charts.situation) charts.situation.destroy();
+
+            charts.situation = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(data),
+                    datasets: [{
+                        data: Object.values(data),
+                        backgroundColor: ['#00c853', '#ffa000', '#d32f2f', '#9a0007', '#283593'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e8eaf6', font: { size: 12, family: 'Rajdhani' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCityChart() {
+            const ctx = document.getElementById('cityChart');
+            if (!ctx) return;
+            
+            const cityCounts = {};
+            vehicles.forEach(v => {
+                cityCounts[v.cidade] = (cityCounts[v.cidade] || 0) + 1;
+            });
+
+            if (charts.city) charts.city.destroy();
+
+            charts.city = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(cityCounts),
+                    datasets: [{
+                        label: 'Viaturas',
+                        data: Object.values(cityCounts),
+                        backgroundColor: '#d32f2f',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } },
+                            grid: { color: '#283593' }
+                        },
+                        x: {
+                            ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTypeChart() {
+            const ctx = document.getElementById('typeChart');
+            if (!ctx) return;
+            
+            const typeCounts = {};
+            vehicles.forEach(v => {
+                typeCounts[v.tipo] = (typeCounts[v.tipo] || 0) + 1;
+            });
+
+            if (charts.type) charts.type.destroy();
+
+            charts.type = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(typeCounts),
+                    datasets: [{
+                        data: Object.values(typeCounts),
+                        backgroundColor: ['#d32f2f', '#ffa000', '#00c853', '#9fa8da', '#283593', '#1e2850', '#9a0007', '#c62828'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e8eaf6', font: { size: 12, family: 'Rajdhani' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateMaintenanceTypeChart() {
+            const ctx = document.getElementById('maintenanceTypeChart');
+            if (!ctx) return;
+            
+            const typeCounts = {};
+            Object.values(maintenances).forEach(records => {
+                records.forEach(m => {
+                    typeCounts[m.type] = (typeCounts[m.type] || 0) + 1;
+                });
+            });
+
+            if (charts.maintenanceType) charts.maintenanceType.destroy();
+
+            charts.maintenanceType = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(typeCounts),
+                    datasets: [{
+                        label: 'Quantidade',
+                        data: Object.values(typeCounts),
+                        backgroundColor: '#ffa000',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } },
+                            grid: { color: '#283593' }
+                        },
+                        y: {
+                            ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCostChart() {
+            const ctx = document.getElementById('costChart');
+            if (!ctx) return;
+            
+            const monthlyCosts = {};
+            Object.values(maintenances).forEach(records => {
+                records.forEach(m => {
+                    const month = m.date.substring(0, 7);
+                    monthlyCosts[month] = (monthlyCosts[month] || 0) + (m.cost || 0);
+                });
+            });
+
+            const sortedMonths = Object.keys(monthlyCosts).sort();
+            const values = sortedMonths.map(m => monthlyCosts[m]);
+
+            if (charts.cost) charts.cost.destroy();
+
+            charts.cost = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedMonths.map(m => {
+                        const [year, month] = m.split('-');
+                        return `${month}/${year}`;
+                    }),
+                    datasets: [{
+                        label: 'Custo (R$)',
+                        data: values,
+                        borderColor: '#00c853',
+                        backgroundColor: 'rgba(0, 200, 83, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { labels: { color: '#e8eaf6', font: { family: 'Rajdhani' } } }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#9fa8da',
+                                font: { family: 'Rajdhani' },
+                                callback: function(value) {
+                                    return 'R$ ' + value.toLocaleString('pt-BR');
+                                }
+                            },
+                            grid: { color: '#283593' }
+                        },
+                        x: {
+                            ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // === FUNÇÕES DE RELATÓRIOS ===
+        function populateReportFilters() {
+            const select = document.getElementById('reportVehicle');
+            if (!select) return;
+            
+            select.innerHTML = '<option value="">Todas as Viaturas</option>';
+            vehicles.forEach(v => {
+                select.innerHTML += `<option value="${v.id}">${v.placa} - ${v.prefixo}</option>`;
+            });
+
+            // Definir mês atual
+            const now = new Date();
+            const monthInput = document.getElementById('reportMonth');
+            if (monthInput) {
+                monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            }
+        }
+
+        function updateReports() {
+            const month = document.getElementById('reportMonth')?.value;
+            const vehicleId = document.getElementById('reportVehicle')?.value;
+            const type = document.getElementById('reportType')?.value;
+            const reportContent = document.getElementById('reportContent');
+
+            if (!month || !reportContent) return;
+
+            let filtered = [];
+            Object.entries(maintenances).forEach(([vId, records]) => {
+                if (vehicleId && vId != vehicleId) return;
+                
+                records.forEach(m => {
+                    if (m.date.startsWith(month)) {
+                        if (!type || m.type === type) {
+                            const vehicle = vehicles.find(v => v.id == vId);
+                            filtered.push({ ...m, vehicle: vehicle });
+                        }
+                    }
+                });
+            });
+
+            if (filtered.length === 0) {
+                reportContent.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Nenhuma manutenção encontrada para os filtros selecionados</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const totalCost = filtered.reduce((sum, m) => sum + (m.cost || 0), 0);
+            const totalCount = filtered.length;
+
+            const tableHtml = `
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Viatura</th>
+                            <th>Tipo</th>
+                            <th>Descrição</th>
+                            <th>KM</th>
+                            <th>Custo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(m => `
+                            <tr>
+                                <td>${formatDate(m.date)}</td>
+                                <td>${m.vehicle?.placa || 'N/A'} - ${m.vehicle?.prefixo || 'N/A'}</td>
+                                <td><span class="badge ${getMaintenanceTypeBadge(m.type)}">${m.type}</span></td>
+                                <td>${m.description}</td>
+                                <td>${m.km > 0 ? m.km.toLocaleString('pt-BR') + ' km' : '-'}</td>
+                                <td>R$ ${m.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `).join('')}
+                        <tr class="total-row">
+                            <td colspan="4"><strong>TOTAL</strong></td>
+                            <td><strong>${totalCount} manutenções</strong></td>
+                            <td><strong>R$ ${totalCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+
+            reportContent.innerHTML = tableHtml;
+        }
+
+        async function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(18);
+            doc.setTextColor(211, 47, 47);
+            doc.text('Relatório de Manutenções', 14, 20);
+            
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text('6º Batalhão de Bombeiros Militar', 14, 28);
+
+            const month = document.getElementById('reportMonth').value;
+            const [year, monthNum] = month.split('-');
+            const monthName = new Date(year, monthNum - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            
+            doc.setFontSize(10);
+            doc.text(`Período: ${monthName}`, 14, 35);
+            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 40);
+
+            const vehicleId = document.getElementById('reportVehicle').value;
+            const type = document.getElementById('reportType').value;
+
+            let filtered = [];
+            Object.entries(maintenances).forEach(([vId, records]) => {
+                if (vehicleId && vId != vehicleId) return;
+                
+                records.forEach(m => {
+                    if (m.date.startsWith(month)) {
+                        if (!type || m.type === type) {
+                            const vehicle = vehicles.find(v => v.id == vId);
+                            filtered.push({ ...m, vehicle: vehicle });
+                        }
+                    }
+                });
+            });
+
+            const tableData = filtered.map(m => [
+                formatDate(m.date),
+                `${m.vehicle?.placa || 'N/A'}`,
+                m.type,
+                m.description,
+                m.km > 0 ? m.km.toLocaleString('pt-BR') : '-',
+                `R$ ${m.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`
+            ]);
+
+            const totalCost = filtered.reduce((sum, m) => sum + (m.cost || 0), 0);
+
+            doc.autoTable({
+                startY: 50,
+                head: [['Data', 'Viatura', 'Tipo', 'Descrição', 'KM', 'Custo']],
+                body: tableData,
+                foot: [['', '', '', 'TOTAL', `${filtered.length} manutenções`, `R$ ${totalCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`]],
+                theme: 'grid',
+                headStyles: { fillColor: [211, 47, 47] },
+                footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+            });
+
+            doc.save(`relatorio-manutencoes-${month}.pdf`);
+            showAlert('Relatório PDF gerado com sucesso!');
+        }
+
+        // === GOOGLE SHEETS ===
+        async function saveGoogleSheetsConfig() {
+            const config = {
+                sheetsUrl: document.getElementById('sheetsUrl').value,
+                apiKey: document.getElementById('apiKey').value
+            };
+
+            if (!config.apiKey) {
+                alert('Por favor, preencha a URL do Web App!');
+                return;
+            }
+
+            googleSheetsConfig = config;
+            saveToStorage('google-sheets-config', config);
+            
+            document.getElementById('connectionStatus').classList.add('connected');
+            document.getElementById('connectionText').textContent = 'Configurado';
+            
+            showAlert('Configuração do Google Sheets salva!');
+        }
+
+        async function testConnection() {
+            if (!googleSheetsConfig || !googleSheetsConfig.apiKey) {
+                alert('Configure a integração primeiro!');
+                return;
+            }
+
+            try {
+                await fetch(googleSheetsConfig.apiKey, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'test' })
+                });
+
+                showAlert('Conexão testada! Verifique a planilha.');
+            } catch (error) {
+                alert('Erro ao conectar: ' + error.message);
+            }
+        }
+
+        async function syncToGoogleSheets(maintenance) {
+            if (!googleSheetsConfig || !googleSheetsConfig.apiKey) return;
+
+            try {
+                const vehicle = vehicles.find(v => v.id === currentMaintenanceVehicleId);
+                
+                const data = {
+                    action: 'add',
+                    data: {
+                        id: maintenance.id,
+                        data: formatDate(maintenance.date),
+                        viatura: `${vehicle.placa} - ${vehicle.prefixo}`,
+                        tipo: maintenance.type,
+                        descricao: maintenance.description,
+                        km: maintenance.km,
+                        custo: maintenance.cost,
+                        responsavel: maintenance.responsible,
+                        matricula: maintenance.matricula || '',
+                        observacoes: maintenance.notes
+                    }
+                };
+
+                await fetch(googleSheetsConfig.apiKey, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+            } catch (error) {
+                console.error('Erro ao sincronizar:', error);
+            }
+        }
+
+        async function removeFromGoogleSheets(maintenance) {
+            if (!googleSheetsConfig || !googleSheetsConfig.apiKey) return;
+
+            try {
+                const vehicle = vehicles.find(v => v.id === currentMaintenanceVehicleId);
+                
+                const data = {
+                    action: 'delete',
+                    data: {
+                        id: maintenance.id,
+                        viatura: `${vehicle.placa} - ${vehicle.prefixo}`,
+                        descricao: maintenance.description
+                    }
+                };
+
+                await fetch(googleSheetsConfig.apiKey, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+            } catch (error) {
+                console.error('Erro ao remover do Sheets:', error);
+            }
+        }
+
+        // Inicializar
+
+        // Inicializar sistema
+        initializeData();
+        bootSyncPlanilhaVerdade();
+    </script>
+</body>
+</html>

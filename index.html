@@ -1205,7 +1205,42 @@ table{
     <script>
         // Dados iniciais da frota (carregados da planilha)
         let vehicles = [];
-        let maintenances = {}; // { vehicleId: [maintenance records] }
+        let maintenances = {};
+        async function loadMaintenancesFromSheet() {
+            try {
+                const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaintenances&callback=cb&_=${Date.now()}`;
+                const res = await fetch(url, { cache: "no-store" });
+                const txt = await res.text();
+                const data = JSON.parse(txt.replace(/^cb\(/, "").replace(/\);\s*$/, ""));
+                if (!data.success) throw new Error(data.message || "Falha ao carregar manutenções");
+
+                // Esperado: data.items (ou data.maintenances) = lista
+                const items = data.items || data.maintenances || data.data || [];
+                const map = {};
+                items.forEach(it => {
+                    const vid = String(it.vehicleId || it.id || it.placa || "").trim().toUpperCase();
+                    if (!vid) return;
+                    if (!map[vid]) map[vid] = [];
+                    map[vid].push(it);
+                });
+
+                // Ordena por data (mais recente primeiro)
+                Object.keys(map).forEach(k => {
+                    map[k].sort((a,b) => {
+                        const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
+                        const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
+                        return db.getTime() - da.getTime();
+                    });
+                });
+
+                maintenances = map;
+                return true;
+            } catch (err) {
+                console.warn("Falha ao carregar manutenções:", err);
+                return false;
+            }
+        }
+ // { vehicleId: [maintenance records] }
         let editingId = null;
         let currentMaintenanceVehicleId = null;
         let currentMaintenanceVehicle = null;
@@ -2209,6 +2244,8 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
 try {
     const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
     await syncMaintenanceToTransportSheet(maintenance, vehicle);
+                await loadMaintenancesFromSheet();
+                renderVehicles();
 } catch (err) {
     console.error(err);
     showAlert('Manutenção salva localmente, mas falhou ao sincronizar com a planilha: ' + (err.message || err), 'error');

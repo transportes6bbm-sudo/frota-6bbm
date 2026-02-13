@@ -899,6 +899,15 @@ table{
             <select id="filterCity" onchange="filterVehicles()">
                 <option value="">Todas Cidades</option>
             </select>
+            <select id="filterCompany" onchange="filterVehicles()">
+    <option value="">Todas Companhias</option>
+    <option value="1">1ª Companhia</option>
+    <option value="2">2ª Companhia</option>
+</select>
+<label class="group-toggle" style="display:flex; align-items:center; gap:6px; font-size:0.95rem;">
+    <input type="checkbox" id="groupByCompany" onchange="filterVehicles()">
+    Agrupar por Companhia
+</label>
         </div>
 
         <div class="alert alert-success" id="alertSuccess"></div>
@@ -1273,43 +1282,47 @@ async function syncFleetFromSheet(force = true) {
                 return placa && String(placa).trim() && String(placa).trim() !== "#REF!";
             })
             .map(v => {
-                // USAR OS NOMES EXATOS QUE O APPS SCRIPT ENVIA:
-                // ['placa', 'prefixo', 'situacao', 'hodometro', 'tipo', 'cidade', 'unidade', 'ultimaMovimentacaoSiad']
-                
-                const placa = String(v.placa || '').trim().toUpperCase();
-                const prefixo = String(v.prefixo || '').trim();
-                const subclasse = String(v.tipo || '').trim(); // 'tipo' é a subclasse
-                const unidadeCompleta = String(v.unidade || '').trim();
-                const cidadeRaw = String(v.cidade || '').trim();
-                const situacao = String(v.situacao || '').trim();
-                const hodometro = Number(v.hodometro) || 0;
-                const dataUltimaMovimentacao = String(v.ultimaMovimentacaoSiad || '').trim();
-                
-                // Usar a cidade que já vem do Apps Script
-                const cidade = mapLotacaoToPadrao(cidadeRaw || unidadeCompleta);
-                
-                return {
-                    id: placa,
-                    placa: placa,
-                    prefixo: prefixo,
-                    subclasse: subclasse,
-                    unidade: unidadeCompleta,
-                    cidade: cidade,
-                    situacao: situacao,
-                    hodometro: hodometro,
-                    dataUltimaSituacao: '',
-                    dataUltimaMovimentacao: dataUltimaMovimentacao,
-                    tempoParada: 0,
-                    anoFabricacao: '',
-                    marcaModelo: '',
-                    valorVenal: '',
-                    combustivel: '',
-                    comando: '',
-                    unidadePrincipal: '',
-                };
-            });
-        
-        console.log(`${cleaned.length} viaturas processadas após limpeza`);
+    const placa = String(v.placa || '').trim().toUpperCase();
+    const prefixo = String(v.prefixo || '').trim();
+    const subclasse = String(v.tipo || '').trim(); // 'tipo' vindo do Apps Script = subclasse
+    const unidadeCompleta = String(v.unidade || '').trim();
+    const cidadeRaw = String(v.cidade || '').trim();
+    const situacao = String(v.situacao || '').trim();
+
+    const hodometro = (parseKmValue(v.hodometro) || 0);
+    const dataUltimaMovimentacao = String(v.ultimaMovimentacaoSiad || '').trim();
+
+    const modeloAno = String(v.modeloAno || '').trim();   // coluna S (via Apps Script)
+    const valorVenal = (v.valorVenal ?? '');              // coluna AC (via Apps Script)
+
+    // Padronização da lotação
+    const cidade = mapLotacaoToPadrao(cidadeRaw || unidadeCompleta);
+
+    return {
+        id: placa,
+        placa,
+        prefixo,
+        subclasse,
+        unidade: unidadeCompleta,
+        cidade,
+        situacao,
+        hodometro,
+        dataUltimaMovimentacao,
+
+        // extras para tooltip
+        modeloAno,
+        valorVenal,
+
+        // campos auxiliares usados no layout/indicadores
+        tempoParada: 0,
+        dataUltimaSituacao: '',
+        anoFabricacao: '',
+        marcaModelo: '',
+        combustivel: '',
+        comando: '',
+        unidadePrincipal: ''
+    };
+});console.log(`${cleaned.length} viaturas processadas após limpeza`);
         
         // LOG DE DEPURAÇÃO: Mostrar primeiras 3 viaturas
         if (cleaned.length > 0) {
@@ -1679,6 +1692,28 @@ function parseKmValue(val) {
     return Number.isFinite(n) ? n : NaN;
 }
 
+function formatBRL(val) {
+    let n = NaN;
+
+    if (typeof val === "number") {
+        n = val;
+    } else {
+        let s = String(val ?? "").trim();
+        // mantém dígitos, vírgula, ponto e sinal
+        s = s.replace(/[^0-9,\.\-]/g, "");
+        // Se vier no padrão PT-BR com milhar ".", converte para float
+        if (s.includes(",") && s.includes(".")) {
+            s = s.replace(/\./g, "").replace(",", ".");
+        } else {
+            s = s.replace(",", ".");
+        }
+        n = Number(s);
+    }
+
+    if (!Number.isFinite(n)) return "—";
+    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 function parseDateValue(val) {
     if (!val) return null;
     const s = String(val).trim();
@@ -1710,8 +1745,8 @@ function getLastOilChangeForVehicle(vehicleId) {
     if (!oils.length) return null;
 
     oils.sort((x, y) => {
-        const dx = parseDateValue((x && (x.dataManutencao || x.data || x.timestamp))) || new Date(0);
-        const dy = parseDateValue((y && (y.dataManutencao || y.data || y.timestamp))) || new Date(0);
+        const dx = parseDateValue((x && (x.dataManutencao || x.data || x.date || x.timestamp))) || new Date(0);
+        const dy = parseDateValue((y && (y.dataManutencao || y.data || y.date || y.timestamp))) || new Date(0);
         const t = dx.getTime() - dy.getTime();
         if (t !== 0) return t;
         const kx = parseKmValue((x && (x.km || x.hodometro)) || 0);
@@ -1733,7 +1768,7 @@ function getOilStatusForVehicle(v) {
     }
 
     const lastKm = parseKmValue(last.km) || parseKmValue(v.hodometro) || 0;
-    const lastDate = parseDateValue(last.dataManutencao || last.data || last.timestamp) || new Date();
+    const lastDate = parseDateValue(last.dataManutencao || last.data || last.date || last.date || last.timestamp) || new Date();
 
     const dueKm = lastKm + OIL_INTERVAL_KM;
     const dueDate = addYears(lastDate, 1);
@@ -1792,8 +1827,8 @@ function getLastBrakeMaintenanceForVehicle(vehicleId) {
     if (!brakes.length) return null;
 
     brakes.sort((x, y) => {
-        const dx = parseDateValue((x && (x.dataManutencao || x.data || x.timestamp))) || new Date(0);
-        const dy = parseDateValue((y && (y.dataManutencao || y.data || y.timestamp))) || new Date(0);
+        const dx = parseDateValue((x && (x.dataManutencao || x.data || x.date || x.timestamp))) || new Date(0);
+        const dy = parseDateValue((y && (y.dataManutencao || y.data || y.date || y.timestamp))) || new Date(0);
         const t = dx.getTime() - dy.getTime();
         if (t !== 0) return t;
         const kx = parseKmValue((x && (x.km || x.hodometro)) || 0);
@@ -1815,7 +1850,7 @@ function getBrakeStatusForVehicle(v) {
     }
 
     const lastKm = parseKmValue(last.km) || parseKmValue(v.hodometro) || 0;
-    const lastDate = parseDateValue(last.dataManutencao || last.data || last.timestamp) || new Date();
+    const lastDate = parseDateValue(last.dataManutencao || last.data || last.date || last.date || last.timestamp) || new Date();
 
     const dueKm = lastKm + BRAKE_INTERVAL_KM;
     const dueDate = addYears(lastDate, 1);
@@ -1854,6 +1889,8 @@ function renderBrakeBadge(v) {
             const search = document.getElementById('searchInput').value.toLowerCase();
             const filterSit = document.getElementById('filterSituation').value;
             const filterCty = document.getElementById('filterCity').value;
+            const filterCmp = document.getElementById('filterCompany') ? document.getElementById('filterCompany').value : '';
+            const groupCmp = document.getElementById('groupByCompany') ? document.getElementById('groupByCompany').checked : false;
 
             let filtered = vehicles.filter(v => {
                 const matchSearch = !search || 
@@ -1864,71 +1901,115 @@ function renderBrakeBadge(v) {
                     (v.unidade || '').toLowerCase().includes(search);
                 const matchSituation = !filterSit || v.situacao === filterSit;
                 const matchCity = !filterCty || (v.cidade || '').includes(filterCty);
-                return matchSearch && matchSituation && matchCity;
+                const matchCompany = matchCompanyFilter(v, filterCmp);
+                return matchSearch && matchSituation && matchCity && matchCompany;
             });
+
+// Ordenação: Disponíveis -> Baixadas/Acidentadas -> Processo de Descarga
+filtered.sort((a, b) => {
+    const ra = situacaoRank(a.situacao);
+    const rb = situacaoRank(b.situacao);
+    if (ra !== rb) return ra - rb;
+
+    // Dentro do mesmo grupo, ordenar por Companhia (1ª primeiro), depois por lotação e prefixo
+    const ca = getCompanyLabel(a);
+    const cb = getCompanyLabel(b);
+    const cRankA = ca.startsWith('1') ? 0 : 1;
+    const cRankB = cb.startsWith('1') ? 0 : 1;
+    if (cRankA !== cRankB) return cRankA - cRankB;
+
+    const la = String(a.cidade || '');
+    const lb = String(b.cidade || '');
+    if (la !== lb) return la.localeCompare(lb, 'pt-BR');
+
+    const pa = String(a.prefixo || a.placa || '');
+    const pb = String(b.prefixo || b.placa || '');
+    return pa.localeCompare(pb, 'pt-BR');
+});
 
             if (filtered.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="11" class="loading">Nenhuma viatura encontrada</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = filtered.map(v => {
-                const maintenanceCount = maintenances[v.id] ? maintenances[v.id].length : 0;
-                
-                // Formatar data da última movimentação
-                let dataFormatada = '—';
-                if (v.dataUltimaMovimentacao && v.dataUltimaMovimentacao !== '') {
-                    // Se já está no formato DD/MM/YYYY
-                    if (v.dataUltimaMovimentacao.includes('/')) {
-                        dataFormatada = v.dataUltimaMovimentacao;
-                    } else {
-                        // Tentar parsear como data
-                        try {
-                            const data = new Date(v.dataUltimaMovimentacao);
-                            if (!isNaN(data.getTime())) {
-                                dataFormatada = data.toLocaleDateString('pt-BR');
-                            } else {
-                                dataFormatada = v.dataUltimaMovimentacao;
-                            }
-                        } catch (e) {
-                            dataFormatada = v.dataUltimaMovimentacao;
-                        }
-                    }
+            const rowHtml = (v) => {
+    const maintenanceCount = maintenances[v.id] ? maintenances[v.id].length : 0;
+
+    // Formatar data da última movimentação
+    let dataFormatada = '—';
+    if (v.dataUltimaMovimentacao && v.dataUltimaMovimentacao !== '') {
+        // Se já está no formato DD/MM/YYYY
+        if (v.dataUltimaMovimentacao.includes('/')) {
+            dataFormatada = v.dataUltimaMovimentacao;
+        } else {
+            // Tentar parsear como data
+            try {
+                const data = new Date(v.dataUltimaMovimentacao);
+                if (!isNaN(data.getTime())) {
+                    dataFormatada = data.toLocaleDateString('pt-BR');
+                } else {
+                    dataFormatada = v.dataUltimaMovimentacao;
                 }
-                
-                // Adicionar indicador de tempo parado (se disponível)
-                let tempoParadoInfo = '';
-                if (v.tempoParada && v.tempoParada > 0) {
-                    const dias = v.tempoParada;
-                    if (dias > 30) {
-                        tempoParadoInfo = ` <span style="color: #ff6b6b; font-size: 0.85em;">(${dias} dias parada)</span>`;
-                    } else if (dias > 7) {
-                        tempoParadoInfo = ` <span style="color: #ffa000; font-size: 0.85em;">(${dias} dias)</span>`;
-                    }
-                }
-                
-                return `
-                <tr>
-                    <td><strong>${v.placa || '—'}</strong></td>
-                    <td><strong>${v.prefixo || '—'}</strong></td>
-                    <td>${v.subclasse || '—'}</td>
-                    <td><strong style="color: var(--secondary);">${v.cidade || v.unidade || '—'}</strong></td>
-                    <td>${v.hodometro ? v.hodometro.toLocaleString('pt-BR') : '0'} km</td>
-                    <td>${renderOilBadge(v)}</td>
-                    <td>${renderBrakeBadge(v)}</td>
-                    <td><span class="badge ${getBadgeClass(v.situacao)}">${v.situacao || 'N/A'}</span></td>
-                    <td>${dataFormatada}${tempoParadoInfo}</td>
-                    <td>
-                        <button class="btn-icon" onclick="openMaintenanceModal('${v.id}')" title="Ver Manutenções">
-                            🔧 ${maintenanceCount > 0 ? `(${maintenanceCount})` : ''}
-                        </button>
-                    </td>
-                    <td class="actions">
-                        <button class="btn-icon" onclick="editVehicle('${v.id}')" title="Editar">✏️</button>
-                        <button class="btn-icon" onclick="deleteVehicle('${v.id}')" title="Excluir">🗑️</button>
-                    </td>
-                </tr>
-            `}).join('');
+            } catch (e) {
+                dataFormatada = v.dataUltimaMovimentacao;
+            }
+        }
+    }
+
+    // Adicionar indicador de tempo parado (se disponível)
+    let tempoParadoInfo = '';
+    if (v.tempoParada && v.tempoParada > 0) {
+        const dias = v.tempoParada;
+        if (dias > 30) {
+            tempoParadoInfo = ` <span style="color: #ff6b6b; font-size: 0.85em;">(${dias} dias parada)</span>`;
+        } else if (dias > 7) {
+            tempoParadoInfo = ` <span style="color: #ffa000; font-size: 0.85em;">(${dias} dias)</span>`;
+        }
+    }
+
+    return `
+    <tr>
+        <td title="Valor venal: ${formatBRL(v.valorVenal)} • Modelo/Ano: ${(v.modeloAno || '—')}"><strong>${v.placa || '—'}</strong></td>
+        <td><strong>${v.prefixo || '—'}</strong></td>
+        <td>${v.subclasse || '—'}</td>
+        <td><strong style="color: var(--secondary);">${v.cidade || v.unidade || '—'}</strong></td>
+        <td>${v.hodometro ? v.hodometro.toLocaleString('pt-BR') : '0'} km</td>
+        <td>${renderOilBadge(v)}</td>
+        <td>${renderBrakeBadge(v)}</td>
+        <td><span class="badge ${getBadgeClass(v.situacao)}">${v.situacao || 'N/A'}</span></td>
+        <td>${dataFormatada}${tempoParadoInfo}</td>
+        <td>
+            <button class="btn-icon" onclick="openMaintenanceModal('${v.id}')" title="Ver Manutenções">
+                🔧 ${maintenanceCount > 0 ? `(${maintenanceCount})` : ''}
+            </button>
+        </td>
+        <td class="actions">
+            <button class="btn-icon" onclick="editVehicle('${v.id}')" title="Editar">✏️</button>
+            <button class="btn-icon" onclick="deleteVehicle('${v.id}')" title="Excluir">🗑️</button>
+        </td>
+    </tr>
+`;
+};
+
+if (!groupCmp) {
+    tbody.innerHTML = filtered.map(rowHtml).join('');
+    return;
+}
+
+// Agrupado por Companhia (insere linhas-separador)
+const groups = { '1ª Companhia': [], '2ª Companhia': [] };
+for (const v of filtered) {
+    groups[getCompanyLabel(v)].push(v);
+}
+
+const order = ['1ª Companhia', '2ª Companhia'];
+let htmlRows = '';
+for (const g of order) {
+    if (!groups[g] || groups[g].length === 0) continue;
+    htmlRows += `<tr><td colspan="11" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${g}</td></tr>`;
+    htmlRows += groups[g].map(rowHtml).join('');
+}
+tbody.innerHTML = htmlRows;
         }
 
         function getBadgeClass(situacao) {
@@ -1938,6 +2019,32 @@ function renderBrakeBadge(v) {
             if (situacao === 'EM MANUTENÇÃO') return 'badge-warning';
             return 'badge-info';
         }
+
+
+function getCompanyLabel(v) {
+    const lot = String(v.cidade || '').toUpperCase();
+    // Regra informada: São João Evangelista, Resplendor e Sede pertencem à 1ª Companhia
+    if (lot.includes('SÃO JOÃO EVANGELISTA') || lot.includes('SAO JOAO EVANGELISTA') || lot.includes('RESPLENDOR') || lot.includes('GUANHÃES') || lot.includes('GUANHAES') || lot.includes('SEDE')) {
+        return '1ª Companhia';
+    }
+    return '2ª Companhia';
+}
+
+function matchCompanyFilter(v, filterCompanyValue) {
+    if (!filterCompanyValue) return true;
+    const label = getCompanyLabel(v);
+    return (filterCompanyValue === '1' && label === '1ª Companhia') ||
+           (filterCompanyValue === '2' && label === '2ª Companhia');
+}
+
+function situacaoRank(s) {
+    const t = String(s || '').toUpperCase();
+    if (t.includes('DISPON')) return 0;
+    if (t.includes('BAIX') || t.includes('ACIDENT')) return 1;
+    if (t.includes('PROCESSO') || t.includes('DESCARGA')) return 2;
+    return 1;
+}
+
 
         // Atualizar estatísticas
         function updateStats() {
@@ -2300,7 +2407,8 @@ renderMaintenanceList();
             
             const typeCounts = {};
             vehicles.forEach(v => {
-                typeCounts[v.tipo] = (typeCounts[v.tipo] || 0) + 1;
+                const t = (v.subclasse || v.tipo || 'Não informado');
+                typeCounts[t] = (typeCounts[t] || 0) + 1;
             });
 
             if (charts.type) charts.type.destroy();

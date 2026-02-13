@@ -1210,11 +1210,8 @@ table{
     console.log("Buscando manutenções:", `${MAINTENANCE_WEBAPP_URL}?action=listMaint...`);
 
     try {
-        const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaint&callback=cb&_=${Date.now()}`;
-        const res = await fetch(url, { cache: "no-store" });
-        const rawTxt = await res.text();
-
-        const data = JSON.parse(rawTxt.replace(/^cb\(/, "").replace(/\);\s*$/, ""));
+        const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaint&_=${Date.now()}`;
+        const data = await jsonpRequest(url);
         if (!data || !data.success) throw new Error((data && data.message) ? data.message : "Falha ao carregar manutenções");
 
         const raw =
@@ -1298,35 +1295,11 @@ async function syncFleetFromSheet(force = true) {
         }
         
         console.log('Iniciando sincronização com planilha verdade...');
-        const url = `${FLEET_API}?action=fleet&callback=cb&_=${Date.now()}`;
+        const url = `${FLEET_API}?action=fleet&_=${Date.now()}`;
         console.log('URL de sincronização:', url);
         
-        const res = await fetch(url, { 
-            cache: "no-store",
-            mode: 'cors'
-        });
-        
-        if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
-        
-        const txt = await res.text();
-        console.log('Resposta recebida (primeiros 200 caracteres):', txt.substring(0, 200));
-
-        // JSONP: cb({...});
-        let jsonText = txt.replace(/^cb\(/, "").replace(/\);\s*$/, "");
-        
-        // LIMPEZA ROBUSTA: remover caracteres de controle que quebram o JSON
-        // MAS preservar escapes válidos do JSON
-        jsonText = jsonText.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, ''); // Remove controle (exceto \t \n \r)
-        
-        // Log para debug - mostrar área problemática
-        if (jsonText.length > 770046) {
-            console.log('Contexto ao redor da posição 770046:');
-            console.log(jsonText.substring(770000, 770100));
-        }
-        
-        const data = JSON.parse(jsonText);
+        const data = await jsonpRequest(url);
+            
         
         console.log('Dados parseados:', {
             success: data.success,
@@ -1735,6 +1708,44 @@ function normalizeText(str) {
         .toLowerCase()
         .trim();
 }
+
+// JSONP helper (evita CORS no GitHub Pages)
+function jsonpRequest(url, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+        const cbName = "__cb_" + Math.random().toString(36).slice(2);
+        const sep = url.includes("?") ? "&" : "?";
+        const fullUrl = url + sep + "callback=" + cbName;
+
+        const script = document.createElement("script");
+        script.src = fullUrl;
+
+        const cleanup = () => {
+            try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+            if (script && script.parentNode) script.parentNode.removeChild(script);
+        };
+
+        const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error("Timeout JSONP: " + fullUrl));
+        }, timeoutMs);
+
+        window[cbName] = (data) => {
+            clearTimeout(timer);
+            cleanup();
+            resolve(data);
+        };
+
+        script.onerror = () => {
+            clearTimeout(timer);
+            cleanup();
+            reject(new Error("Erro ao carregar JSONP: " + fullUrl));
+        };
+
+        document.head.appendChild(script);
+    });
+}
+
+
 // Normaliza chaves de identificação (placa/prefixo) para bater manutenção x viatura
 function normalizeKey(str) {
     return String(str || "")

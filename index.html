@@ -2380,26 +2380,39 @@ hideAddMaintenance();
         return db.getTime() - da.getTime();
     });
 
+    const safeText = (v, fallback = '') => {
+        const s = (v === null || v === undefined) ? '' : String(v);
+        const t = s.trim();
+        return t ? t : fallback;
+    };
+
     container.innerHTML = sorted.map(item => {
-        const tipo = item.tipo || item.type || 'N/D';
-        const descricao = item.descricao || item.description || '';
-        const data = item.data || item.date || item.dataManutencao || item.timestamp;
-        const km = Number(item.km || item.hodometro || 0) || 0;
-        const custo = Number(item.custo || item.cost || 0) || 0;
-        const responsavel = item.responsavel || item.responsible || '';
-        const matricula = item.matricula || '';
-        const obs = item.observacoes || item.notes || '';
+        const tipo = safeText(item.tipo || item.type, 'N/D');
+        const descricao = safeText(item.descricao || item.description, '(sem descrição)');
+
+        const dt = parseDateValue(item.data || item.date || item.dataManutencao || item.timestamp);
+        const dataStr = dt ? formatDate(dt) : 'N/D';
+
+        const kmVal = Number(String(item.km ?? item.hodometro ?? '').replace(',', '.'));
+        const km = Number.isFinite(kmVal) ? kmVal : 0;
+
+        const custoVal = Number(String(item.custo ?? item.cost ?? '').replace(',', '.'));
+        const custo = Number.isFinite(custoVal) ? custoVal : 0;
+
+        const responsavel = safeText(item.responsavel || item.responsible, '');
+        const matricula = safeText(item.matricula, '');
+        const obs = safeText(item.observacoes || item.notes, '');
 
         return `
             <div style="background: var(--bg-dark); padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid ${getMaintenanceTypeColor(tipo)};">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
                     <div>
                         <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">
-                            ${descricao || '(sem descrição)'}
+                            ${descricao}
                         </div>
                         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
                             <span class="badge ${getMaintenanceTypeBadge(tipo)}">${tipo}</span>
-                            <span style="color: var(--text-muted);">📅 ${formatDate(data)}</span>
+                            <span style="color: var(--text-muted);">📅 ${dataStr}</span>
                             ${km > 0 ? `<span style="color: var(--text-muted);">🛣️ ${km.toLocaleString('pt-BR')} km</span>` : ''}
                             ${custo > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
                         </div>

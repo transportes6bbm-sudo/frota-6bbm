@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Sistema de Gestão de Frota - 6º BBM</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1294,12 +1297,22 @@ async function syncFleetFromSheet(force = true) {
         }
         
         console.log('Iniciando sincronização com planilha verdade...');
-        const url = `${FLEET_API}?action=fleet&callback=cb&_=${Date.now()}`;
+        // CRÍTICO: Adiciona timestamp único E random para EVITAR CACHE em qualquer nível
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(7);
+        const url = `${FLEET_API}?action=fleet&callback=cb&_t=${timestamp}&_r=${randomId}`;
         console.log('URL de sincronização:', url);
         
         const res = await fetch(url, { 
+            method: 'GET',
             cache: "no-store",
-            mode: 'cors'
+            mode: 'cors',
+            // Headers anti-cache adicionais
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
         });
         
         if (!res.ok) {
@@ -1435,6 +1448,10 @@ async function syncFleetFromSheet(force = true) {
             const syncButton = statusEl.querySelector('button');
             if (syncButton) syncButton.disabled = false;
         }
+        
+        // Salva timestamp da última sincronização bem-sucedida
+        localStorage.setItem('lastSuccessfulSync', new Date().toISOString());
+        
         console.log('Sincronização concluída com sucesso');
         return true;
     } catch (err) {
@@ -2905,6 +2922,24 @@ renderMaintenanceList();
         }
 
         // Inicializar
+
+        // === AUTO-ATUALIZAÇÃO AO RETORNAR PARA A ABA ===
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                const ultimaSync = localStorage.getItem('lastSuccessfulSync');
+                
+                if (ultimaSync) {
+                    const tempoDecorrido = Date.now() - new Date(ultimaSync).getTime();
+                    const cincoMinutos = 5 * 60 * 1000; // 5 minutos em milissegundos
+                    
+                    // Recarrega se passou mais de 5 minutos
+                    if (tempoDecorrido > cincoMinutos) {
+                        console.log('⚡ Recarregando dados ao retornar à página (passou mais de 5 min)...');
+                        syncFleetFromSheet(false);
+                    }
+                }
+            }
+        });
 
         // Inicializar sistema
         initializeData();

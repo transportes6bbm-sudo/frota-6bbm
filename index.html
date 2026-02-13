@@ -1206,7 +1206,7 @@ table{
         // Dados iniciais da frota (carregados da planilha)
         let vehicles = [];
         let maintenances = {};
-        // Expor para depuração / console (GitHub Pages)
+        // Expor para depuração / console
         window.vehicles = vehicles;
         window.maintenances = maintenances;
         async function loadMaintenancesFromSheet() {
@@ -1780,19 +1780,27 @@ function getVehicleKeyCandidates(v) {
 
 // Retorna lista de manutenções para uma viatura, tentando por placa e por prefixo
 function getMaintenancesForVehicle(vOrId) {
+    const store = window.maintenances || maintenances || {};
+    const coerce = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        return [val];
+    };
+
     if (!vOrId) return [];
     if (typeof vOrId === "string") {
         const k = normalizeKey(vOrId);
-        return maintenances[k] || [];
+        return coerce(store[k]);
     }
+
     const keys = getVehicleKeyCandidates(vOrId);
     for (const k of keys) {
-        if (maintenances[k] && maintenances[k].length) return maintenances[k];
+        const arr = coerce(store[k]);
+        if (arr.length) return arr;
     }
     return [];
 }
 window.getMaintenancesForVehicle = getMaintenancesForVehicle;
-
 // =========================
 // Padronização de "Cidade de Lotação" (coluna G da planilha verdade)
 // Regras definidas pela Seção de Transporte

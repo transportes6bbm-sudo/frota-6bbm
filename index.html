@@ -1207,51 +1207,69 @@ table{
         let vehicles = [];
         let maintenances = {};
         async function loadMaintenancesFromSheet() {
-            try {
-                const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaint&callback=cb&_=${Date.now()}`;
-                const res = await fetch(url, { cache: "no-store" });
-                const txt = await res.text();
-                const data = JSON.parse(txt.replace(/^cb\(/, "").replace(/\);\s*$/, ""));
-                if (!data.success) throw new Error(data.message || "Falha ao carregar manutenções");
+    try {
+        const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaint&callback=cb&_=${Date.now()}`;
+        const res = await fetch(url, { cache: "no-store" });
+        const rawTxt = await res.text();
 
-                // Esperado: data.items (ou data.maintenances) = lista
-                const items = data.items || data.maintenances || data.data || [];
-                const map = {};
-items.forEach(it => {
-    const keys = getMaintenanceKeyCandidates(it);
-    if (!keys.length) return;
+        const data = JSON.parse(rawTxt.replace(/^cb\(/, "").replace(/\);\s*$/, ""));
+        if (!data || !data.success) throw new Error((data && data.message) ? data.message : "Falha ao carregar manutenções");
 
-    // coloca o mesmo objeto em todas as chaves, evitando duplicação por referência
-    keys.forEach(k => {
-        if (!map[k]) map[k] = [];
-        map[k].push(it);
-    });
-});
+        const raw =
+            (data.items !== undefined ? data.items :
+            (data.maintenances !== undefined ? data.maintenances :
+            (data.records !== undefined ? data.records :
+            (data.data !== undefined ? data.data : []))));
 
-// Ordena por data (mais recente primeiro) em todas as chaves
-Object.keys(map).forEach(k => {
-    map[k].sort((a,b) => {
-        const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
-        const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
-        return db.getTime() - da.getTime();
-    });
-});// Ordena por data (mais recente primeiro)
-                Object.keys(map).forEach(k => {
-                    map[k].sort((a,b) => {
-                        const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
-                        const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
-                        return db.getTime() - da.getTime();
+        const map = {};
+
+        const pushUnderKeys = (it, keys) => {
+            keys.forEach(k => {
+                if (!map[k]) map[k] = [];
+                map[k].push(it);
+            });
+        };
+
+        if (Array.isArray(raw)) {
+            raw.forEach(it => {
+                const keys = getMaintenanceKeyCandidates(it);
+                if (!keys.length) return;
+                pushUnderKeys(it, keys);
+            });
+        } else if (raw && typeof raw === "object") {
+            Object.keys(raw).forEach(k0 => {
+                const arr = raw[k0];
+                const keyNorm = normalizeKey(k0);
+                if (!keyNorm) return;
+
+                if (Array.isArray(arr)) {
+                    arr.forEach(it => {
+                        const keys = [keyNorm, ...getMaintenanceKeyCandidates(it)];
+                        const uniq = [...new Set(keys)].filter(Boolean);
+                        pushUnderKeys(it, uniq);
                     });
-                });
-
-                maintenances = map;
-                return true;
-            } catch (err) {
-                console.warn("Falha ao carregar manutenções:", err);
-                return false;
-            }
+                }
+            });
         }
- // { vehicleId: [maintenance records] }
+
+        Object.keys(map).forEach(k => {
+            map[k].sort((a, b) => {
+                const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
+                const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
+                return db.getTime() - da.getTime();
+            });
+        });
+
+        maintenances = map;
+        return true;
+    } catch (err) {
+        console.warn("Falha ao carregar manutenções:", err);
+        return false;
+    }
+}
+
+
+// { vehicleId: [maintenance records] }
         let editingId = null;
         let currentMaintenanceVehicleId = null;
         let currentMaintenanceVehicle = null;

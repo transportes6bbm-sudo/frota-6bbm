@@ -1214,7 +1214,7 @@ table{
 
     try {
         const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaint&_=${Date.now()}`;
-        const data = await jsonpRequest(url);
+        const data = await jsonpRequestWithRetry(url, 3, 30000);
         if (!data || !data.success) throw new Error((data && data.message) ? data.message : "Falha ao carregar manutenções");
 
         const raw =
@@ -1302,7 +1302,7 @@ async function syncFleetFromSheet(force = true) {
         const url = `${FLEET_API}?action=fleet&_=${Date.now()}`;
         console.log('URL de sincronização:', url);
         
-        const data = await jsonpRequest(url);
+        const data = await jsonpRequestWithRetry(url, 3, 30000);
             
         
         console.log('Dados parseados:', {
@@ -1520,6 +1520,22 @@ function jsonpRequest(url, params) {
     });
 }
 
+async function jsonpRequestWithRetry(url, tries = 3, timeoutMs = 30000) {
+    let lastErr = null;
+    for (let i = 0; i < tries; i++) {
+        try {
+            // jitter/backoff leve
+            if (i > 0) await new Promise(r => setTimeout(r, 500 * i));
+            return await jsonpRequest(url, timeoutMs);
+        } catch (err) {
+            lastErr = err;
+        }
+    }
+    throw lastErr || new Error('Falha JSONP');
+}
+
+
+
 async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
     if (!MAINT_WEBAPP_URL) throw new Error('MAINT_WEBAPP_URL não configurada');
 
@@ -1715,7 +1731,7 @@ function normalizeText(str) {
 }
 
 // JSONP helper (evita CORS no GitHub Pages)
-function jsonpRequest(url, timeoutMs = 15000) {
+function jsonpRequest(url, timeoutMs = 30000) {
     return new Promise((resolve, reject) => {
         const cbName = "__cb_" + Math.random().toString(36).slice(2);
         const sep = url.includes("?") ? "&" : "?";
@@ -1858,17 +1874,34 @@ function formatBRL(val) {
 }
 
 function parseDateValue(val) {
-    if (!val) return null;
-    const s = String(val).trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-        const parts = s.split('-');
-        const y = Number(parts[0]);
-        const m = Number(parts[1]);
-        const d = Number(parts[2]);
-        return new Date(y, m - 1, d);
+    if (val === null || val === undefined || val === '') return null;
+
+    if (val instanceof Date) {
+        return isNaN(val.getTime()) ? null : val;
     }
-    const dt = new Date(s);
-    return isNaN(dt.getTime()) ? null : dt;
+
+    if (typeof val === 'number') {
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    const s = String(val).trim();
+    if (!s) return null;
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+        const [dd, mm, yyyy] = s.split('/').map(Number);
+        const d = new Date(yyyy, mm - 1, dd);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const [yyyy, mm, dd] = s.split('-').map(Number);
+        const d = new Date(yyyy, mm - 1, dd);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
 }
 
 function addYears(dateObj, years) {
@@ -2374,24 +2407,29 @@ hideAddMaintenance();
         return;
     }
 
-    const sorted = [...records].sort((a, b) => {
-        const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
-        const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
-        return db.getTime() - da.getTime();
-    });
-
     const safeText = (v, fallback = '') => {
         const s = (v === null || v === undefined) ? '' : String(v);
         const t = s.trim();
         return t ? t : fallback;
     };
 
+    const getDateLabel = (item) => {
+        const raw = item.data || item.date || item.dataManutencao || item.timestamp;
+        const d = parseDateValue(raw);
+        if (!d || isNaN(d.getTime())) return 'N/D';
+        return (typeof formatDate === 'function') ? formatDate(d) : d.toLocaleDateString('pt-BR');
+    };
+
+    const sorted = [...records].sort((a, b) => {
+        const da = parseDateValue(a.data || a.date || a.dataManutencao || a.timestamp) || new Date(0);
+        const db = parseDateValue(b.data || b.date || b.dataManutencao || b.timestamp) || new Date(0);
+        return db.getTime() - da.getTime();
+    });
+
     container.innerHTML = sorted.map(item => {
         const tipo = safeText(item.tipo || item.type, 'N/D');
         const descricao = safeText(item.descricao || item.description, '(sem descrição)');
-
-        const dt = parseDateValue(item.data || item.date || item.dataManutencao || item.timestamp);
-        const dataStr = dt ? formatDate(dt) : 'N/D';
+        const dataStr = getDateLabel(item);
 
         const kmVal = Number(String(item.km ?? item.hodometro ?? '').replace(',', '.'));
         const km = Number.isFinite(kmVal) ? kmVal : 0;
@@ -2427,39 +2465,17 @@ hideAddMaintenance();
     }).join('');
 }
 
-        async function deleteMaintenance(maintenanceId) {
-    if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
+async function deleteMaintenance(maintenanceId) {
+            if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
 
-    const store = window.maintenances || maintenances || {};
-    let maintenanceToDelete = null;
+            // Encontrar a manutenção antes de deletar
+            const maintenanceToDelete = maintenances[currentMaintenanceVehicleId].find(m => m.id === maintenanceId);
 
-    Object.keys(store).forEach(k => {
-        const arr = store[k];
-        if (!Array.isArray(arr)) return;
-        const found = arr.find(m => String(m.id) === String(maintenanceId));
-        if (found && !maintenanceToDelete) maintenanceToDelete = found;
-        store[k] = arr.filter(m => String(m.id) !== String(maintenanceId));
-        if (store[k].length === 0) delete store[k];
-    });
-
-    try { saveToStorage('manutencoes-6bbm', store); } catch (e) {}
-
-    try {
-        if (maintenanceToDelete && maintenanceToDelete.id) {
-            await deleteMaintenanceFromTransportSheet(String(maintenanceToDelete.id));
-        }
-    } catch (err) {
-        console.error(err);
-        showAlert('Registro excluído localmente, mas falhou ao remover da planilha: ' + (err.message || err), 'error');
-    }
-
-    maintenances = store;
-    window.maintenances = store;
-
-    renderMaintenanceList();
-    renderVehicles();
-    showAlert('Registro de manutenção excluído.', 'success');
-}
+            maintenances[currentMaintenanceVehicleId] = maintenances[currentMaintenanceVehicleId].filter(m => m.id !== maintenanceId);
+            
+            if (maintenances[currentMaintenanceVehicleId].length === 0) {
+                delete maintenances[currentMaintenanceVehicleId];
+            }
 
             saveToStorage('manutencoes-6bbm', maintenances);
 
@@ -2497,10 +2513,11 @@ renderMaintenanceList();
             return badges[type] || 'badge-info';
         }
 
-        function formatDate(dateString) {
-            const date = new Date(dateString + 'T00:00:00');
-            return date.toLocaleDateString('pt-BR');
-        }
+        function formatDate(value) {
+    const d = parseDateValue(value);
+    if (!d) return 'N/D';
+    return d.toLocaleDateString('pt-BR');
+}
 
         // Alert
         function showAlert(message) {

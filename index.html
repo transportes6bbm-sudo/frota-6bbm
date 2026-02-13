@@ -1755,16 +1755,18 @@ function normalizeKey(str) {
 }
 
 function getMaintenanceKeyCandidates(item) {
-    const candidates = [
-        item.vehicleId, item.vehicle_id, item.viaturaId, item.viatura_id,
-        item.id,
+    // Prioriza vinculação por placa/prefixo. Usa "id" apenas se não houver nenhum identificador útil.
+    const preferred = [
         item.placa, item.placaViatura, item.placa_viatura,
         item.prefixo, item.prefixoViatura, item.prefixo_viatura,
+        item.vehicleId, item.vehicle_id, item.viaturaId, item.viatura_id,
         item.viatura, item.veiculo, item.veiculoId
-    ];
-    return candidates
-        .map(c => normalizeKey(c))
-        .filter(Boolean);
+    ].map(c => normalizeKey(c)).filter(Boolean);
+
+    if (preferred.length) return [...new Set(preferred)];
+
+    const fallbackId = normalizeKey(item.id);
+    return fallbackId ? [fallbackId] : [];
 }
 
 function getVehicleKeyCandidates(v) {
@@ -1773,14 +1775,23 @@ function getVehicleKeyCandidates(v) {
 
 // Retorna lista de manutenções para uma viatura, tentando por placa e por prefixo
 function getMaintenancesForVehicle(vOrId) {
+    const coerce = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        // Se o endpoint devolver um objeto único em vez de lista, embrulha em array
+        return [val];
+    };
+
     if (!vOrId) return [];
     if (typeof vOrId === "string") {
         const k = normalizeKey(vOrId);
-        return maintenances[k] || [];
+        return coerce(maintenances[k]);
     }
+
     const keys = getVehicleKeyCandidates(vOrId);
     for (const k of keys) {
-        if (maintenances[k] && maintenances[k].length) return maintenances[k];
+        const arr = coerce(maintenances[k]);
+        if (arr.length) return arr;
     }
     return [];
 }

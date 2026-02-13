@@ -1208,7 +1208,7 @@ table{
         let maintenances = {};
         async function loadMaintenancesFromSheet() {
             try {
-                const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaintenances&callback=cb&_=${Date.now()}`;
+                const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaint&callback=cb&_=${Date.now()}`;
                 const res = await fetch(url, { cache: "no-store" });
                 const txt = await res.text();
                 const data = JSON.parse(txt.replace(/^cb\(/, "").replace(/\);\s*$/, ""));

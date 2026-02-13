@@ -2365,55 +2365,88 @@ hideAddMaintenance();
         }
 
         function renderMaintenanceList() {
-            const container = document.getElementById('maintenanceRecords');
-            const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
-            const records = getMaintenancesForVehicle(vehicle) || [];
+    const container = document.getElementById('maintenanceRecords');
+    const vehicle = currentMaintenanceVehicle || (window.vehicles || vehicles || []).find(v => v.id === currentMaintenanceVehicleId) || null;
+    const records = getMaintenancesForVehicle(vehicle) || [];
 
-            if (records.length === 0) {
-                container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma manutenção registrada ainda.</div>';
-                return;
-            }
+    if (records.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma manutenção registrada ainda.</div>';
+        return;
+    }
 
-            // Ordenar por data (mais recente primeiro)
-            const sorted = [...records].sort((a, b) => {
-                const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
-                const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
-                return db.getTime() - da.getTime();
-            });
+    const sorted = [...records].sort((a, b) => {
+        const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
+        const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
+        return db.getTime() - da.getTime();
+    });
 
-            container.innerHTML = sorted.map(m => `
-                <div style="background: var(--bg-dark); padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid ${getMaintenanceTypeColor(m.type)};">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div>
-                            <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">
-                                ${m.description}
-                            </div>
-                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                                <span class="badge ${getMaintenanceTypeBadge(m.type)}">${m.type}</span>
-                                <span style="color: var(--text-muted);">📅 ${formatDate(m.date)}</span>
-                                ${m.km > 0 ? `<span style="color: var(--text-muted);">🛣️ ${m.km.toLocaleString('pt-BR')} km</span>` : ''}
-                                ${m.cost > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${m.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
-                            </div>
+    container.innerHTML = sorted.map(item => {
+        const tipo = item.tipo || item.type || 'N/D';
+        const descricao = item.descricao || item.description || '';
+        const data = item.data || item.date || item.dataManutencao || item.timestamp;
+        const km = Number(item.km || item.hodometro || 0) || 0;
+        const custo = Number(item.custo || item.cost || 0) || 0;
+        const responsavel = item.responsavel || item.responsible || '';
+        const matricula = item.matricula || '';
+        const obs = item.observacoes || item.notes || '';
+
+        return `
+            <div style="background: var(--bg-dark); padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid ${getMaintenanceTypeColor(tipo)};">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                    <div>
+                        <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">
+                            ${descricao || '(sem descrição)'}
                         </div>
-                        <button class="btn-icon" onclick="deleteMaintenance(${m.id})" title="Excluir">🗑️</button>
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <span class="badge ${getMaintenanceTypeBadge(tipo)}">${tipo}</span>
+                            <span style="color: var(--text-muted);">📅 ${formatDate(data)}</span>
+                            ${km > 0 ? `<span style="color: var(--text-muted);">🛣️ ${km.toLocaleString('pt-BR')} km</span>` : ''}
+                            ${custo > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
+                        </div>
                     </div>
-                    ${m.responsible ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${m.responsible}${m.matricula ? ` - <strong>Matrícula:</strong> ${m.matricula}` : ''}</div>` : ''}
-                    ${m.notes ? `<div style="color: var(--text-muted); font-size: 0.95rem;">${m.notes}</div>` : ''}
+                    <button class="btn-icon" onclick="deleteMaintenance(${item.id})" title="Excluir">🗑️</button>
                 </div>
-            `).join('');
-        }
+
+                ${responsavel ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${responsavel}${matricula ? ` - <strong>Matrícula:</strong> ${matricula}` : ''}</div>` : ''}
+                ${obs ? `<div style="color: var(--text-muted); font-size: 0.95rem; white-space: pre-wrap;">${obs}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+}
 
         async function deleteMaintenance(maintenanceId) {
-            if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
+    if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
 
-            // Encontrar a manutenção antes de deletar
-            const maintenanceToDelete = maintenances[currentMaintenanceVehicleId].find(m => m.id === maintenanceId);
+    const store = window.maintenances || maintenances || {};
+    let maintenanceToDelete = null;
 
-            maintenances[currentMaintenanceVehicleId] = maintenances[currentMaintenanceVehicleId].filter(m => m.id !== maintenanceId);
-            
-            if (maintenances[currentMaintenanceVehicleId].length === 0) {
-                delete maintenances[currentMaintenanceVehicleId];
-            }
+    Object.keys(store).forEach(k => {
+        const arr = store[k];
+        if (!Array.isArray(arr)) return;
+        const found = arr.find(m => String(m.id) === String(maintenanceId));
+        if (found && !maintenanceToDelete) maintenanceToDelete = found;
+        store[k] = arr.filter(m => String(m.id) !== String(maintenanceId));
+        if (store[k].length === 0) delete store[k];
+    });
+
+    try { saveToStorage('manutencoes-6bbm', store); } catch (e) {}
+
+    try {
+        if (maintenanceToDelete && maintenanceToDelete.id) {
+            await deleteMaintenanceFromTransportSheet(String(maintenanceToDelete.id));
+        }
+    } catch (err) {
+        console.error(err);
+        showAlert('Registro excluído localmente, mas falhou ao remover da planilha: ' + (err.message || err), 'error');
+    }
+
+    maintenances = store;
+    window.maintenances = store;
+
+    renderMaintenanceList();
+    renderVehicles();
+    showAlert('Registro de manutenção excluído.', 'success');
+}
 
             saveToStorage('manutencoes-6bbm', maintenances);
 

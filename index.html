@@ -1206,6 +1206,9 @@ table{
         // Dados iniciais da frota (carregados da planilha)
         let vehicles = [];
         let maintenances = {};
+        // Expor para depuração / console (GitHub Pages)
+        window.vehicles = vehicles;
+        window.maintenances = maintenances;
         async function loadMaintenancesFromSheet() {
     console.log("Buscando manutenções:", `${MAINTENANCE_WEBAPP_URL}?action=listMaint...`);
 
@@ -1260,6 +1263,7 @@ table{
         });
 
         maintenances = map;
+                window.maintenances = maintenances;
         const total = Object.values(map).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
         console.log(`Manutenções carregadas: ${total} registros (chaves: ${Object.keys(map).length})`);
         return true;
@@ -1385,6 +1389,7 @@ async function syncFleetFromSheet(force = true) {
 
         // Planilha = fonte da verdade (substitui tudo)
         vehicles = cleaned;
+                window.vehicles = vehicles;
 
         // Cache local só como fallback rápido
         try {
@@ -1775,26 +1780,19 @@ function getVehicleKeyCandidates(v) {
 
 // Retorna lista de manutenções para uma viatura, tentando por placa e por prefixo
 function getMaintenancesForVehicle(vOrId) {
-    const coerce = (val) => {
-        if (!val) return [];
-        if (Array.isArray(val)) return val;
-        // Se o endpoint devolver um objeto único em vez de lista, embrulha em array
-        return [val];
-    };
-
     if (!vOrId) return [];
     if (typeof vOrId === "string") {
         const k = normalizeKey(vOrId);
-        return coerce(maintenances[k]);
+        return maintenances[k] || [];
     }
-
     const keys = getVehicleKeyCandidates(vOrId);
     for (const k of keys) {
-        const arr = coerce(maintenances[k]);
-        if (arr.length) return arr;
+        if (maintenances[k] && maintenances[k].length) return maintenances[k];
     }
     return [];
 }
+window.getMaintenancesForVehicle = getMaintenancesForVehicle;
+
 // =========================
 // Padronização de "Cidade de Lotação" (coluna G da planilha verdade)
 // Regras definidas pela Seção de Transporte

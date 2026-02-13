@@ -2308,7 +2308,8 @@ hideAddMaintenance();
 
         function renderMaintenanceList() {
             const container = document.getElementById('maintenanceRecords');
-            const records = maintenances[currentMaintenanceVehicleId] || [];
+            const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
+            const records = getMaintenancesForVehicle(vehicle) || [];
 
             if (records.length === 0) {
                 container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma manutenção registrada ainda.</div>';
@@ -2316,7 +2317,11 @@ hideAddMaintenance();
             }
 
             // Ordenar por data (mais recente primeiro)
-            const sorted = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const sorted = [...records].sort((a, b) => {
+                const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
+                const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
+                return db.getTime() - da.getTime();
+            });
 
             container.innerHTML = sorted.map(m => `
                 <div style="background: var(--bg-dark); padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid ${getMaintenanceTypeColor(m.type)};">

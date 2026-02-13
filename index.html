@@ -1217,14 +1217,25 @@ table{
                 // Esperado: data.items (ou data.maintenances) = lista
                 const items = data.items || data.maintenances || data.data || [];
                 const map = {};
-                items.forEach(it => {
-                    const vid = String(it.vehicleId || it.id || it.placa || "").trim().toUpperCase();
-                    if (!vid) return;
-                    if (!map[vid]) map[vid] = [];
-                    map[vid].push(it);
-                });
+items.forEach(it => {
+    const keys = getMaintenanceKeyCandidates(it);
+    if (!keys.length) return;
 
-                // Ordena por data (mais recente primeiro)
+    // coloca o mesmo objeto em todas as chaves, evitando duplicação por referência
+    keys.forEach(k => {
+        if (!map[k]) map[k] = [];
+        map[k].push(it);
+    });
+});
+
+// Ordena por data (mais recente primeiro) em todas as chaves
+Object.keys(map).forEach(k => {
+    map[k].sort((a,b) => {
+        const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
+        const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
+        return db.getTime() - da.getTime();
+    });
+});// Ordena por data (mais recente primeiro)
                 Object.keys(map).forEach(k => {
                     map[k].sort((a,b) => {
                         const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
@@ -1694,7 +1705,46 @@ function normalizeText(str) {
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .trim();
-}// =========================
+}
+// Normaliza chaves de identificação (placa/prefixo) para bater manutenção x viatura
+function normalizeKey(str) {
+    return String(str || "")
+        .toUpperCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9]/g, ""); // remove espaços, hífen, etc.
+}
+
+function getMaintenanceKeyCandidates(item) {
+    const candidates = [
+        item.vehicleId, item.vehicle_id, item.viaturaId, item.viatura_id,
+        item.id,
+        item.placa, item.placaViatura, item.placa_viatura,
+        item.prefixo, item.prefixoViatura, item.prefixo_viatura,
+        item.viatura, item.veiculo, item.veiculoId
+    ];
+    return candidates
+        .map(c => normalizeKey(c))
+        .filter(Boolean);
+}
+
+function getVehicleKeyCandidates(v) {
+    return [v.id, v.placa, v.prefixo].map(x => normalizeKey(x)).filter(Boolean);
+}
+
+// Retorna lista de manutenções para uma viatura, tentando por placa e por prefixo
+function getMaintenancesForVehicle(vOrId) {
+    if (!vOrId) return [];
+    if (typeof vOrId === "string") {
+        const k = normalizeKey(vOrId);
+        return maintenances[k] || [];
+    }
+    const keys = getVehicleKeyCandidates(vOrId);
+    for (const k of keys) {
+        if (maintenances[k] && maintenances[k].length) return maintenances[k];
+    }
+    return [];
+}
+// =========================
 // Padronização de "Cidade de Lotação" (coluna G da planilha verdade)
 // Regras definidas pela Seção de Transporte
 // =========================
@@ -1968,7 +2018,7 @@ filtered.sort((a, b) => {
             }
 
             const rowHtml = (v) => {
-    const maintenanceCount = maintenances[v.id] ? maintenances[v.id].length : 0;
+    const maintenanceCount = getMaintenancesForVehicle(v).length;
 
     // Formatar data da última movimentação
     let dataFormatada = '—';

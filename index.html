@@ -1489,6 +1489,15 @@ async function bootSyncPlanilhaVerdade() {
 const MAINT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbymLlluCMny9seKJ0TXZkC9PrLdk13U1M7mRVAEp7hZLpWD3YdnAHA-XjIYt1f4Npxmaw/exec";
 const MAINTENANCE_WEBAPP_URL = MAINT_WEBAPP_URL;
 
+function buildUrl(baseUrl, params) {
+    const u = new URL(baseUrl);
+    Object.entries(params || {}).forEach(([k, v]) => {
+        if (v === undefined || v === null) return;
+        u.searchParams.set(k, String(v));
+    });
+    return u.toString();
+}
+
 function jsonpRequest(url, params) {
     return new Promise((resolve, reject) => {
         const callbackName = 'cb_' + Math.random().toString(36).slice(2);
@@ -1537,37 +1546,36 @@ async function jsonpRequestWithRetry(url, tries = 3, timeoutMs = 30000) {
 
 
 async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
-    if (!MAINT_WEBAPP_URL) throw new Error('MAINT_WEBAPP_URL não configurada');
-
     const payload = {
-        action: 'addMaintenance',
-        id: maintenance.id, // usamos o mesmo ID local para permitir exclusão sincronizada
-        data: maintenance.date,
-        prefixo: (vehicle && vehicle.prefixo) ? vehicle.prefixo : "",
-        placa: (vehicle && vehicle.placa) ? vehicle.placa : "",
-        cidade: (vehicle && vehicle.cidade) ? vehicle.cidade : "",
-        tipoViatura: (vehicle && (vehicle.tipo || vehicle.subclasse || vehicle.subClasse)) ? (vehicle.tipo || vehicle.subclasse || vehicle.subClasse) : "",
-        tipo: maintenance.type,
-        descricao: maintenance.description,
-        km: maintenance.km,
-        custo: maintenance.cost,
-        responsavel: maintenance.responsible,
-        matricula: maintenance.matricula,
-        observacoes: maintenance.notes
+        action: 'addMaint',
+        id: maintenance.id,
+        data: maintenance.data || maintenance.date || '',
+        prefixo: maintenance.prefixo || (vehicle ? (vehicle.prefixo || '') : ''),
+        placa: maintenance.placa || (vehicle ? (vehicle.placa || vehicle.id || '') : ''),
+        cidade: maintenance.cidade || (vehicle ? (vehicle.cidadeLotacaoPadrao || vehicle.cidadeLotacao || vehicle.cidade || '') : ''),
+        tipoViatura: maintenance.tipoViatura || (vehicle ? (vehicle.subclasse || vehicle.tipo || '') : ''),
+        tipo: maintenance.tipo || '',
+        descricao: maintenance.descricao || maintenance.description || '',
+        km: maintenance.km || maintenance.hodometro || '',
+        custo: maintenance.custo || maintenance.cost || '',
+        responsavel: maintenance.responsavel || maintenance.responsible || '',
+        matricula: (maintenance.matricula || '').toString().replace(/\D/g,''),
+        observacoes: maintenance.observacoes || maintenance.notes || ''
     };
 
-    const res = await jsonpRequest(MAINT_WEBAPP_URL, payload);
+    const url = buildUrl(MAINT_WEBAPP_URL, payload);
+    const res = await jsonpRequestWithRetry(url, 3, 30000);
     if (!res || res.success !== true) {
-        throw new Error((res && res.message) ? res.message : 'Falha ao registrar na planilha');
+        throw new Error((res && res.message) ? res.message : 'Falha ao registrar manutenção na planilha');
     }
     return res;
 }
 
 async function deleteMaintenanceFromTransportSheet(maintenanceId) {
-    if (!MAINT_WEBAPP_URL) throw new Error('MAINT_WEBAPP_URL não configurada');
-    const res = await jsonpRequest(MAINT_WEBAPP_URL, { action: 'deleteMaintenance', id: maintenanceId });
+    const url = buildUrl(MAINT_WEBAPP_URL, { action: 'deleteMaint', id: maintenanceId });
+    const res = await jsonpRequestWithRetry(url, 3, 30000);
     if (!res || res.success !== true) {
-        throw new Error((res && res.message) ? res.message : 'Falha ao remover da planilha');
+        throw new Error((res && res.message) ? res.message : 'Falha ao remover manutenção da planilha');
     }
     return res;
 }

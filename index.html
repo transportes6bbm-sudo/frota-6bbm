@@ -1554,7 +1554,7 @@ async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
         placa: maintenance.placa || (vehicle ? (vehicle.placa || vehicle.id || '') : ''),
         cidade: maintenance.cidade || (vehicle ? (vehicle.cidadeLotacaoPadrao || vehicle.cidadeLotacao || vehicle.cidade || '') : ''),
         tipoViatura: maintenance.tipoViatura || (vehicle ? (vehicle.subclasse || vehicle.tipo || '') : ''),
-        tipo: maintenance.tipo || '',
+        tipo: (maintenance.tipo || maintenance.type || ''),
         descricao: maintenance.descricao || maintenance.description || '',
         km: maintenance.km || maintenance.hodometro || '',
         custo: maintenance.custo || maintenance.cost || '',

@@ -1547,7 +1547,7 @@ async function jsonpRequestWithRetry(url, tries = 3, timeoutMs = 30000) {
 
 async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
     const payload = {
-        action: 'addMaint',
+        action: 'addMaintenance',
         id: maintenance.id,
         data: maintenance.data || maintenance.date || '',
         prefixo: maintenance.prefixo || (vehicle ? (vehicle.prefixo || '') : ''),
@@ -1572,7 +1572,7 @@ async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
 }
 
 async function deleteMaintenanceFromTransportSheet(maintenanceId) {
-    const url = buildUrl(MAINT_WEBAPP_URL, { action: 'deleteMaint', id: maintenanceId });
+    const url = buildUrl(MAINT_WEBAPP_URL, { action: 'deleteMaintenance', id: maintenanceId });
     const res = await jsonpRequestWithRetry(url, 3, 30000);
     if (!res || res.success !== true) {
         throw new Error((res && res.message) ? res.message : 'Falha ao remover manutenção da planilha');

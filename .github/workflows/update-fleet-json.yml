@@ -1,0 +1,38 @@
+name: Update fleet.json snapshot
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 */3 * *"  # a cada 3 dias (03:00 UTC)
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch snapshot from Apps Script
+        run: |
+          curl -L --fail --silent \
+            "https://script.google.com/macros/s/AKfycbz-Wdo8vAl3tpNnKBH_m3iYpjN6Am6vGZoGxbDEb0MWPUSk6mzZAIWwP1BH6pQpcbbGjQ/exec" \
+            -o fleet.json
+
+          python - <<'PY'
+          import json
+          with open("fleet.json","r",encoding="utf-8") as f:
+            data=json.load(f)
+          assert "vehicles" in data, "JSON sem chave vehicles"
+          print("vehicles:", len(data["vehicles"]))
+          PY
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add fleet.json
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Update fleet.json snapshot"
+          git push

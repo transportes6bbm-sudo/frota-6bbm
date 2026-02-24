@@ -1571,11 +1571,18 @@ async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
     return res;
 }
 
-async function deleteMaintenanceFromTransportSheet(maintenanceId) {
-    const url = buildUrl(MAINT_WEBAPP_URL, { action: 'deleteMaintenance', id: maintenanceId });
+async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigits) {
+    const cleanMat = (matriculaDigits || '').toString().replace(/\D/g,'');
+    const params = {
+        action: 'deleteMaintenance',
+        timestamp: maintenanceKey,     // <- o Apps Script apaga por Timestamp
+        id: maintenanceKey,            // <- fallback
+        matricula: cleanMat            // <- obrigatório para autorizar
+    };
+    const url = buildUrl(MAINT_WEBAPP_URL, params);
     const res = await jsonpRequestWithRetry(url, 3, 30000);
     if (!res || res.success !== true) {
-        throw new Error((res && res.message) ? res.message : 'Falha ao remover manutenção da planilha');
+        throw new Error((res && (res.error || res.message)) ? (res.error || res.message) : 'Falha ao remover manutenção da planilha');
     }
     return res;
 }
@@ -2463,7 +2470,7 @@ hideAddMaintenance();
                             ${custo > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
                         </div>
                     </div>
-                    <button class="btn-icon" onclick="deleteMaintenance(${item.id})" title="Excluir">🗑️</button>
+                    <button class="btn-icon" onclick="deleteMaintenance('${item.timestamp || item.Timestamp || item.id}')" title="Excluir">🗑️</button>
                 </div>
 
                 ${responsavel ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${responsavel}${matricula ? ` - <strong>Matrícula:</strong> ${matricula}` : ''}</div>` : ''}
@@ -2473,55 +2480,32 @@ hideAddMaintenance();
     }).join('');
 }
 
-async function deleteMaintenance(maintenanceId) {
-  if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
+async function deleteMaintenance(maintenanceKey) {
+    if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
 
-  const list = (maintenances && currentMaintenanceVehicleId && maintenances[currentMaintenanceVehicleId])
-    ? maintenances[currentMaintenanceVehicleId]
-    : [];
+    try {
+        // matrícula vem do formulário (mesmo padrão do cadastro)
+        const matricula = document.getElementById('maintenanceMatricula')?.value || '';
+        const cleanMat = matricula.toString().replace(/\D/g,'');
 
-  if (!Array.isArray(list) || list.length === 0) {
-    showAlert('Não foi possível excluir: lista de manutenções não carregada. Feche e abra as manutenções novamente.', 'error');
-    return;
-  }
+        if (!cleanMat) {
+            showAlert('Informe sua matrícula no formulário para autorizar a exclusão.', 'error');
+            return;
+        }
 
-  // Aceita id OU timestamp como chave
-  const maintenanceToDelete = list.find(m =>
-    String(m.id || '') === String(maintenanceId) ||
-    String(m.timestamp || m.Timestamp || '') === String(maintenanceId)
-  );
+        // 1) remover da planilha (fonte verdade)
+        await deleteMaintenanceFromTransportSheet(String(maintenanceKey), cleanMat);
 
-  // Remove localmente por id ou timestamp
-  maintenances[currentMaintenanceVehicleId] = list.filter(m =>
-    String(m.id || '') !== String(maintenanceId) &&
-    String(m.timestamp || m.Timestamp || '') !== String(maintenanceId)
-  );
+        // 2) recarregar do Sheets e redesenhar (não tenta mexer em "maintenances" local na mão)
+        await loadMaintenancesFromSheet();
+        renderMaintenanceList();
+        renderVehicles();
 
-  if (maintenances[currentMaintenanceVehicleId].length === 0) {
-    delete maintenances[currentMaintenanceVehicleId];
-  }
-
-  saveToStorage('manutencoes-6bbm', maintenances);
-
-  // Remover também da planilha (Seção Transporte)
-  try {
-    // Identificador para o Apps Script: prioriza timestamp, cai para id
-    const remoteKey = maintenanceToDelete
-      ? String(maintenanceToDelete.timestamp || maintenanceToDelete.Timestamp || maintenanceToDelete.id || '')
-      : String(maintenanceId);
-
-    if (remoteKey) {
-      await deleteMaintenanceFromTransportSheet(remoteKey);
-    } else {
-      throw new Error('Sem identificador (timestamp/id) para remover na planilha.');
+        showAlert('Registro de manutenção excluído!');
+    } catch (err) {
+        console.error(err);
+        showAlert('Falha ao remover manutenção da planilha: ' + (err.message || err), 'error');
     }
-  } catch (err) {
-    console.error(err);
-    showAlert('Registro excluído localmente, mas falhou ao remover da planilha: ' + (err.message || err), 'error');
-  }
-
-  renderMaintenanceList();
-  showAlert('Registro de manutenção excluído!');
 }
 
         function getMaintenanceTypeColor(type) {

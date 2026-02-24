@@ -1575,14 +1575,16 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
     const cleanMat = (matriculaDigits || '').toString().replace(/\D/g,'');
     const params = {
         action: 'deleteMaintenance',
-        timestamp: maintenanceKey,     // <- o Apps Script apaga por Timestamp
-        id: maintenanceKey,            // <- fallback
-        matricula: cleanMat            // <- obrigatório para autorizar
+        timestamp: maintenanceKey,     // principal
+        id: maintenanceKey,            // fallback
+        matricula: cleanMat,           // obrigatório para autorizar
+        _: Date.now()                  // anti-cache
     };
     const url = buildUrl(MAINT_WEBAPP_URL, params);
     const res = await jsonpRequestWithRetry(url, 3, 30000);
     if (!res || res.success !== true) {
-        throw new Error((res && (res.error || res.message)) ? (res.error || res.message) : 'Falha ao remover manutenção da planilha');
+        const msg = (res && (res.error || res.message)) ? (res.error || res.message) : 'Falha ao remover manutenção da planilha';
+        throw new Error(msg);
     }
     return res;
 }
@@ -2470,7 +2472,7 @@ hideAddMaintenance();
                             ${custo > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
                         </div>
                     </div>
-                    <button class="btn-icon" onclick="deleteMaintenance('${item.timestamp || item.Timestamp || item.id}')" title="Excluir">🗑️</button>
+                    <button class="btn-icon" onclick="deleteMaintenance('${item.timestamp || item.Timestamp || item.id}', '${item.matricula || ''}')" title="Excluir">🗑️</button>
                 </div>
 
                 ${responsavel ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${responsavel}${matricula ? ` - <strong>Matrícula:</strong> ${matricula}` : ''}</div>` : ''}
@@ -2480,23 +2482,20 @@ hideAddMaintenance();
     }).join('');
 }
 
-async function deleteMaintenance(maintenanceKey) {
+async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
     if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
 
     try {
-        // matrícula vem do formulário (mesmo padrão do cadastro)
-        const matricula = document.getElementById('maintenanceMatricula')?.value || '';
-        const cleanMat = matricula.toString().replace(/\D/g,'');
-
+        const cleanMat = (matriculaFromItem || '').toString().replace(/\D/g,'');
         if (!cleanMat) {
-            showAlert('Informe sua matrícula no formulário para autorizar a exclusão.', 'error');
+            showAlert('Não foi possível excluir: registro sem matrícula. Atualize a lista e tente novamente.', 'error');
             return;
         }
 
-        // 1) remover da planilha (fonte verdade)
+        // remover na planilha (fonte da verdade)
         await deleteMaintenanceFromTransportSheet(String(maintenanceKey), cleanMat);
 
-        // 2) recarregar do Sheets e redesenhar (não tenta mexer em "maintenances" local na mão)
+        // recarregar do Sheets e redesenhar
         await loadMaintenancesFromSheet();
         renderMaintenanceList();
         renderVehicles();
@@ -2535,11 +2534,28 @@ async function deleteMaintenance(maintenanceKey) {
 }
 
         // Alert
-        function showAlert(message) {
+        function showAlert(message, type) {
             const alert = document.getElementById('alertSuccess');
+            if (!alert) return;
             alert.textContent = message;
+
+            const t = (type || 'success').toString().toLowerCase();
+            // reset estilos
+            alert.classList.remove('alert-success');
+            alert.style.border = '';
+            alert.style.background = '';
+            alert.style.color = '';
+
+            if (t === 'error' || t === 'danger') {
+                alert.style.background = 'rgba(211, 47, 47, 0.2)';
+                alert.style.border = '1px solid rgba(211, 47, 47, 0.9)';
+                alert.style.color = 'rgba(255,255,255,0.95)';
+            } else {
+                alert.classList.add('alert-success');
+            }
+
             alert.classList.add('active');
-            setTimeout(() => alert.classList.remove('active'), 3000);
+            setTimeout(() => alert.classList.remove('active'), 3500);
         }
 
         // === FUNÇÕES DE GRÁFICOS ===

@@ -2474,32 +2474,55 @@ hideAddMaintenance();
 }
 
 async function deleteMaintenance(maintenanceId) {
-            if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
+  if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
 
-            // Encontrar a manutenção antes de deletar
-            const maintenanceToDelete = maintenances[currentMaintenanceVehicleId].find(m => m.id === maintenanceId);
+  const list = (maintenances && currentMaintenanceVehicleId && maintenances[currentMaintenanceVehicleId])
+    ? maintenances[currentMaintenanceVehicleId]
+    : [];
 
-            maintenances[currentMaintenanceVehicleId] = maintenances[currentMaintenanceVehicleId].filter(m => m.id !== maintenanceId);
-            
-            if (maintenances[currentMaintenanceVehicleId].length === 0) {
-                delete maintenances[currentMaintenanceVehicleId];
-            }
+  if (!Array.isArray(list) || list.length === 0) {
+    showAlert('Não foi possível excluir: lista de manutenções não carregada. Feche e abra as manutenções novamente.', 'error');
+    return;
+  }
 
-            saveToStorage('manutencoes-6bbm', maintenances);
+  // Aceita id OU timestamp como chave
+  const maintenanceToDelete = list.find(m =>
+    String(m.id || '') === String(maintenanceId) ||
+    String(m.timestamp || m.Timestamp || '') === String(maintenanceId)
+  );
 
-// Remover também da planilha (Seção Transporte)
-try {
-    if (maintenanceToDelete && maintenanceToDelete.id) {
-        await deleteMaintenanceFromTransportSheet(String(maintenanceToDelete.id));
+  // Remove localmente por id ou timestamp
+  maintenances[currentMaintenanceVehicleId] = list.filter(m =>
+    String(m.id || '') !== String(maintenanceId) &&
+    String(m.timestamp || m.Timestamp || '') !== String(maintenanceId)
+  );
+
+  if (maintenances[currentMaintenanceVehicleId].length === 0) {
+    delete maintenances[currentMaintenanceVehicleId];
+  }
+
+  saveToStorage('manutencoes-6bbm', maintenances);
+
+  // Remover também da planilha (Seção Transporte)
+  try {
+    // Identificador para o Apps Script: prioriza timestamp, cai para id
+    const remoteKey = maintenanceToDelete
+      ? String(maintenanceToDelete.timestamp || maintenanceToDelete.Timestamp || maintenanceToDelete.id || '')
+      : String(maintenanceId);
+
+    if (remoteKey) {
+      await deleteMaintenanceFromTransportSheet(remoteKey);
+    } else {
+      throw new Error('Sem identificador (timestamp/id) para remover na planilha.');
     }
-} catch (err) {
+  } catch (err) {
     console.error(err);
     showAlert('Registro excluído localmente, mas falhou ao remover da planilha: ' + (err.message || err), 'error');
-}
+  }
 
-renderMaintenanceList();
-            showAlert('Registro de manutenção excluído!');
-        }
+  renderMaintenanceList();
+  showAlert('Registro de manutenção excluído!');
+}
 
         function getMaintenanceTypeColor(type) {
             const colors = {

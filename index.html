@@ -2416,8 +2416,6 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
     showAlert('Não foi possível registrar: ' + (err.message || err), 'error');
     // NÃO salva localmente
   }
-}
-
 hideAddMaintenance();
             renderMaintenanceList();
             showAlert('Manutenção registrada com sucesso!');

@@ -2377,36 +2377,45 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
         }
 
         async function saveMaintenanceRecord(event) {
-            event.preventDefault();
+  event.preventDefault();
 
-            const maintenance = {
-                id: Date.now(),
-                date: document.getElementById('maintenanceDate').value,
-                type: document.getElementById('maintenanceType').value,
-                description: document.getElementById('maintenanceDescription').value,
-                km: parseInt(document.getElementById('maintenanceKm').value) || 0,
-                cost: parseFloat(document.getElementById('maintenanceCost').value) || 0,
-                responsible: document.getElementById('maintenanceResponsible').value,
-                matricula: document.getElementById('maintenanceMatricula').value,
-                notes: document.getElementById('maintenanceNotes').value
-            };
+  const maintenance = {
+    id: Date.now(),
+    date: document.getElementById('maintenanceDate').value,
+    type: document.getElementById('maintenanceType').value,
+    description: document.getElementById('maintenanceDescription').value,
+    km: parseInt(document.getElementById('maintenanceKm').value) || 0,
+    cost: parseFloat(document.getElementById('maintenanceCost').value) || 0,
+    responsible: document.getElementById('maintenanceResponsible').value,
+    matricula: document.getElementById('maintenanceMatricula').value,
+    notes: document.getElementById('maintenanceNotes').value
+  };
 
-            if (!maintenances[currentMaintenanceVehicleId]) {
-                maintenances[currentMaintenanceVehicleId] = [];
-            }
+  // matrícula obrigatória (e com máscara ok)
+  const cleanMat = (maintenance.matricula || '').toString().replace(/\D/g, '');
+  if (!cleanMat) {
+    showAlert('Informe uma matrícula válida.', 'error');
+    return;
+  }
+  maintenance.matricula = cleanMat;
 
-            maintenances[currentMaintenanceVehicleId].push(maintenance);
-            saveToStorage('manutencoes-6bbm', maintenances);
-
-// Sincronizar com a planilha de Manutenções (Seção Transporte) + enviar e-mail (Apps Script)
-try {
+  // sincroniza primeiro (fonte da verdade)
+  try {
     const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
     await syncMaintenanceToTransportSheet(maintenance, vehicle);
-                await loadMaintenancesFromSheet();
-                renderVehicles();
-} catch (err) {
+
+    // recarrega do Sheets (agora a lista é 100% verdade)
+    await loadMaintenancesFromSheet();
+    renderVehicles();
+    renderMaintenanceList();
+
+    hideAddMaintenance();
+    showAlert('Manutenção registrada com sucesso!');
+  } catch (err) {
     console.error(err);
-    showAlert('Manutenção salva localmente, mas falhou ao sincronizar com a planilha: ' + (err.message || err), 'error');
+    showAlert('Não foi possível registrar: ' + (err.message || err), 'error');
+    // NÃO salva localmente
+  }
 }
 
 hideAddMaintenance();

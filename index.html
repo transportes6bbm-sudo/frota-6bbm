@@ -2519,43 +2519,43 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
             updateCostChart();
         }
 
-        function updateSituationChart() {
-            const ctx = document.getElementById('situationChart');
-            if (!ctx) return;
-            
-            const data = {
-                'DISPONÍVEL': vehicles.filter(v => v.situacao === 'DISPONÍVEL').length,
-                'EM MANUTENÇÃO': vehicles.filter(v => v.situacao === 'EM MANUTENÇÃO').length,
-                'BAIXADA': vehicles.filter(v => v.situacao === 'BAIXADA').length,
-                'ACIDENTADA': vehicles.filter(v => v.situacao === 'ACIDENTADA').length,
-                'PROCESSO DE DESCARGA': vehicles.filter(v => v.situacao === 'PROCESSO DE DESCARGA').length
-            };
+        
+function updateSituationChart() {
+    const ctx = document.getElementById('situationChart');
+    if (!ctx) return;
 
-            if (charts.situation) charts.situation.destroy();
+    const data = {
+        'DISPONÍVEL': vehicles.filter(v => v.situacao === 'DISPONÍVEL').length,
+        'EM MANUTENÇÃO': vehicles.filter(v => v.situacao === 'EM MANUTENÇÃO').length,
+        'BAIXADA': vehicles.filter(v => v.situacao === 'BAIXADA').length,
+        'ACIDENTADA': vehicles.filter(v => v.situacao === 'ACIDENTADA').length,
+        'PROCESSO DE DESCARGA': vehicles.filter(v => v.situacao === 'PROCESSO DE DESCARGA').length
+    };
 
-            charts.situation = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(data),
-                    datasets: [{
-                        data: Object.values(data),
-                        backgroundColor: ['#00c853', '#ffa000', '#d32f2f', '#9a0007', '#283593'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { color: '#e8eaf6', font: { size: 12, family: 'Rajdhani' } }
-                        }
-                    }
+    if (charts.situation) charts.situation.destroy();
+
+    charts.situation = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(data),
+            datasets: [{
+                data: Object.values(data),
+                backgroundColor: ['#00c853', '#ffa000', '#d32f2f', '#9a0007', '#283593'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#e8eaf6', font: { size: 12, family: 'Rajdhani' } }
                 }
-            });
+            }
         }
-
+    });
+}
         function updateCityChart() {
             const ctx = document.getElementById('cityChart');
             if (!ctx) return;
@@ -2676,11 +2676,6 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
         }
     });
 }
-                    }
-                }
-            });
-        }
-
 // Normaliza a data de manutenção para ISO (YYYY-MM-DD), aceitando registros do Sheets (data/timestamp) e do site (date)
 function getMaintenanceISODate(m) {
     const raw = (m && (m.date || m.data || m.dataManutencao || m.timestamp || m.Timestamp)) || '';
@@ -2777,9 +2772,6 @@ function updateCostChart() {
                 },
                 x: { ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { display: false } }
             }
-        }
-    });
-}
         }
     });
 }

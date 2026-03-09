@@ -1945,19 +1945,6 @@ function renderBrakeBadge(v) {
     return `<span class="badge ${cls}" title="${safeTitle}">${st.label}</span>`;
 }
 
-  // se não informou, não autoriza
-  if (!userMatricula) {
-    userIsAuthorized = false;
-    return false;
-  }
-
-  // chama WebApp (JSONP)
-  const url = buildUrl(MAINT_WEBAPP_URL, { action: 'validateUser', matricula: userMatricula, _: Date.now() });
-  const res = await jsonpRequestWithRetry(url, 3, 15000);
-
-  userIsAuthorized = !!(res && res.success === true);
-  return userIsAuthorized;
-}
 
         function renderVehicles() {
             const tbody = document.getElementById('vehicleTableBody');

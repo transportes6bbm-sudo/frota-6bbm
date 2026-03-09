@@ -1206,6 +1206,11 @@ table{
         // Dados iniciais da frota (carregados da planilha)
         let vehicles = [];
         let maintenances = {};
+        const syncGate = {
+  fleetReady: false,
+  maintReady: false,
+  isReady() { return this.fleetReady && this.maintReady; }
+};
         let userIsAuthorized = false;
 let userMatricula = '';
         // Expor para depuração / console
@@ -1268,9 +1273,11 @@ let userMatricula = '';
                 window.maintenances = maintenances;
         const total = Object.values(map).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
         console.log(`Manutenções carregadas: ${total} registros (chaves: ${Object.keys(map).length})`);
+        syncGate.maintReady = true;
         return true;
     } catch (err) {
         console.warn("Falha ao carregar manutenções:", err);
+        syncGate.maintReady = false;
         return false;
     }
 }
@@ -1392,6 +1399,7 @@ async function syncFleetFromSheet(force = true) {
         // Planilha = fonte da verdade (substitui tudo)
         vehicles = cleaned;
                 window.vehicles = vehicles;
+        syncGate.fleetReady = true;
 
         // Cache local só como fallback rápido
         try {
@@ -1423,6 +1431,7 @@ async function syncFleetFromSheet(force = true) {
         return true;
     } catch (err) {
         console.error("Erro ao sincronizar frota:", err);
+        syncGate.fleetReady = false;
         if (statusEl) {
             statusEl.querySelector('#lastSyncOk').textContent = `● falha (${err.message})`;
             statusEl.querySelector('#lastSyncOk').style.color = 'crimson';
@@ -2034,6 +2043,9 @@ function getOilStatusForVehicle(v) {
 }
 
 function renderOilBadge(v) {
+    if (!syncGate.isReady()) {
+  return `<span class="badge badge-info" title="Aguardando sincronização com a planilha">⏳</span>`;
+}
     const st = getOilStatusForVehicle(v);
     const cls = (st.level === 'overdue') ? 'badge-danger'
              : (st.level === 'warn') ? 'badge-warning'
@@ -2116,6 +2128,9 @@ function getBrakeStatusForVehicle(v) {
 }
 
 function renderBrakeBadge(v) {
+    if (!syncGate.isReady()) {
+  return `<span class="badge badge-info" title="Aguardando sincronização com a planilha">⏳</span>`;
+}
     const st = getBrakeStatusForVehicle(v);
     const cls = (st.level === 'overdue') ? 'badge-danger'
              : (st.level === 'warn') ? 'badge-warning'

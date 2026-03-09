@@ -3028,46 +3028,238 @@ function parseMoneyAny(v){
   const n=Number(s);
   return Number.isFinite(n)?n:0;
 }
+
+
+// ===== Gestão: janela móvel 12 meses (a partir da data/hora de acesso) + deduplicação =====
+function rolling12mWindow() {
+    const end = new Date(); // agora
+    const start = new Date(end.getTime());
+    start.setFullYear(start.getFullYear() - 1); // -12 meses
+    return { start, end };
+}
+
+function getMaintenanceDateObj(m) {
+    const raw = (m && (m.date || m.data || m.dataManutencao || m.timestamp || m.Timestamp)) || '';
+    const d = parseDateValue(raw);
+    return (d && !isNaN(d.getTime())) ? d : null;
+}
+
+function maintenanceUniqueKey(m) {
+    const ts = (m && (m.timestamp || m.Timestamp)) ? String(m.timestamp || m.Timestamp).trim() : '';
+    if (ts) return `ts:${ts}`;
+
+    const placa = String(m.placa || '').trim().toUpperCase();
+    const prefixo = String(m.prefixo || '').trim().toUpperCase();
+    const iso = (typeof getMaintenanceISODate === 'function') ? String(getMaintenanceISODate(m) || '') : '';
+    const desc = String(m.descricao || m.description || '').trim().slice(0, 120);
+    const km = String(m.km ?? m.hodometro ?? '').trim();
+    const cost = String(m.custo ?? m.cost ?? '').trim();
+    return `fb:${placa}|${prefixo}|${iso}|${desc}|${km}|${cost}`;
+}
+
+function getAllMaintenancesDedup() {
+    const store = window.maintenances || maintenances || {};
+    const seen = new Set();
+    const out = [];
+    Object.values(store).forEach(arr => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(m => {
+            const k = maintenanceUniqueKey(m);
+            if (seen.has(k)) return;
+            seen.add(k);
+            out.push(m);
+        });
+    });
+    return out;
+}
+
+function maintenanceVehicleKey(m) {
+    const placa = normalizeKey(m.placa || m.placaViatura || '');
+    const prefixo = normalizeKey(m.prefixo || m.prefixoViatura || '');
+    if (placa) return placa;
+    if (prefixo) return prefixo;
+    const any = normalizeKey(m.vehicleId || m.viaturaId || m.id || '');
+    return any || 'N/D';
+}
 function getMaintenanceTypeLabel(m){
   return (String(m.tipo || m.type || '').trim().toUpperCase()) || 'N/D';
 }
 
-function renderMgmtDashboard(){
-  const months=getLast12MonthsKeys();
-  const costByMonth=Object.fromEntries(months.map(k=>[k,0]));
-  const countByMonth=Object.fromEntries(months.map(k=>[k,0]));
-  const typeAgg={};
+function renderMgmtByVehicle12m() {
+    const { start, end } = rolling12mWindow();
+    const all = getAllMaintenancesDedup();
 
-  Object.values(maintenances).forEach(records=>{
-    (records||[]).forEach(m=>{
-      const iso=getMaintenanceISODate(m);
-      if(!iso) return;
-      const ym=iso.substring(0,7);
-      if(!(ym in costByMonth)) return;
-      const tipo=getMaintenanceTypeLabel(m);
-      const cost=parseMoneyAny(m.cost ?? m.custo ?? 0);
-      costByMonth[ym]+=cost;
-      countByMonth[ym]+=1;
-      if(!typeAgg[tipo]) typeAgg[tipo]={count:0,cost:0};
-      typeAgg[tipo].count+=1;
-      typeAgg[tipo].cost+=cost;
+    const last12 = all.filter(m => {
+        const d = getMaintenanceDateObj(m);
+        if (!d) return false;
+        return d >= start && d <= end;
     });
-  });
 
-  const ctxCost=document.getElementById('mgmtCostChart');
-  if(ctxCost){
-    if(charts.mgmtCost) charts.mgmtCost.destroy();
-    charts.mgmtCost=new Chart(ctxCost,{
-      type:'line',
-      data:{labels:months.map(monthLabel),
-            datasets:[{label:'Gasto (R$)', data:months.map(k=>costByMonth[k]||0),
-                       borderColor:'#00c853', backgroundColor:'rgba(0, 200, 83, 0.1)', tension:0.35, fill:true}]},
-      options:{responsive:true, maintainAspectRatio:true,
-        plugins:{legend:{labels:{color:'#e8eaf6', font:{family:'Rajdhani'}}}},
-        scales:{y:{beginAtZero:true, ticks:{color:'#9fa8da', font:{family:'Rajdhani'},
-              callback:v=>'R$ '+Number(v).toLocaleString('pt-BR')}, grid:{color:'#283593'}},
-                x:{ticks:{color:'#9fa8da', font:{family:'Rajdhani'}}, grid:{display:false}}}
-      }
+    const byVehicle = {};
+    last12.forEach(m => {
+        const key = maintenanceVehicleKey(m);
+        const cost = parseMoneyAny(m.cost ?? m.custo ?? 0);
+        if (!byVehicle[key]) {
+            byVehicle[key] = { count: 0, cost: 0, placa: (m.placa || ''), prefixo: (m.prefixo || '') };
+        }
+        byVehicle[key].count += 1;
+        byVehicle[key].cost += cost;
+    });
+
+    const vehList = window.vehicles || vehicles || [];
+    const vehicleLabel = (key, row) => {
+        const found = vehList.find(v => {
+            const keys = [v.id, v.placa, v.prefixo].map(normalizeKey).filter(Boolean);
+            return keys.includes(key);
+        });
+        if (found) return `${found.placa || '—'} / ${found.prefixo || '—'} • ${(found.cidade || found.unidade || '').toString()}`;
+        const p = row.placa ? String(row.placa).toUpperCase() : '—';
+        const pr = row.prefixo ? String(row.prefixo).toUpperCase() : '—';
+        return `${p} / ${pr}`;
+    };
+
+    const rows = Object.entries(byVehicle)
+        .map(([key, v]) => ({ key, ...v }))
+        .sort((a, b) => b.cost - a.cost);
+
+    const totalCount = last12.length;
+    const totalCost = rows.reduce((sum, r) => sum + r.cost, 0);
+
+    const el = document.getElementById('mgmtTables');
+    if (!el) return;
+
+    el.innerHTML = `
+        <div class="dashboard" style="margin-top: 1rem;">
+            <div class="stat-card">
+                <div class="stat-icon">🧾</div>
+                <div class="stat-label">Manutenções (12m móvel)</div>
+                <div class="stat-value">${totalCount}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-label">Gasto (12m móvel)</div>
+                <div class="stat-value">${totalCost.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📅</div>
+                <div class="stat-label">Período</div>
+                <div class="stat-value" style="font-size:1.1rem; line-height:1.2;">
+                    ${start.toLocaleDateString('pt-BR')} até ${end.toLocaleDateString('pt-BR')}
+                </div>
+            </div>
+        </div>
+
+        <table class="report-table" style="margin-top: 1rem;">
+            <thead>
+                <tr>
+                    <th>Viatura</th>
+                    <th>Qtd. (12m)</th>
+                    <th>Gasto (12m)</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map(r => `
+                    <tr>
+                        <td>${vehicleLabel(r.key, r)}</td>
+                        <td>${r.count}</td>
+                        <td>${r.cost.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderMgmtDashboard() {
+    const { start, end } = rolling12mWindow();
+    const months = getLast12MonthsKeys(); // meses (mês atual + 11 anteriores)
+    const costByMonth = Object.fromEntries(months.map(k => [k, 0]));
+    const typeAgg = {};
+
+    const all = getAllMaintenancesDedup();
+    const last12 = all.filter(m => {
+        const d = getMaintenanceDateObj(m);
+        if (!d) return false;
+        return d >= start && d <= end;
+    });
+
+    last12.forEach(m => {
+        const iso = (typeof getMaintenanceISODate === 'function') ? getMaintenanceISODate(m) : '';
+        if (iso) {
+            const ym = iso.substring(0, 7);
+            if (ym in costByMonth) costByMonth[ym] += parseMoneyAny(m.cost ?? m.custo ?? 0);
+        }
+        const tipo = (String(m.tipo || m.type || '').trim().toUpperCase()) || 'N/D';
+        const cost = parseMoneyAny(m.cost ?? m.custo ?? 0);
+        if (!typeAgg[tipo]) typeAgg[tipo] = { count: 0, cost: 0 };
+        typeAgg[tipo].count += 1;
+        typeAgg[tipo].cost += cost;
+    });
+
+    // Chart custos (12m)
+    const ctxCost = document.getElementById('mgmtCostChart');
+    if (ctxCost) {
+        if (charts.mgmtCost) charts.mgmtCost.destroy();
+        charts.mgmtCost = new Chart(ctxCost, {
+            type: 'line',
+            data: {
+                labels: months.map(monthLabel),
+                datasets: [{
+                    label: 'Gasto (R$)',
+                    data: months.map(k => costByMonth[k] || 0),
+                    borderColor: '#00c853',
+                    backgroundColor: 'rgba(0, 200, 83, 0.1)',
+                    tension: 0.35,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { labels: { color: '#e8eaf6', font: { family: 'Rajdhani' } } } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: '#9fa8da', font: { family: 'Rajdhani' }, callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') },
+                        grid: { color: '#283593' }
+                    },
+                    x: { ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart por tipo
+    const typeRows = Object.entries(typeAgg).sort((a, b) => b[1].count - a[1].count).slice(0, 12);
+    const ctxType = document.getElementById('mgmtTypeChart');
+    if (ctxType) {
+        if (charts.mgmtType) charts.mgmtType.destroy();
+        charts.mgmtType = new Chart(ctxType, {
+            type: 'bar',
+            data: {
+                labels: typeRows.map(([k]) => k),
+                datasets: [{
+                    label: 'Quantidade',
+                    data: typeRows.map(([, v]) => v.count),
+                    backgroundColor: '#ffa000',
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { color: '#283593' } },
+                    x: { ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Tabela por viatura (12m móvel)
+    renderMgmtByVehicle12m();
+}
     });
   }
 

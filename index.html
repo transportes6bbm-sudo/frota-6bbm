@@ -1560,6 +1560,10 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
             if (savedMaintenances) {
                 maintenances = savedMaintenances;
             }
+            // valida acesso (não trava o carregamento da frota)
+validateUserAccess()
+  .then(() => renderVehicles())
+  .catch(() => { userIsAuthorized = false; renderVehicles(); });
             renderVehicles();
             updateStats();
             populateCityFilter();
@@ -1944,7 +1948,44 @@ function renderBrakeBadge(v) {
     const safeTitle = String(st.title || '').replace(/"/g, '&quot;');
     return `<span class="badge ${cls}" title="${safeTitle}">${st.label}</span>`;
 }
+        function getStoredMatricula() {
+  try {
+    return (localStorage.getItem('user-matricula') || '').trim();
+  } catch {
+    return '';
+  }
+}
 
+function setStoredMatricula(m) {
+  try {
+    localStorage.setItem('user-matricula', String(m || '').trim());
+  } catch {}
+}
+
+async function validateUserAccess() {
+  // pega matrícula salva ou pede uma vez
+  userMatricula = getStoredMatricula();
+  if (!userMatricula) {
+    userMatricula = prompt('Digite sua matrícula para habilitar ações (editar/excluir):') || '';
+    userMatricula = userMatricula.toString().replace(/\D/g,'');
+    if (userMatricula) setStoredMatricula(userMatricula);
+  } else {
+    userMatricula = userMatricula.toString().replace(/\D/g,'');
+  }
+
+  // se não informou, não autoriza
+  if (!userMatricula) {
+    userIsAuthorized = false;
+    return false;
+  }
+
+  // chama WebApp (JSONP)
+  const url = buildUrl(MAINT_WEBAPP_URL, { action: 'validateUser', matricula: userMatricula, _: Date.now() });
+  const res = await jsonpRequestWithRetry(url, 3, 15000);
+
+  userIsAuthorized = !!(res && res.success === true);
+  return userIsAuthorized;
+}
 
         function renderVehicles() {
             const tbody = document.getElementById('vehicleTableBody');
@@ -2072,7 +2113,7 @@ const order = ['1ª Companhia', '2ª Companhia'];
 let htmlRows = '';
 for (const g of order) {
     if (!groups[g] || groups[g].length === 0) continue;
-    htmlRows += `<tr><td colspan="${userIsAuthorized ? 11 : 10}" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${g}</td></tr>`;
+    htmlRows += `<tr><td colspan="11" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${g}</td></tr>`;
     htmlRows += groups[g].map(rowHtml).join('');
 }
 tbody.innerHTML = htmlRows;
@@ -2567,8 +2608,7 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
             const typeCounts = {};
             Object.values(maintenances).forEach(records => {
                 records.forEach(m => {
-                    const mt = (m.type || m.tipo || 'N/D');
-                    typeCounts[mt] = (typeCounts[mt] || 0) + 1;
+                    typeCounts[m.type] = (typeCounts[m.type] || 0) + 1;
                 });
             });
 
@@ -2605,21 +2645,15 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
             });
         }
 
-        
-// =========================
-// Helper: normaliza data de manutenção (aceita date/data/dataManutencao/timestamp)
-// =========================
+// Normaliza a data de manutenção para ISO (YYYY-MM-DD), aceitando registros do Sheets (data/timestamp) e do site (date)
 function getMaintenanceISODate(m) {
     const raw = (m && (m.date || m.data || m.dataManutencao || m.timestamp || m.Timestamp)) || '';
     if (!raw) return '';
-
     if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-
     if (typeof raw === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
         const [dd, mm, yyyy] = raw.split('/');
         return `${yyyy}-${mm}-${dd}`;
     }
-
     const d = parseDateValue(raw);
     if (!d) return '';
     const y = d.getFullYear();
@@ -2629,7 +2663,7 @@ function getMaintenanceISODate(m) {
 }
 
 
-function updateCostChart() {
+        function updateCostChart() {
     const ctx = document.getElementById('costChart');
     if (!ctx) return;
 
@@ -2639,10 +2673,7 @@ function updateCostChart() {
             const iso = getMaintenanceISODate(m);
             if (!iso) return;
             const month = iso.substring(0, 7);
-
-            const costVal = (m.cost !== undefined ? m.cost : m.custo);
-            const cost = Number(String(costVal ?? 0).replace(',', '.')) || 0;
-
+            const cost = Number(m.cost ?? m.custo ?? 0) || 0;
             monthlyCosts[month] = (monthlyCosts[month] || 0) + cost;
         });
     });
@@ -2671,41 +2702,22 @@ function updateCostChart() {
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            plugins: {
-                legend: { labels: { color: '#e8eaf6', font: { family: 'Rajdhani' } } }
-            },
+            plugins: { legend: { labels: { color: '#e8eaf6', font: { family: 'Rajdhani' } } } },
             scales: {
                 y: {
                     beginAtZero: true,
                     ticks: {
                         color: '#9fa8da',
                         font: { family: 'Rajdhani' },
-                        callback: function(value) {
-                            return 'R$ ' + Number(value).toLocaleString('pt-BR');
-                        }
+                        callback: function(value) { return 'R$ ' + Number(value).toLocaleString('pt-BR'); }
                     },
                     grid: { color: '#283593' }
                 },
-                x: {
-                    ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } },
-                    grid: { display: false }
-                }
+                x: { ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { display: false } }
             }
         }
     });
 }
-
-                            },
-                            grid: { color: '#283593' }
-                        },
-                        x: {
-                            ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } },
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
-        }
 
         // === FUNÇÕES DE RELATÓRIOS ===
         function populateReportFilters() {
@@ -2725,95 +2737,26 @@ function updateCostChart() {
             }
         }
 
-        
-function updateReports() {
-    const month = document.getElementById('reportMonth')?.value;
-    const vehicleId = document.getElementById('reportVehicle')?.value;
-    const type = document.getElementById('reportType')?.value;
-    const reportContent = document.getElementById('reportContent');
+        function updateReports() {
+            const month = document.getElementById('reportMonth')?.value;
+            const vehicleId = document.getElementById('reportVehicle')?.value;
+            const type = document.getElementById('reportType')?.value;
+            const reportContent = document.getElementById('reportContent');
 
-    if (!month || !reportContent) return;
+            if (!month || !reportContent) return;
 
-    let filtered = [];
-    Object.entries(maintenances).forEach(([vId, records]) => {
-        if (vehicleId && vId != vehicleId) return;
-
-        (records || []).forEach(m => {
-            const iso = getMaintenanceISODate(m);
-            if (!iso) return;
-
-            if (iso.startsWith(month)) {
-                const mt = (m.type || m.tipo || '').toString();
-                if (!type || mt === type) {
-                    const vehicle = vehicles.find(v => v.id == vId);
-                    filtered.push({ ...m, vehicle: vehicle, __isoDate: iso });
-                }
-            }
-        });
-    });
-
-    if (filtered.length === 0) {
-        reportContent.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">📋</div>
-                <p>Nenhuma manutenção encontrada para os filtros selecionados</p>
-            </div>
-        `;
-        return;
-    }
-
-    filtered.sort((a, b) => new Date(a.__isoDate) - new Date(b.__isoDate));
-
-    const totalCost = filtered.reduce((sum, m) => {
-        const c = (m.cost !== undefined ? m.cost : m.custo);
-        const n = Number(String(c ?? 0).replace(',', '.')) || 0;
-        return sum + n;
-    }, 0);
-
-    const totalCount = filtered.length;
-
-    const tableHtml = `
-        <table class="report-table">
-            <thead>
-                <tr>
-                    <th>Data</th>
-                    <th>Viatura</th>
-                    <th>Tipo</th>
-                    <th>Descrição</th>
-                    <th>KM</th>
-                    <th>Custo</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${filtered.map(m => {
-                    const mt = (m.type || m.tipo || 'N/D');
-                    const desc = (m.description || m.descricao || '');
-                    const km = (m.km ?? m.hodometro ?? 0);
-                    const c = (m.cost !== undefined ? m.cost : m.custo);
-                    const costNum = Number(String(c ?? 0).replace(',', '.')) || 0;
-                    return `
-                    <tr>
-                        <td>${formatDate(m.__isoDate)}</td>
-                        <td>${m.vehicle?.placa || 'N/A'} - ${m.vehicle?.prefixo || 'N/A'}</td>
-                        <td><span class="badge ${getMaintenanceTypeBadge(mt)}">${mt}</span></td>
-                        <td>${desc}</td>
-                        <td>${Number(km) > 0 ? Number(km).toLocaleString('pt-BR') + ' km' : '-'}</td>
-                        <td>R$ ${costNum.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                    </tr>
-                    `;
-                }).join('')}
-                <tr class="total-row">
-                    <td colspan="4"><strong>TOTAL</strong></td>
-                    <td><strong>${totalCount} manutenções</strong></td>
-                    <td><strong>R$ ${totalCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong></td>
-                </tr>
-            </tbody>
-        </table>
-    `;
-
-    reportContent.innerHTML = tableHtml;
-}
-
+            let filtered = [];
+            Object.entries(maintenances).forEach(([vId, records]) => {
+                if (vehicleId && vId != vehicleId) return;
+                
+                records.forEach(m => {
+                    const iso = getMaintenanceISODate(m);
+                    if (!iso) return;
+                    if (iso.startsWith(month)) {
+                        if (!type || m.type === type) {
+                            const vehicle = vehicles.find(v => v.id == vId);
+                            filtered.push({ ...m, vehicle: vehicle });
+                        }
                     }
                 });
             });
@@ -2828,7 +2771,7 @@ function updateReports() {
                 return;
             }
 
-            filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+            filtered.sort((a, b) => new Date(getMaintenanceISODate(a) || 0) - new Date(getMaintenanceISODate(b) || 0));
 
             const totalCost = filtered.reduce((sum, m) => sum + (m.cost || 0), 0);
             const totalCount = filtered.length;
@@ -2897,7 +2840,8 @@ function updateReports() {
                 
                 records.forEach(m => {
                     const iso = getMaintenanceISODate(m);
-                    if (iso && iso.startsWith(month)) {
+                    if (!iso) return;
+                    if (iso.startsWith(month)) {
                         if (!type || m.type === type) {
                             const vehicle = vehicles.find(v => v.id == vId);
                             filtered.push({ ...m, vehicle: vehicle });

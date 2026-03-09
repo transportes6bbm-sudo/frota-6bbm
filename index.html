@@ -652,10 +652,10 @@ table{
     <div class="container">
         <!-- Tabs de Navegação -->
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('frota')">🚒 Frota</button>
-            <button class="tab" onclick="switchTab('graficos')">📊 Gráficos</button>
-            <button class="tab" onclick="switchTab('relatorios')">📈 Relatórios</button>
-            <button class="tab" id="configTab" onclick="switchTab('config')" style="display: none;">⚙️ Configurações</button>
+            <button class="tab active" onclick="switchTab('frota', this)">🚒 Frota</button>
+<button class="tab" onclick="switchTab('graficos', this)">📊 Gráficos</button>
+<button class="tab" onclick="switchTab('relatorios', this)">📈 Relatórios</button>
+<button class="tab" id="configTab" onclick="switchTab('config', this)" style="display: none;">⚙️ Configurações</button>
         </div>
 
         <!-- Conteúdo Tab Frota (Conteúdo Original) -->
@@ -1493,23 +1493,33 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
         }
 
         // === NAVEGAÇÃO POR TABS ===
-        function switchTab(tabName) {
-            // Remover active de todas as tabs
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
-            // Ativar tab selecionada
-            event.target.classList.add('active');
-            document.getElementById(tabName).classList.add('active');
+        function switchTab(tabName, el) {
+  // Remover active de todas as tabs e conteúdos
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-            // Atualizar gráficos se necessário
-            if (tabName === 'graficos') {
-                updateCharts();
-            } else if (tabName === 'relatorios') {
-                populateReportFilters();
-                updateReports();
-            }
-        }
+  // Ativar tab selecionada
+  if (el && el.classList) {
+    el.classList.add('active');
+  } else {
+    // fallback: acha o botão pelo onclick
+    const btn = Array.from(document.querySelectorAll('.tab'))
+      .find(b => (b.getAttribute('onclick') || '').includes(`'${tabName}'`));
+    if (btn) btn.classList.add('active');
+  }
+
+  const panel = document.getElementById(tabName);
+  if (panel) panel.classList.add('active');
+
+  // Atualizar gráficos/relatórios quando necessário
+  if (tabName === 'graficos') {
+    updateCharts();
+  } else if (tabName === 'relatorios') {
+    populateReportFilters();
+    updateReports();
+    if (typeof renderMgmtReports === 'function') renderMgmtReports();
+  }
+}
 
         // Inicializar dados
         function initializeData() {

@@ -2729,47 +2729,85 @@ function getMaintenanceISODate(m) {
   });
 }
 
+
         // === FUNÇÕES DE RELATÓRIOS ===
         function populateReportFilters() {
             const select = document.getElementById('reportVehicle');
             if (!select) return;
-            
+
+            const currentValue = select.value;
             select.innerHTML = '<option value="">Todas as Viaturas</option>';
-            vehicles.forEach(v => {
-                select.innerHTML += `<option value="${v.id}">${v.placa} - ${v.prefixo}</option>`;
+            (vehicles || []).forEach(v => {
+                select.innerHTML += `<option value="${v.id}">${v.placa || 'S/PLACA'} - ${v.prefixo || 'S/PREFIXO'}</option>`;
             });
 
-            // Definir mês atual
+            if (currentValue) select.value = currentValue;
+
             const now = new Date();
             const monthInput = document.getElementById('reportMonth');
-            if (monthInput) {
+            if (monthInput && !monthInput.value) {
                 monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             }
         }
 
+        function findVehicleForMaintenance(m) {
+            const maintKeys = new Set(getMaintenanceKeyCandidates(m));
+            return (vehicles || []).find(v =>
+                getVehicleKeyCandidates(v).some(k => maintKeys.has(k))
+            ) || null;
+        }
+
+        function normalizeReportMaintenance(m) {
+            const vehicle = findVehicleForMaintenance(m);
+            const iso = getMaintenanceISODate(m);
+            const type = String(m.type || m.tipo || 'N/D').trim().toUpperCase();
+            const description = String(m.description || m.descricao || '(sem descrição)').trim();
+            const km = Number(m.km ?? m.hodometro ?? m.hodômetro ?? 0) || 0;
+            const cost = parseMoneyAny(m.cost ?? m.custo ?? m.valor ?? 0);
+
+            return {
+                raw: m,
+                iso,
+                vehicle,
+                type,
+                description,
+                km,
+                cost
+            };
+        }
+
+        function getFilteredReportMaintenances() {
+            const month = document.getElementById('reportMonth')?.value || '';
+            const vehicleId = document.getElementById('reportVehicle')?.value || '';
+            const type = (document.getElementById('reportType')?.value || '').trim().toUpperCase();
+
+            const selectedVehicle = vehicleId
+                ? (vehicles || []).find(v => String(v.id) === String(vehicleId))
+                : null;
+            const selectedKeys = selectedVehicle
+                ? new Set(getVehicleKeyCandidates(selectedVehicle))
+                : null;
+
+            return getAllMaintenancesDedup()
+                .map(normalizeReportMaintenance)
+                .filter(m => m.iso)
+                .filter(m => !month || m.iso.startsWith(month))
+                .filter(m => !type || m.type === type)
+                .filter(m => {
+                    if (!selectedKeys) return true;
+                    const maintKeys = getMaintenanceKeyCandidates(m.raw);
+                    return maintKeys.some(k => selectedKeys.has(k));
+                })
+                .sort((a, b) => new Date(a.iso || 0) - new Date(b.iso || 0));
+        }
+
         function updateReports() {
             const month = document.getElementById('reportMonth')?.value;
-            const vehicleId = document.getElementById('reportVehicle')?.value;
-            const type = document.getElementById('reportType')?.value;
             const reportContent = document.getElementById('reportContent');
 
             if (!month || !reportContent) return;
 
-            let filtered = [];
-            Object.entries(maintenances).forEach(([vId, records]) => {
-                if (vehicleId && vId != vehicleId) return;
-                
-                records.forEach(m => {
-                    const iso = getMaintenanceISODate(m);
-                    if (!iso) return;
-                    if (iso.startsWith(month)) {
-                        if (!type || m.type === type) {
-                            const vehicle = vehicles.find(v => v.id == vId);
-                            filtered.push({ ...m, vehicle: vehicle });
-                        }
-                    }
-                });
-            });
+            const filtered = getFilteredReportMaintenances();
 
             if (filtered.length === 0) {
                 reportContent.innerHTML = `
@@ -2780,8 +2818,6 @@ function getMaintenanceISODate(m) {
                 `;
                 return;
             }
-
-            filtered.sort((a, b) => new Date(getMaintenanceISODate(a) || 0) - new Date(getMaintenanceISODate(b) || 0));
 
             const totalCost = filtered.reduce((sum, m) => sum + (m.cost || 0), 0);
             const totalCount = filtered.length;
@@ -2801,18 +2837,18 @@ function getMaintenanceISODate(m) {
                     <tbody>
                         ${filtered.map(m => `
                             <tr>
-                                <td>${formatDate(getMaintenanceISODate(m))}</td>
-                                <td>${m.vehicle?.placa || 'N/A'} - ${m.vehicle?.prefixo || 'N/A'}</td>
+                                <td>${formatDate(m.iso)}</td>
+                                <td>${m.vehicle?.placa || m.raw.placa || 'N/A'} - ${m.vehicle?.prefixo || m.raw.prefixo || 'N/A'}</td>
                                 <td><span class="badge ${getMaintenanceTypeBadge(m.type)}">${m.type}</span></td>
                                 <td>${m.description}</td>
                                 <td>${m.km > 0 ? m.km.toLocaleString('pt-BR') + ' km' : '-'}</td>
-                                <td>R$ ${m.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                <td>${m.cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                             </tr>
                         `).join('')}
                         <tr class="total-row">
                             <td colspan="4"><strong>TOTAL</strong></td>
                             <td><strong>${totalCount} manutenções</strong></td>
-                            <td><strong>R$ ${totalCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong></td>
+                            <td><strong>${totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
                         </tr>
                     </tbody>
                 </table>
@@ -2822,63 +2858,78 @@ function getMaintenanceISODate(m) {
         }
 
         async function exportToPDF() {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                showAlert('Biblioteca jsPDF não encontrada.', 'error');
+                return;
+            }
+
+            const month = document.getElementById('reportMonth')?.value || '';
+            if (!month) {
+                showAlert('Selecione um mês antes de exportar o relatório.', 'error');
+                return;
+            }
+
+            const filtered = getFilteredReportMaintenances();
+            if (!filtered.length) {
+                showAlert('Não há manutenções para os filtros selecionados.', 'error');
+                return;
+            }
+
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+            const [year, monthNum] = month.split('-');
+            const monthName = new Date(Number(year), Number(monthNum) - 1, 1)
+                .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
             doc.setFontSize(18);
             doc.setTextColor(211, 47, 47);
-            doc.text('Relatório de Manutenções', 14, 20);
-            
+            doc.text('Relatório de Manutenções', 14, 16);
+
             doc.setFontSize(12);
             doc.setTextColor(0, 0, 0);
-            doc.text('6º Batalhão de Bombeiros Militar', 14, 28);
+            doc.text('6º Batalhão de Bombeiros Militar', 14, 24);
 
-            const month = document.getElementById('reportMonth').value;
-            const [year, monthNum] = month.split('-');
-            const monthName = new Date(year, monthNum - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-            
             doc.setFontSize(10);
-            doc.text(`Período: ${monthName}`, 14, 35);
-            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 40);
-
-            const vehicleId = document.getElementById('reportVehicle').value;
-            const type = document.getElementById('reportType').value;
-
-            let filtered = [];
-            Object.entries(maintenances).forEach(([vId, records]) => {
-                if (vehicleId && vId != vehicleId) return;
-                
-                records.forEach(m => {
-                    const iso = getMaintenanceISODate(m);
-                    if (!iso) return;
-                    if (iso.startsWith(month)) {
-                        if (!type || m.type === type) {
-                            const vehicle = vehicles.find(v => v.id == vId);
-                            filtered.push({ ...m, vehicle: vehicle });
-                        }
-                    }
-                });
-            });
+            doc.text(`Período: ${monthName}`, 14, 31);
+            doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 36);
 
             const tableData = filtered.map(m => [
-                formatDate(getMaintenanceISODate(m)),
-                `${m.vehicle?.placa || 'N/A'}`,
+                formatDate(m.iso),
+                `${m.vehicle?.placa || m.raw.placa || 'N/A'} - ${m.vehicle?.prefixo || m.raw.prefixo || 'N/A'}`,
                 m.type,
                 m.description,
                 m.km > 0 ? m.km.toLocaleString('pt-BR') : '-',
-                `R$ ${m.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`
+                m.cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
             ]);
 
             const totalCost = filtered.reduce((sum, m) => sum + (m.cost || 0), 0);
 
             doc.autoTable({
-                startY: 50,
+                startY: 42,
                 head: [['Data', 'Viatura', 'Tipo', 'Descrição', 'KM', 'Custo']],
                 body: tableData,
-                foot: [['', '', '', 'TOTAL', `${filtered.length} manutenções`, `R$ ${totalCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`]],
+                foot: [[
+                    '',
+                    '',
+                    '',
+                    'TOTAL',
+                    `${filtered.length} manutenções`,
+                    totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                ]],
                 theme: 'grid',
+                styles: { fontSize: 9, overflow: 'linebreak', cellPadding: 2.5 },
                 headStyles: { fillColor: [211, 47, 47] },
-                footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+                footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+                columnStyles: {
+                    0: { cellWidth: 23 },
+                    1: { cellWidth: 38 },
+                    2: { cellWidth: 24 },
+                    3: { cellWidth: 120 },
+                    4: { cellWidth: 22, halign: 'right' },
+                    5: { cellWidth: 28, halign: 'right' }
+                },
+                margin: { left: 10, right: 10 }
             });
 
             doc.save(`relatorio-manutencoes-${month}.pdf`);

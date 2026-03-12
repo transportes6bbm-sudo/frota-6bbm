@@ -3296,6 +3296,208 @@ function renderMgmtDashboard() {
     // Tabela por viatura (12m móvel)
     renderMgmtByVehicle12m();
 }
+
+function buildMgmtDashboardData() {
+    const { start, end } = rolling12mWindow();
+    const months = getLast12MonthsKeys();
+    const costByMonth = Object.fromEntries(months.map(k => [k, 0]));
+    const countByMonth = Object.fromEntries(months.map(k => [k, 0]));
+    const typeAgg = {};
+    const byVehicle = {};
+
+    const all = getAllMaintenancesDedup();
+    const last12 = all.filter(m => {
+        const d = getMaintenanceDateObj(m);
+        return d && d >= start && d <= end;
+    });
+
+    last12.forEach(m => {
+        const iso = (typeof getMaintenanceISODate === 'function') ? getMaintenanceISODate(m) : '';
+        const ym = iso ? iso.substring(0, 7) : '';
+        const cost = parseMoneyAny(m.cost ?? m.custo ?? 0);
+        const tipo = (String(m.tipo || m.type || '').trim().toUpperCase()) || 'N/D';
+        const key = maintenanceVehicleKey(m);
+
+        if (ym && (ym in costByMonth)) {
+            costByMonth[ym] += cost;
+            countByMonth[ym] += 1;
+        }
+
+        if (!typeAgg[tipo]) typeAgg[tipo] = { count: 0, cost: 0 };
+        typeAgg[tipo].count += 1;
+        typeAgg[tipo].cost += cost;
+
+        if (!byVehicle[key]) {
+            byVehicle[key] = {
+                count: 0,
+                cost: 0,
+                placa: (m.placa || ''),
+                prefixo: (m.prefixo || '')
+            };
+        }
+        byVehicle[key].count += 1;
+        byVehicle[key].cost += cost;
+    });
+
+    const vehList = window.vehicles || vehicles || [];
+    const vehicleLabel = (key, row) => {
+        const found = vehList.find(v => {
+            const keys = [v.id, v.placa, v.prefixo].map(normalizeKey).filter(Boolean);
+            return keys.includes(key);
+        });
+        if (found) return `${found.placa || '—'} / ${found.prefixo || '—'} • ${(found.cidade || found.unidade || '').toString()}`;
+        const p = row.placa ? String(row.placa).toUpperCase() : '—';
+        const pr = row.prefixo ? String(row.prefixo).toUpperCase() : '—';
+        return `${p} / ${pr}`;
+    };
+
+    const rows = Object.entries(byVehicle)
+        .map(([key, v]) => ({ key, ...v, label: vehicleLabel(key, v) }))
+        .sort((a, b) => {
+            if (b.cost !== a.cost) return b.cost - a.cost;
+            if (b.count !== a.count) return b.count - a.count;
+            return String(a.label || '').localeCompare(String(b.label || ''), 'pt-BR');
+        });
+
+    const typeRows = Object.entries(typeAgg)
+        .map(([type, values]) => ({ type, ...values }))
+        .sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            if (b.cost !== a.cost) return b.cost - a.cost;
+            return String(a.type || '').localeCompare(String(b.type || ''), 'pt-BR');
+        });
+
+    const totalCount = last12.length;
+    const totalCost = rows.reduce((sum, r) => sum + r.cost, 0);
+
+    return {
+        start,
+        end,
+        months,
+        costByMonth,
+        countByMonth,
+        typeRows,
+        rows,
+        totalCount,
+        totalCost
+    };
+}
+
+function exportMgmtDashboardPDF() {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        showAlert('Biblioteca jsPDF não encontrada.', 'error');
+        return;
+    }
+
+    const data = buildMgmtDashboardData();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    const title = 'Relatório Gerencial de Manutenções - 6º BBM';
+    const generatedAt = new Date().toLocaleString('pt-BR');
+    const period = `${data.start.toLocaleDateString('pt-BR')} até ${data.end.toLocaleDateString('pt-BR')}`;
+    const money = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    doc.setFontSize(16);
+    doc.setTextColor(211, 47, 47);
+    doc.text(title, 14, 16);
+
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Gestão - últimos 12 meses móveis com deduplicação por timestamp', 14, 23);
+    doc.text(`Período analisado: ${period}`, 14, 29);
+    doc.text(`Gerado em: ${generatedAt}`, 14, 34);
+
+    doc.autoTable({
+        startY: 40,
+        head: [['Indicador', 'Valor']],
+        body: [
+            ['Manutenções válidas (12m móvel)', String(data.totalCount)],
+            ['Gasto total (12m móvel)', money(data.totalCost)],
+            ['Viaturas com manutenção', String(data.rows.length)],
+            ['Tipos de manutenção encontrados', String(data.typeRows.length)]
+        ],
+        theme: 'grid',
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [211, 47, 47] },
+        margin: { left: 14, right: 14 }
+    });
+
+    doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 8,
+        head: [['Mês', 'Qtd.', 'Gasto']],
+        body: data.months.map(k => [
+            monthLabel(k),
+            String(data.countByMonth[k] || 0),
+            money(data.costByMonth[k] || 0)
+        ]),
+        foot: [['TOTAL', String(data.totalCount), money(data.totalCost)]],
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [25, 118, 210] },
+        footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+        margin: { left: 14, right: 14 }
+    });
+
+    doc.addPage('a4', 'landscape');
+    doc.setFontSize(15);
+    doc.setTextColor(211, 47, 47);
+    doc.text('Resumo por viatura', 14, 16);
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Período analisado: ${period}`, 14, 23);
+
+    const vehicleBody = data.rows.length
+        ? data.rows.map(r => [r.label, String(r.count), money(r.cost)])
+        : [['Sem registros no período', '-', '-']];
+
+    doc.autoTable({
+        startY: 28,
+        head: [['Viatura', 'Qtd. (12m)', 'Gasto (12m)']],
+        body: vehicleBody,
+        theme: 'grid',
+        styles: { fontSize: 8.5, cellWidth: 'wrap' },
+        headStyles: { fillColor: [255, 143, 0] },
+        margin: { left: 14, right: 14 },
+        columnStyles: {
+            0: { cellWidth: 165 },
+            1: { cellWidth: 35, halign: 'center' },
+            2: { cellWidth: 45, halign: 'right' }
+        }
+    });
+
+    doc.addPage('a4', 'landscape');
+    doc.setFontSize(15);
+    doc.setTextColor(211, 47, 47);
+    doc.text('Resumo por tipo de manutenção', 14, 16);
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Período analisado: ${period}`, 14, 23);
+
+    const typeBody = data.typeRows.length
+        ? data.typeRows.map(r => [r.type, String(r.count), money(r.cost)])
+        : [['Sem registros no período', '-', '-']];
+
+    doc.autoTable({
+        startY: 28,
+        head: [['Tipo', 'Qtd. (12m)', 'Gasto (12m)']],
+        body: typeBody,
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [0, 200, 83] },
+        margin: { left: 14, right: 14 },
+        columnStyles: {
+            0: { cellWidth: 150 },
+            1: { cellWidth: 45, halign: 'center' },
+            2: { cellWidth: 50, halign: 'right' }
+        }
+    });
+
+    const fileStamp = new Date().toISOString().slice(0, 10);
+    doc.save(`gestao_manutencoes_12m_${fileStamp}.pdf`);
+    showAlert('PDF gerencial gerado com sucesso!');
+}
+
 initializeData();
         bootSyncPlanilhaVerdade();
     </script>

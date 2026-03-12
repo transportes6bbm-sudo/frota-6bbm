@@ -623,6 +623,178 @@ table{
     border: 1px solid rgba(25,118,210, 0.65);
 }
 
+
+/* Layout de abas e relatórios */
+.tabs {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.tab {
+    padding: 0.85rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(21, 27, 61, 0.9);
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    transition: all 0.25s ease;
+}
+
+.tab:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 143, 0, 0.6);
+}
+
+.tab.active {
+    background: linear-gradient(180deg, rgba(211,47,47,.95) 0%, rgba(142,0,0,.95) 100%);
+    color: var(--white);
+    box-shadow: 0 10px 24px rgba(211,47,47,.28);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.report-section,
+.chart-card,
+.type-overview-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    box-shadow: 0 12px 28px rgba(0,0,0,.16);
+}
+
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+
+.report-title,
+.chart-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+.report-filters {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.report-filters input,
+.report-filters select {
+    min-width: 220px;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.report-table .total-row td {
+    font-weight: 700;
+    background: rgba(255,255,255,.04);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--text-muted);
+}
+
+.empty-state-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+}
+
+.type-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.type-card {
+    background: linear-gradient(180deg, rgba(11,22,54,.95) 0%, rgba(21,27,61,.95) 100%);
+    border: 1px solid rgba(25,118,210,.35);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+}
+
+.type-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 0.65rem;
+}
+
+.type-card-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--white);
+}
+
+.type-card-total {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--secondary);
+    font-family: 'Roboto Mono', monospace;
+}
+
+.type-card-meta {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    margin-bottom: 0.75rem;
+}
+
+.type-card-bars {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.type-card-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.55rem 0.7rem;
+    border-radius: 10px;
+    background: rgba(255,255,255,.04);
+    font-size: 0.92rem;
+}
+
+.type-card-stat strong {
+    color: var(--white);
+}
+
+.type-card-empty {
+    color: var(--text-muted);
+    padding: 1rem;
+    text-align: center;
+}
+
 </style>
 </head>
 <body>
@@ -653,7 +825,7 @@ table{
         <!-- Tabs de Navegação -->
         <div class="tabs">
             <button class="tab active" onclick="switchTab('frota', this)">🚒 Frota</button>
-<button class="tab" onclick="switchTab('graficos', this)">📊 Gráficos</button>
+<button class="tab" onclick="switchTab('graficos', this)">🚒 Tipos de Viatura</button>
 <button class="tab" onclick="switchTab('gestao', this)">📌 Gestão</button>
             <button class="tab" onclick="switchTab('relatorios', this)">📈 Relatórios</button>
 <button class="tab" id="configTab" onclick="switchTab('config', this)" style="display: none;">⚙️ Configurações</button>
@@ -742,49 +914,32 @@ table{
         </div>
         <!-- Fim Tab Frota -->
 
-        <!-- Tab Gráficos -->
+        <!-- Tab Tipos de Viatura -->
         <div id="graficos" class="tab-content">
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <div class="chart-title">📊 Situação da Frota</div>
-                    <canvas id="situationChart"></canvas>
+            <div class="report-section">
+                <div class="report-header">
+                    <div class="report-title">🚒 Tipos de Viatura</div>
+                    <div style="color: var(--text-muted); font-size: 0.95rem;">Visualização objetiva da composição da frota, sem gráficos de pizza.</div>
                 </div>
-                <div class="chart-card">
-                    <div class="chart-title">🏙️ Distribuição por Cidade</div>
-                    <canvas id="cityChart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <div class="chart-title">🚒 Tipos de Viatura</div>
-                    <canvas id="typeChart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <div class="chart-title">🔧 Manutenções por Tipo</div>
-                    <canvas id="maintenanceTypeChart"></canvas>
-                </div>
+                <div id="typeOverviewGrid" class="type-overview-grid"></div>
             </div>
         </div>
-        <!-- Fim Tab Gráficos -->
+        <!-- Fim Tab Tipos de Viatura -->
 
-<!-- Tab Gestão (Gráficos + Relatórios 12 meses) -->
+<!-- Tab Gestão (Relatório global 12 meses) -->
 <div id="gestao" class="tab-content">
     <div class="report-section">
         <div class="report-header">
-            <div class="report-title">📌 Gestão (últimos 12 meses)</div>
+            <div class="report-title">📌 Relatório Global de Manutenções</div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="btn btn-secondary" onclick="renderMgmtDashboard()">🔄 Atualizar</button>
                 <button class="btn btn-primary" onclick="exportMgmtDashboardPDF()">📄 Exportar PDF</button>
             </div>
         </div>
 
-        <div class="charts-grid">
-            <div class="chart-card">
-                <div class="chart-title">💰 Gastos por mês (12m)</div>
-                <canvas id="mgmtCostChart"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title">🔧 Manutenções por tipo (12m)</div>
-                <canvas id="mgmtTypeChart"></canvas>
-            </div>
+        <div class="chart-card" style="margin-bottom: 1rem;">
+            <div class="chart-title">💰 Gastos por mês (12 meses móveis)</div>
+            <canvas id="mgmtCostChart"></canvas>
         </div>
 
         <div id="mgmtTables"></div>
@@ -1535,10 +1690,11 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
   const panel = document.getElementById(tabName);
   if (panel) panel.classList.add('active');
 
-  if (tabName === 'graficos') { try { updateCharts(); } catch(e){ console.error(e);} }
+  if (tabName === 'graficos') { try { renderTypeOverview(); } catch(e){ console.error(e);} }
   if (tabName === 'relatorios') {
     try { populateReportFilters(); } catch(e){ console.error(e); }
     try { updateReports(); } catch(e){ console.error(e); }
+    try { updateCostChart(); } catch(e){ console.error(e); }
   }
   if (tabName === 'gestao') { try { renderMgmtDashboard(); } catch(e){ console.error(e);} }
 }
@@ -2502,12 +2658,56 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
             setTimeout(() => alert.classList.remove('active'), 3500);
         }
 
+
+        function renderTypeOverview() {
+            const grid = document.getElementById('typeOverviewGrid');
+            if (!grid) return;
+
+            const grouped = {};
+            (vehicles || []).forEach(v => {
+                const tipo = String(v.subclasse || v.tipo || 'Não informado').trim() || 'Não informado';
+                if (!grouped[tipo]) {
+                    grouped[tipo] = { total: 0, disponivel: 0, manutencao: 0, indisponivel: 0 };
+                }
+                grouped[tipo].total += 1;
+
+                const sit = String(v.situacao || '').toUpperCase();
+                if (sit === 'DISPONÍVEL') grouped[tipo].disponivel += 1;
+                else if (sit === 'EM MANUTENÇÃO') grouped[tipo].manutencao += 1;
+                else grouped[tipo].indisponivel += 1;
+            });
+
+            const rows = Object.entries(grouped)
+                .map(([tipo, vals]) => ({ tipo, ...vals }))
+                .sort((a, b) => {
+                    if (b.total !== a.total) return b.total - a.total;
+                    return a.tipo.localeCompare(b.tipo, 'pt-BR');
+                });
+
+            if (!rows.length) {
+                grid.innerHTML = '<div class="type-card type-card-empty">Nenhum dado de viatura disponível.</div>';
+                return;
+            }
+
+            grid.innerHTML = rows.map(row => `
+                <div class="type-card">
+                    <div class="type-card-header">
+                        <div class="type-card-name">${row.tipo}</div>
+                        <div class="type-card-total">${row.total}</div>
+                    </div>
+                    <div class="type-card-meta">Total de viaturas deste tipo</div>
+                    <div class="type-card-bars">
+                        <div class="type-card-stat"><span>Disponíveis</span><strong>${row.disponivel}</strong></div>
+                        <div class="type-card-stat"><span>Em manutenção</span><strong>${row.manutencao}</strong></div>
+                        <div class="type-card-stat"><span>Indisponíveis</span><strong>${row.indisponivel}</strong></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
         // === FUNÇÕES DE GRÁFICOS ===
         function updateCharts() {
-            updateSituationChart();
-            updateCityChart();
-            updateTypeChart();
-            updateMaintenanceTypeChart();
+            renderTypeOverview();
             updateCostChart();
         }
 
@@ -2855,6 +3055,7 @@ function getMaintenanceISODate(m) {
             `;
 
             reportContent.innerHTML = tableHtml;
+            updateCostChart();
         }
 
         async function exportToPDF() {
@@ -3259,31 +3460,24 @@ function renderMgmtByVehicle12m() {
 
 function renderMgmtDashboard() {
     const { start, end } = rolling12mWindow();
-    const months = getLast12MonthsKeys(); // meses (mês atual + 11 anteriores)
+    const months = getLast12MonthsKeys();
     const costByMonth = Object.fromEntries(months.map(k => [k, 0]));
-    const typeAgg = {};
 
     const all = getAllMaintenancesDedup();
     const last12 = all.filter(m => {
         const d = getMaintenanceDateObj(m);
-        if (!d) return false;
-        return d >= start && d <= end;
+        return d && d >= start && d <= end;
     });
 
     last12.forEach(m => {
         const iso = (typeof getMaintenanceISODate === 'function') ? getMaintenanceISODate(m) : '';
-        if (iso) {
-            const ym = iso.substring(0, 7);
-            if (ym in costByMonth) costByMonth[ym] += parseMoneyAny(m.cost ?? m.custo ?? 0);
+        if (!iso) return;
+        const ym = iso.substring(0, 7);
+        if (ym in costByMonth) {
+            costByMonth[ym] += parseMoneyAny(m.cost ?? m.custo ?? 0);
         }
-        const tipo = (String(m.tipo || m.type || '').trim().toUpperCase()) || 'N/D';
-        const cost = parseMoneyAny(m.cost ?? m.custo ?? 0);
-        if (!typeAgg[tipo]) typeAgg[tipo] = { count: 0, cost: 0 };
-        typeAgg[tipo].count += 1;
-        typeAgg[tipo].cost += cost;
     });
 
-    // Chart custos (12m)
     const ctxCost = document.getElementById('mgmtCostChart');
     if (ctxCost) {
         if (charts.mgmtCost) charts.mgmtCost.destroy();
@@ -3316,35 +3510,6 @@ function renderMgmtDashboard() {
         });
     }
 
-    // Chart por tipo
-    const typeRows = Object.entries(typeAgg).sort((a, b) => b[1].count - a[1].count).slice(0, 12);
-    const ctxType = document.getElementById('mgmtTypeChart');
-    if (ctxType) {
-        if (charts.mgmtType) charts.mgmtType.destroy();
-        charts.mgmtType = new Chart(ctxType, {
-            type: 'bar',
-            data: {
-                labels: typeRows.map(([k]) => k),
-                datasets: [{
-                    label: 'Quantidade',
-                    data: typeRows.map(([, v]) => v.count),
-                    backgroundColor: '#ffa000',
-                    borderRadius: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { color: '#283593' } },
-                    x: { ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { display: false } }
-                }
-            }
-        });
-    }
-
-    // Tabela por viatura (12m móvel)
     renderMgmtByVehicle12m();
 }
 
@@ -3353,7 +3518,6 @@ function buildMgmtDashboardData() {
     const months = getLast12MonthsKeys();
     const costByMonth = Object.fromEntries(months.map(k => [k, 0]));
     const countByMonth = Object.fromEntries(months.map(k => [k, 0]));
-    const typeAgg = {};
     const byVehicle = {};
 
     const all = getAllMaintenancesDedup();
@@ -3366,17 +3530,12 @@ function buildMgmtDashboardData() {
         const iso = (typeof getMaintenanceISODate === 'function') ? getMaintenanceISODate(m) : '';
         const ym = iso ? iso.substring(0, 7) : '';
         const cost = parseMoneyAny(m.cost ?? m.custo ?? 0);
-        const tipo = (String(m.tipo || m.type || '').trim().toUpperCase()) || 'N/D';
         const key = maintenanceVehicleKey(m);
 
         if (ym && (ym in costByMonth)) {
             costByMonth[ym] += cost;
             countByMonth[ym] += 1;
         }
-
-        if (!typeAgg[tipo]) typeAgg[tipo] = { count: 0, cost: 0 };
-        typeAgg[tipo].count += 1;
-        typeAgg[tipo].cost += cost;
 
         if (!byVehicle[key]) {
             byVehicle[key] = {
@@ -3410,14 +3569,6 @@ function buildMgmtDashboardData() {
             return String(a.label || '').localeCompare(String(b.label || ''), 'pt-BR');
         });
 
-    const typeRows = Object.entries(typeAgg)
-        .map(([type, values]) => ({ type, ...values }))
-        .sort((a, b) => {
-            if (b.count !== a.count) return b.count - a.count;
-            if (b.cost !== a.cost) return b.cost - a.cost;
-            return String(a.type || '').localeCompare(String(b.type || ''), 'pt-BR');
-        });
-
     const totalCount = last12.length;
     const totalCost = rows.reduce((sum, r) => sum + r.cost, 0);
 
@@ -3427,7 +3578,6 @@ function buildMgmtDashboardData() {
         months,
         costByMonth,
         countByMonth,
-        typeRows,
         rows,
         totalCount,
         totalCost
@@ -3444,7 +3594,7 @@ function exportMgmtDashboardPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-    const title = 'Relatório Gerencial de Manutenções - 6º BBM';
+    const title = 'Relatório Global de Manutenções - 6º BBM';
     const generatedAt = new Date().toLocaleString('pt-BR');
     const period = `${data.start.toLocaleDateString('pt-BR')} até ${data.end.toLocaleDateString('pt-BR')}`;
     const money = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -3455,7 +3605,7 @@ function exportMgmtDashboardPDF() {
 
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text('Gestão - últimos 12 meses móveis com deduplicação por timestamp', 14, 23);
+    doc.text('Resumo gerencial dos últimos 12 meses móveis com deduplicação por timestamp', 14, 23);
     doc.text(`Período analisado: ${period}`, 14, 29);
     doc.text(`Gerado em: ${generatedAt}`, 14, 34);
 
@@ -3465,8 +3615,7 @@ function exportMgmtDashboardPDF() {
         body: [
             ['Manutenções válidas (12m móvel)', String(data.totalCount)],
             ['Gasto total (12m móvel)', money(data.totalCost)],
-            ['Viaturas com manutenção', String(data.rows.length)],
-            ['Tipos de manutenção encontrados', String(data.typeRows.length)]
+            ['Viaturas com manutenção', String(data.rows.length)]
         ],
         theme: 'grid',
         styles: { fontSize: 10 },
@@ -3517,35 +3666,8 @@ function exportMgmtDashboardPDF() {
         }
     });
 
-    doc.addPage('a4', 'landscape');
-    doc.setFontSize(15);
-    doc.setTextColor(211, 47, 47);
-    doc.text('Resumo por tipo de manutenção', 14, 16);
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Período analisado: ${period}`, 14, 23);
-
-    const typeBody = data.typeRows.length
-        ? data.typeRows.map(r => [r.type, String(r.count), money(r.cost)])
-        : [['Sem registros no período', '-', '-']];
-
-    doc.autoTable({
-        startY: 28,
-        head: [['Tipo', 'Qtd. (12m)', 'Gasto (12m)']],
-        body: typeBody,
-        theme: 'grid',
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [0, 200, 83] },
-        margin: { left: 14, right: 14 },
-        columnStyles: {
-            0: { cellWidth: 150 },
-            1: { cellWidth: 45, halign: 'center' },
-            2: { cellWidth: 50, halign: 'right' }
-        }
-    });
-
     const fileStamp = new Date().toISOString().slice(0, 10);
-    doc.save(`gestao_manutencoes_12m_${fileStamp}.pdf`);
+    doc.save(`relatorio_global_manutencoes_${fileStamp}.pdf`);
     showAlert('PDF gerencial gerado com sucesso!');
 }
 

@@ -3086,88 +3086,124 @@ function getMaintenanceTypeLabel(m){
 }
 
 function renderMgmtByVehicle12m() {
-    const { start, end } = rolling12mWindow();
-    const all = getAllMaintenancesDedup();
+  const { start, end } = rolling12mWindow();
+  const months = getLast12MonthsKeys(); // YYYY-MM (mês atual + 11 anteriores)
 
-    const last12 = all.filter(m => {
-        const d = getMaintenanceDateObj(m);
-        if (!d) return false;
-        return d >= start && d <= end;
+  const all = getAllMaintenancesDedup();
+  const last12 = all.filter(m => {
+    const d = getMaintenanceDateObj(m);
+    return d && d >= start && d <= end;
+  });
+
+  // por mês (gastos + quantidade)
+  const costByMonth = Object.fromEntries(months.map(k => [k, 0]));
+  const countByMonth = Object.fromEntries(months.map(k => [k, 0]));
+
+  // por viatura
+  const byVehicle = {};
+
+  last12.forEach(m => {
+    const iso = (typeof getMaintenanceISODate === 'function') ? getMaintenanceISODate(m) : '';
+    const ym = iso ? iso.substring(0, 7) : '';
+    const cost = parseMoneyAny(m.cost ?? m.custo ?? 0);
+
+    if (ym && (ym in costByMonth)) {
+      costByMonth[ym] += cost;
+      countByMonth[ym] += 1;
+    }
+
+    const key = maintenanceVehicleKey(m);
+    if (!byVehicle[key]) {
+      byVehicle[key] = { count: 0, cost: 0, placa: (m.placa || ''), prefixo: (m.prefixo || '') };
+    }
+    byVehicle[key].count += 1;
+    byVehicle[key].cost += cost;
+  });
+
+  const vehList = window.vehicles || vehicles || [];
+  const vehicleLabel = (key, row) => {
+    const found = vehList.find(v => {
+      const keys = [v.id, v.placa, v.prefixo].map(normalizeKey).filter(Boolean);
+      return keys.includes(key);
     });
+    if (found) return `${found.placa || '—'} / ${found.prefixo || '—'} • ${(found.cidade || found.unidade || '').toString()}`;
+    const p = row.placa ? String(row.placa).toUpperCase() : '—';
+    const pr = row.prefixo ? String(row.prefixo).toUpperCase() : '—';
+    return `${p} / ${pr}`;
+  };
 
-    const byVehicle = {};
-    last12.forEach(m => {
-        const key = maintenanceVehicleKey(m);
-        const cost = parseMoneyAny(m.cost ?? m.custo ?? 0);
-        if (!byVehicle[key]) {
-            byVehicle[key] = { count: 0, cost: 0, placa: (m.placa || ''), prefixo: (m.prefixo || '') };
-        }
-        byVehicle[key].count += 1;
-        byVehicle[key].cost += cost;
-    });
+  const rows = Object.entries(byVehicle)
+    .map(([key, v]) => ({ key, ...v }))
+    .sort((a, b) => b.cost - a.cost);
 
-    const vehList = window.vehicles || vehicles || [];
-    const vehicleLabel = (key, row) => {
-        const found = vehList.find(v => {
-            const keys = [v.id, v.placa, v.prefixo].map(normalizeKey).filter(Boolean);
-            return keys.includes(key);
-        });
-        if (found) return `${found.placa || '—'} / ${found.prefixo || '—'} • ${(found.cidade || found.unidade || '').toString()}`;
-        const p = row.placa ? String(row.placa).toUpperCase() : '—';
-        const pr = row.prefixo ? String(row.prefixo).toUpperCase() : '—';
-        return `${p} / ${pr}`;
-    };
+  const totalCount = last12.length;
+  const totalCost = rows.reduce((sum, r) => sum + r.cost, 0);
 
-    const rows = Object.entries(byVehicle)
-        .map(([key, v]) => ({ key, ...v }))
-        .sort((a, b) => b.cost - a.cost);
+  const el = document.getElementById('mgmtTables');
+  if (!el) return;
 
-    const totalCount = last12.length;
-    const totalCost = rows.reduce((sum, r) => sum + r.cost, 0);
-
-    const el = document.getElementById('mgmtTables');
-    if (!el) return;
-
-    el.innerHTML = `
-        <div class="dashboard" style="margin-top: 1rem;">
-            <div class="stat-card">
-                <div class="stat-icon">🧾</div>
-                <div class="stat-label">Manutenções (12m móvel)</div>
-                <div class="stat-value">${totalCount}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">💰</div>
-                <div class="stat-label">Gasto (12m móvel)</div>
-                <div class="stat-value">${totalCost.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">📅</div>
-                <div class="stat-label">Período</div>
-                <div class="stat-value" style="font-size:1.1rem; line-height:1.2;">
-                    ${start.toLocaleDateString('pt-BR')} até ${end.toLocaleDateString('pt-BR')}
-                </div>
-            </div>
+  el.innerHTML = `
+    <div class="dashboard" style="margin-top: 1rem;">
+      <div class="stat-card">
+        <div class="stat-icon">🧾</div>
+        <div class="stat-label">Manutenções (12m móvel)</div>
+        <div class="stat-value">${totalCount}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-label">Gasto (12m móvel)</div>
+        <div class="stat-value">${totalCost.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📅</div>
+        <div class="stat-label">Período</div>
+        <div class="stat-value" style="font-size:1.05rem; line-height:1.2;">
+          ${start.toLocaleDateString('pt-BR')} até ${end.toLocaleDateString('pt-BR')}
         </div>
+      </div>
+    </div>
 
-        <table class="report-table" style="margin-top: 1rem;">
-            <thead>
-                <tr>
-                    <th>Viatura</th>
-                    <th>Qtd. (12m)</th>
-                    <th>Gasto (12m)</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${rows.map(r => `
-                    <tr>
-                        <td>${vehicleLabel(r.key, r)}</td>
-                        <td>${r.count}</td>
-                        <td>${r.cost.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
+    <div class="chart-card" style="margin-top: 1rem;">
+      <div class="chart-title">💰 Gastos por mês (12m)</div>
+      <table class="report-table" id="mgmtMonthTable">
+        <thead>
+          <tr><th>Mês</th><th>Qtd.</th><th>Gasto</th></tr>
+        </thead>
+        <tbody>
+          ${months.map(k => `
+            <tr>
+              <td>${monthLabel(k)}</td>
+              <td>${countByMonth[k] || 0}</td>
+              <td>${(costByMonth[k] || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</td>
+            </tr>
+          `).join('')}
+          <tr class="total-row">
+            <td>TOTAL</td>
+            <td>${totalCount}</td>
+            <td>${totalCost.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chart-card" style="margin-top: 1rem;">
+      <div class="chart-title">🚒 Por viatura (12m)</div>
+      <table class="report-table" id="mgmtVehicleTable">
+        <thead>
+          <tr><th>Viatura</th><th>Qtd. (12m)</th><th>Gasto (12m)</th></tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${vehicleLabel(r.key, r)}</td>
+              <td>${r.count}</td>
+              <td>${r.cost.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderMgmtDashboard() {

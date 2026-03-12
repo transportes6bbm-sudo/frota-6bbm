@@ -1500,19 +1500,16 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
                 console.warn('Cache local não disponível');
             }
 
-            if (savedMaintenances) {
-                maintenances = savedMaintenances;
-            }
-            // valida acesso (não trava o carregamento da frota)
-validateUserAccess()
-  .then(() => renderVehicles())
-  .catch(() => { userIsAuthorized = false; renderVehicles(); });
+            // Manutenções não devem vir do localStorage nesta versão.
+            // A fonte de verdade é o WebApp/planilha, carregado em bootSyncPlanilhaVerdade().
             renderVehicles();
             updateStats();
             populateCityFilter();
+
+            // valida acesso (não trava o carregamento da frota)
             validateUserAccess()
-  .then(() => { renderVehicles(); updateStats(); populateCityFilter(); })
-  .catch(() => { userIsAuthorized = false; applyAuthUI(); renderVehicles(); updateStats(); populateCityFilter(); });
+              .then(() => { renderVehicles(); updateStats(); populateCityFilter(); })
+              .catch(() => { userIsAuthorized = false; applyAuthUI(); renderVehicles(); updateStats(); populateCityFilter(); });
         }
 
         // Armazenamento persistente

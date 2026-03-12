@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestão de Frota - 6º BBM</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
@@ -652,8 +653,10 @@ table{
         <!-- Tabs de Navegação -->
         <div class="tabs">
             <button class="tab active" onclick="switchTab('frota', this)">🚒 Frota</button>
-            <button class="tab" onclick="switchTab('gestao', this)">📌 Gestão</button>
-            <button class="tab" id="configTab" onclick="switchTab('config', this)" style="display: none;">⚙️ Configurações</button>
+<button class="tab" onclick="switchTab('graficos', this)">📊 Gráficos</button>
+<button class="tab" onclick="switchTab('gestao', this)">📌 Gestão</button>
+            <button class="tab" onclick="switchTab('relatorios', this)">📈 Relatórios</button>
+<button class="tab" id="configTab" onclick="switchTab('config', this)" style="display: none;">⚙️ Configurações</button>
         </div>
 
         <!-- Conteúdo Tab Frota (Conteúdo Original) -->
@@ -739,7 +742,30 @@ table{
         </div>
         <!-- Fim Tab Frota -->
 
-<!-- Tab Gestão -->
+        <!-- Tab Gráficos -->
+        <div id="graficos" class="tab-content">
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-title">📊 Situação da Frota</div>
+                    <canvas id="situationChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">🏙️ Distribuição por Cidade</div>
+                    <canvas id="cityChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">🚒 Tipos de Viatura</div>
+                    <canvas id="typeChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">🔧 Manutenções por Tipo</div>
+                    <canvas id="maintenanceTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Fim Tab Gráficos -->
+
+<!-- Tab Gestão (Gráficos + Relatórios 12 meses) -->
 <div id="gestao" class="tab-content">
     <div class="report-section">
         <div class="report-header">
@@ -750,16 +776,62 @@ table{
             </div>
         </div>
 
-        <p style="color: var(--text-muted); margin-bottom: 1rem;">
-            Painel enxuto para acompanhamento gerencial das manutenções, com deduplicação por timestamp e janela móvel dos últimos 12 meses.
-        </p>
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-title">💰 Gastos por mês (12m)</div>
+                <canvas id="mgmtCostChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">🔧 Manutenções por tipo (12m)</div>
+                <canvas id="mgmtTypeChart"></canvas>
+            </div>
+        </div>
 
         <div id="mgmtTables"></div>
     </div>
 </div>
 <!-- Fim Tab Gestão -->
 
-<!-- Tab Configurações (apenas para gestor) -->
+        <!-- Tab Relatórios -->
+        <div id="relatorios" class="tab-content">
+            <div class="report-section">
+                <div class="report-header">
+                    <div class="report-title">📊 Relatório de Manutenções</div>
+                    <div>
+                        <button class="btn btn-primary" onclick="exportToPDF()">📄 Exportar PDF</button>
+                    </div>
+                </div>
+
+                <div class="report-filters">
+                    <input type="month" id="reportMonth" onchange="updateReports()">
+                    <select id="reportVehicle" onchange="updateReports()">
+                        <option value="">Todas as Viaturas</option>
+                    </select>
+                    <select id="reportType" onchange="updateReports()">
+                        <option value="">Todos os Tipos</option>
+                        <option value="PREVENTIVA">Preventiva</option>
+                        <option value="CORRETIVA">Corretiva</option>
+                        <option value="PREDITIVA">Preditiva</option>
+                        <option value="REVISÃO">Revisão</option>
+                    </select>
+                </div>
+
+                <div id="reportContent">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Selecione um mês para gerar o relatório</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-title">💰 Custos de Manutenção Mensais</div>
+                <canvas id="costChart"></canvas>
+            </div>
+        </div>
+        <!-- Fim Tab Relatórios -->
+
+        <!-- Tab Configurações (apenas para gestor) -->
         <div id="config" class="tab-content">
             <div class="report-section">
                 <div class="report-header">
@@ -1046,6 +1118,7 @@ let userMatricula = '';
         // Novas variáveis para recursos adicionados
         let isManager = false;
         let googleSheetsConfig = null;
+        let charts = {};
 
 // =====================================
 // SINCRONIZAÇÃO COM PLANILHA (FONTE VERDADE)
@@ -1462,12 +1535,19 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
   const panel = document.getElementById(tabName);
   if (panel) panel.classList.add('active');
 
+  if (tabName === 'graficos') { try { updateCharts(); } catch(e){ console.error(e);} }
+  if (tabName === 'relatorios') {
+    try { populateReportFilters(); } catch(e){ console.error(e); }
+    try { updateReports(); } catch(e){ console.error(e); }
+  }
   if (tabName === 'gestao') { try { renderMgmtDashboard(); } catch(e){ console.error(e);} }
 }
 
 
         // Inicializar dados
         function initializeData() {
+            // Carregar manutenções salvas
+            const savedMaintenances = loadFromStorage('manutencoes-6bbm');
             googleSheetsConfig = loadFromStorage('google-sheets-config');
             
             // Verificar autenticação
@@ -1500,16 +1580,19 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
                 console.warn('Cache local não disponível');
             }
 
-            // Manutenções não devem vir do localStorage nesta versão.
-            // A fonte de verdade é o WebApp/planilha, carregado em bootSyncPlanilhaVerdade().
+            if (savedMaintenances) {
+                maintenances = savedMaintenances;
+            }
+            // valida acesso (não trava o carregamento da frota)
+validateUserAccess()
+  .then(() => renderVehicles())
+  .catch(() => { userIsAuthorized = false; renderVehicles(); });
             renderVehicles();
             updateStats();
             populateCityFilter();
-
-            // valida acesso (não trava o carregamento da frota)
             validateUserAccess()
-              .then(() => { renderVehicles(); updateStats(); populateCityFilter(); })
-              .catch(() => { userIsAuthorized = false; applyAuthUI(); renderVehicles(); updateStats(); populateCityFilter(); });
+  .then(() => { renderVehicles(); updateStats(); populateCityFilter(); })
+  .catch(() => { userIsAuthorized = false; applyAuthUI(); renderVehicles(); updateStats(); populateCityFilter(); });
         }
 
         // Armazenamento persistente
@@ -2419,6 +2502,440 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
             setTimeout(() => alert.classList.remove('active'), 3500);
         }
 
+        // === FUNÇÕES DE GRÁFICOS ===
+        function updateCharts() {
+            updateSituationChart();
+            updateCityChart();
+            updateTypeChart();
+            updateMaintenanceTypeChart();
+            updateCostChart();
+        }
+
+        function updateSituationChart() {
+            const ctx = document.getElementById('situationChart');
+            if (!ctx) return;
+            
+            const data = {
+                'DISPONÍVEL': vehicles.filter(v => v.situacao === 'DISPONÍVEL').length,
+                'EM MANUTENÇÃO': vehicles.filter(v => v.situacao === 'EM MANUTENÇÃO').length,
+                'BAIXADA': vehicles.filter(v => v.situacao === 'BAIXADA').length,
+                'ACIDENTADA': vehicles.filter(v => v.situacao === 'ACIDENTADA').length,
+                'PROCESSO DE DESCARGA': vehicles.filter(v => v.situacao === 'PROCESSO DE DESCARGA').length
+            };
+
+            if (charts.situation) charts.situation.destroy();
+
+            charts.situation = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(data),
+                    datasets: [{
+                        data: Object.values(data),
+                        backgroundColor: ['#00c853', '#ffa000', '#d32f2f', '#9a0007', '#283593'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e8eaf6', font: { size: 12, family: 'Rajdhani' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCityChart() {
+            const ctx = document.getElementById('cityChart');
+            if (!ctx) return;
+            
+            const cityCounts = {};
+            vehicles.forEach(v => {
+                cityCounts[v.cidade] = (cityCounts[v.cidade] || 0) + 1;
+            });
+
+            if (charts.city) charts.city.destroy();
+
+            charts.city = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(cityCounts),
+                    datasets: [{
+                        label: 'Viaturas',
+                        data: Object.values(cityCounts),
+                        backgroundColor: '#d32f2f',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } },
+                            grid: { color: '#283593' }
+                        },
+                        x: {
+                            ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTypeChart() {
+            const ctx = document.getElementById('typeChart');
+            if (!ctx) return;
+            
+            const typeCounts = {};
+            vehicles.forEach(v => {
+                const t = (v.subclasse || v.tipo || 'Não informado');
+                typeCounts[t] = (typeCounts[t] || 0) + 1;
+            });
+
+            if (charts.type) charts.type.destroy();
+
+            charts.type = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(typeCounts),
+                    datasets: [{
+                        data: Object.values(typeCounts),
+                        backgroundColor: ['#d32f2f', '#ffa000', '#00c853', '#9fa8da', '#283593', '#1e2850', '#9a0007', '#c62828'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#e8eaf6', font: { size: 12, family: 'Rajdhani' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateMaintenanceTypeChart() {
+  const ctx = document.getElementById('maintenanceTypeChart');
+  if (!ctx) return;
+
+  const typeCounts = {};
+  Object.values(maintenances).forEach(records => {
+    (records || []).forEach(m => {
+      const t = getMaintenanceTypeLabel(m);
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    });
+  });
+
+  if (charts.maintenanceType) charts.maintenanceType.destroy();
+
+  charts.maintenanceType = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: Object.keys(typeCounts),
+      datasets: [{ label: 'Quantidade', data: Object.values(typeCounts), backgroundColor: '#ffa000', borderRadius: 8 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { color: '#283593' } },
+        y: { ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+// Normaliza a data de manutenção para ISO (YYYY-MM-DD), aceitando registros do Sheets (data/timestamp) e do site (date)
+function getMaintenanceISODate(m) {
+    const raw = (m && (m.date || m.data || m.dataManutencao || m.timestamp || m.Timestamp)) || '';
+    if (!raw) return '';
+    if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+    if (typeof raw === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+        const [dd, mm, yyyy] = raw.split('/');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    const d = parseDateValue(raw);
+    if (!d) return '';
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const da = String(d.getDate()).padStart(2, '0');
+    return `${y}-${mo}-${da}`;
+}
+
+
+        function updateCostChart() {
+  const ctx = document.getElementById('costChart');
+  if (!ctx) return;
+
+  const months = getLast12MonthsKeys();
+  const monthlyCosts = Object.fromEntries(months.map(k => [k, 0]));
+
+  Object.values(maintenances).forEach(records => {
+    (records || []).forEach(m => {
+      const iso = getMaintenanceISODate(m);
+      if (!iso) return;
+      const ym = iso.substring(0, 7);
+      if (!(ym in monthlyCosts)) return;
+      monthlyCosts[ym] += parseMoneyAny(m.cost ?? m.custo ?? 0);
+    });
+  });
+
+  const labels = months.map(monthLabel);
+  const values = months.map(k => monthlyCosts[k] || 0);
+
+  if (charts.cost) charts.cost.destroy();
+
+  charts.cost = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Gasto mensal (12m)',
+        data: values,
+        borderColor: '#00c853',
+        backgroundColor: 'rgba(0, 200, 83, 0.1)',
+        tension: 0.35,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { labels: { color: '#e8eaf6', font: { family: 'Rajdhani' } } } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: '#9fa8da',
+            font: { family: 'Rajdhani' },
+            callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR')
+          },
+          grid: { color: '#283593' }
+        },
+        x: { ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+
+        // === FUNÇÕES DE RELATÓRIOS ===
+        function populateReportFilters() {
+            const select = document.getElementById('reportVehicle');
+            if (!select) return;
+
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Todas as Viaturas</option>';
+            (vehicles || []).forEach(v => {
+                select.innerHTML += `<option value="${v.id}">${v.placa || 'S/PLACA'} - ${v.prefixo || 'S/PREFIXO'}</option>`;
+            });
+
+            if (currentValue) select.value = currentValue;
+
+            const now = new Date();
+            const monthInput = document.getElementById('reportMonth');
+            if (monthInput && !monthInput.value) {
+                monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            }
+        }
+
+        function findVehicleForMaintenance(m) {
+            const maintKeys = new Set(getMaintenanceKeyCandidates(m));
+            return (vehicles || []).find(v =>
+                getVehicleKeyCandidates(v).some(k => maintKeys.has(k))
+            ) || null;
+        }
+
+        function normalizeReportMaintenance(m) {
+            const vehicle = findVehicleForMaintenance(m);
+            const iso = getMaintenanceISODate(m);
+            const type = String(m.type || m.tipo || 'N/D').trim().toUpperCase();
+            const description = String(m.description || m.descricao || '(sem descrição)').trim();
+            const km = Number(m.km ?? m.hodometro ?? m.hodômetro ?? 0) || 0;
+            const cost = parseMoneyAny(m.cost ?? m.custo ?? m.valor ?? 0);
+
+            return {
+                raw: m,
+                iso,
+                vehicle,
+                type,
+                description,
+                km,
+                cost
+            };
+        }
+
+        function getFilteredReportMaintenances() {
+            const month = document.getElementById('reportMonth')?.value || '';
+            const vehicleId = document.getElementById('reportVehicle')?.value || '';
+            const type = (document.getElementById('reportType')?.value || '').trim().toUpperCase();
+
+            const selectedVehicle = vehicleId
+                ? (vehicles || []).find(v => String(v.id) === String(vehicleId))
+                : null;
+            const selectedKeys = selectedVehicle
+                ? new Set(getVehicleKeyCandidates(selectedVehicle))
+                : null;
+
+            return getAllMaintenancesDedup()
+                .map(normalizeReportMaintenance)
+                .filter(m => m.iso)
+                .filter(m => !month || m.iso.startsWith(month))
+                .filter(m => !type || m.type === type)
+                .filter(m => {
+                    if (!selectedKeys) return true;
+                    const maintKeys = getMaintenanceKeyCandidates(m.raw);
+                    return maintKeys.some(k => selectedKeys.has(k));
+                })
+                .sort((a, b) => new Date(a.iso || 0) - new Date(b.iso || 0));
+        }
+
+        function updateReports() {
+            const month = document.getElementById('reportMonth')?.value;
+            const reportContent = document.getElementById('reportContent');
+
+            if (!month || !reportContent) return;
+
+            const filtered = getFilteredReportMaintenances();
+
+            if (filtered.length === 0) {
+                reportContent.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Nenhuma manutenção encontrada para os filtros selecionados</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const totalCost = filtered.reduce((sum, m) => sum + (m.cost || 0), 0);
+            const totalCount = filtered.length;
+
+            const tableHtml = `
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Viatura</th>
+                            <th>Tipo</th>
+                            <th>Descrição</th>
+                            <th>KM</th>
+                            <th>Custo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(m => `
+                            <tr>
+                                <td>${formatDate(m.iso)}</td>
+                                <td>${m.vehicle?.placa || m.raw.placa || 'N/A'} - ${m.vehicle?.prefixo || m.raw.prefixo || 'N/A'}</td>
+                                <td><span class="badge ${getMaintenanceTypeBadge(m.type)}">${m.type}</span></td>
+                                <td>${m.description}</td>
+                                <td>${m.km > 0 ? m.km.toLocaleString('pt-BR') + ' km' : '-'}</td>
+                                <td>${m.cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                            </tr>
+                        `).join('')}
+                        <tr class="total-row">
+                            <td colspan="4"><strong>TOTAL</strong></td>
+                            <td><strong>${totalCount} manutenções</strong></td>
+                            <td><strong>${totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+
+            reportContent.innerHTML = tableHtml;
+        }
+
+        async function exportToPDF() {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                showAlert('Biblioteca jsPDF não encontrada.', 'error');
+                return;
+            }
+
+            const month = document.getElementById('reportMonth')?.value || '';
+            if (!month) {
+                showAlert('Selecione um mês antes de exportar o relatório.', 'error');
+                return;
+            }
+
+            const filtered = getFilteredReportMaintenances();
+            if (!filtered.length) {
+                showAlert('Não há manutenções para os filtros selecionados.', 'error');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+            const [year, monthNum] = month.split('-');
+            const monthName = new Date(Number(year), Number(monthNum) - 1, 1)
+                .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+            doc.setFontSize(18);
+            doc.setTextColor(211, 47, 47);
+            doc.text('Relatório de Manutenções', 14, 16);
+
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text('6º Batalhão de Bombeiros Militar', 14, 24);
+
+            doc.setFontSize(10);
+            doc.text(`Período: ${monthName}`, 14, 31);
+            doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 36);
+
+            const tableData = filtered.map(m => [
+                formatDate(m.iso),
+                `${m.vehicle?.placa || m.raw.placa || 'N/A'} - ${m.vehicle?.prefixo || m.raw.prefixo || 'N/A'}`,
+                m.type,
+                m.description,
+                m.km > 0 ? m.km.toLocaleString('pt-BR') : '-',
+                m.cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+            ]);
+
+            const totalCost = filtered.reduce((sum, m) => sum + (m.cost || 0), 0);
+
+            doc.autoTable({
+                startY: 42,
+                head: [['Data', 'Viatura', 'Tipo', 'Descrição', 'KM', 'Custo']],
+                body: tableData,
+                foot: [[
+                    '',
+                    '',
+                    '',
+                    'TOTAL',
+                    `${filtered.length} manutenções`,
+                    totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                ]],
+                theme: 'grid',
+                styles: { fontSize: 9, overflow: 'linebreak', cellPadding: 2.5 },
+                headStyles: { fillColor: [211, 47, 47] },
+                footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+                columnStyles: {
+                    0: { cellWidth: 23 },
+                    1: { cellWidth: 38 },
+                    2: { cellWidth: 24 },
+                    3: { cellWidth: 120 },
+                    4: { cellWidth: 22, halign: 'right' },
+                    5: { cellWidth: 28, halign: 'right' }
+                },
+                margin: { left: 10, right: 10 }
+            });
+
+            doc.save(`relatorio-manutencoes-${month}.pdf`);
+            showAlert('Relatório PDF gerado com sucesso!');
+        }
+
         // === GOOGLE SHEETS ===
         async function saveGoogleSheetsConfig() {
             const config = {
@@ -2741,7 +3258,93 @@ function renderMgmtByVehicle12m() {
 }
 
 function renderMgmtDashboard() {
-    // Versão lite: sem gráficos, mantendo apenas os indicadores e tabelas gerenciais.
+    const { start, end } = rolling12mWindow();
+    const months = getLast12MonthsKeys(); // meses (mês atual + 11 anteriores)
+    const costByMonth = Object.fromEntries(months.map(k => [k, 0]));
+    const typeAgg = {};
+
+    const all = getAllMaintenancesDedup();
+    const last12 = all.filter(m => {
+        const d = getMaintenanceDateObj(m);
+        if (!d) return false;
+        return d >= start && d <= end;
+    });
+
+    last12.forEach(m => {
+        const iso = (typeof getMaintenanceISODate === 'function') ? getMaintenanceISODate(m) : '';
+        if (iso) {
+            const ym = iso.substring(0, 7);
+            if (ym in costByMonth) costByMonth[ym] += parseMoneyAny(m.cost ?? m.custo ?? 0);
+        }
+        const tipo = (String(m.tipo || m.type || '').trim().toUpperCase()) || 'N/D';
+        const cost = parseMoneyAny(m.cost ?? m.custo ?? 0);
+        if (!typeAgg[tipo]) typeAgg[tipo] = { count: 0, cost: 0 };
+        typeAgg[tipo].count += 1;
+        typeAgg[tipo].cost += cost;
+    });
+
+    // Chart custos (12m)
+    const ctxCost = document.getElementById('mgmtCostChart');
+    if (ctxCost) {
+        if (charts.mgmtCost) charts.mgmtCost.destroy();
+        charts.mgmtCost = new Chart(ctxCost, {
+            type: 'line',
+            data: {
+                labels: months.map(monthLabel),
+                datasets: [{
+                    label: 'Gasto (R$)',
+                    data: months.map(k => costByMonth[k] || 0),
+                    borderColor: '#00c853',
+                    backgroundColor: 'rgba(0, 200, 83, 0.1)',
+                    tension: 0.35,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { labels: { color: '#e8eaf6', font: { family: 'Rajdhani' } } } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: '#9fa8da', font: { family: 'Rajdhani' }, callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') },
+                        grid: { color: '#283593' }
+                    },
+                    x: { ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart por tipo
+    const typeRows = Object.entries(typeAgg).sort((a, b) => b[1].count - a[1].count).slice(0, 12);
+    const ctxType = document.getElementById('mgmtTypeChart');
+    if (ctxType) {
+        if (charts.mgmtType) charts.mgmtType.destroy();
+        charts.mgmtType = new Chart(ctxType, {
+            type: 'bar',
+            data: {
+                labels: typeRows.map(([k]) => k),
+                datasets: [{
+                    label: 'Quantidade',
+                    data: typeRows.map(([, v]) => v.count),
+                    backgroundColor: '#ffa000',
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { color: '#283593' } },
+                    x: { ticks: { color: '#9fa8da', font: { family: 'Rajdhani' } }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Tabela por viatura (12m móvel)
     renderMgmtByVehicle12m();
 }
 

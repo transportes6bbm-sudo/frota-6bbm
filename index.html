@@ -857,13 +857,13 @@ table{
         </div>
 
         <div class="controls">
-<button class="btn btn-primary" id="btnAddVehicle" onclick="openAddModal()">➕ Adicionar Viatura</button>
-            <div class="search-box">
+<div class="search-box">
                 <input type="text" id="searchInput" placeholder="Buscar por placa, prefixo ou modelo..." onkeyup="filterVehicles()">
             </div>
             <select id="filterSituation" onchange="filterVehicles()">
                 <option value="">Todas Situações</option>
                 <option value="DISPONÍVEL">Disponível</option>
+                <option value="EM MANUTENÇÃO">Em Manutenção</option>
                 <option value="BAIXADA">Baixada</option>
                 <option value="ACIDENTADA">Acidentada</option>
                 <option value="PROCESSO DE DESCARGA">Processo de Descarga</option>
@@ -898,12 +898,11 @@ table{
                         <th>Situação</th>
                         <th>Última movimentação no SIAD</th>
                         <th>Manutenções</th>
-<th id="thAcoes">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="vehicleTableBody">
                     <tr>
-                        <td colspan="11" class="loading">
+                        <td colspan="10" class="loading">
                             <div class="spinner"></div>
                             Carregando dados da frota...
                         </td>
@@ -1035,77 +1034,7 @@ table{
     </div>
     <!-- Fim Container -->
 
-    <!-- Modal Adicionar/Editar -->
-    <div class="modal" id="vehicleModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Adicionar Viatura</h2>
-                <button class="close-modal" onclick="closeModal()">✕</button>
-            </div>
-            <form id="vehicleForm" onsubmit="saveVehicle(event)">
-                <input type="hidden" id="vehicleId">
-                
-                <div class="form-group">
-                    <label>Placa *</label>
-                    <input type="text" id="placa" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Prefixo *</label>
-                    <input type="text" id="prefixo" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Tipo de Viatura *</label>
-                    <select id="tipo" required>
-                        <option value="">Selecione...</option>
-                        <option value="ABTS">ABTS - Auto Bomba Tanque Salvamento</option>
-                        <option value="ABT">ABT - Auto Bomba Tanque</option>
-                        <option value="ABS">ABS - Auto Bomba Salvamento</option>
-                        <option value="ASL">ASL - Auto Salvamento Leve</option>
-                        <option value="ASM">ASM - Auto Salvamento Médio</option>
-                        <option value="ASF">ASF - Auto Salvamento Florestal</option>
-                        <option value="UR">UR - Unidade de Resgate</option>
-                        <option value="APV">APV - Auto Prevenção e Vistoria</option>
-                        <option value="TLP">TLP - Transporte Leve de Pessoal</option>
-                        <option value="TC">TC - Transporte de Carga</option>
-                        <option value="MO">MO - Moto Operacional</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Cidade *</label>
-                    <input type="text" id="cidade" required placeholder="Ex: Teófilo Otoni">
-                </div>
-
-                <div class="form-group">
-                    <label>Hodômetro (km)</label>
-                    <input type="number" id="hodometro" placeholder="0">
-                </div>
-
-                <div class="form-group">
-                    <label>Situação *</label>
-                    <select id="situacao" required>
-                        <option value="DISPONÍVEL">Disponível</option>
-                        <option value="EM MANUTENÇÃO">Em Manutenção</option>
-                        <option value="BAIXADA">Baixada</option>
-                        <option value="ACIDENTADA">Acidentada</option>
-                        <option value="PROCESSO DE DESCARGA">Processo de Descarga</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Última movimentação no SIAD</label>
-                    <input type="text" id="ultimaMovimentacaoSiad" placeholder="dd/mm/aaaa ou texto">
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">💾 Salvar</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <!-- Modal de Adicionar/Editar viatura removido: frota em modo somente leitura pela planilha verdade. -->
 
     <!-- Modal Manutenções -->
     <div class="modal" id="maintenanceModal">
@@ -1483,43 +1412,10 @@ const MAINT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbymLlluCMny9se
 const MAINTENANCE_WEBAPP_URL = MAINT_WEBAPP_URL;
 
         // =========================
-// AUTORIZAÇÃO (USUARIOS) - controla a coluna AÇÕES e o botão de adicionar viatura
-// =========================
-function getStoredMatricula() {
-  try { return (localStorage.getItem('user-matricula') || '').trim(); } catch(e) { return ''; }
-}
-function setStoredMatricula(m) {
-  try { localStorage.setItem('user-matricula', String(m || '').trim()); } catch(e) {}
-}
+// AUTORIZAÇÃO DE VIATURAS REMOVIDA
+// A frota é somente leitura e vem da planilha verdade; não há edição/exclusão de viaturas pela interface.
 function applyAuthUI() {
-  const thA = document.getElementById('thAcoes');
-  if (thA) thA.style.display = userIsAuthorized ? '' : 'none';
-  const btn = document.getElementById('btnAddVehicle');
-  if (btn) btn.style.display = userIsAuthorized ? '' : 'none';
-}
-async function validateUserAccess() {
-  userMatricula = getStoredMatricula();
-  if (!userMatricula) {
-    userMatricula = prompt('Digite sua matrícula para habilitar ações (editar/excluir):') || '';
-    userMatricula = userMatricula.toString().replace(/\D/g,'');
-    if (userMatricula) setStoredMatricula(userMatricula);
-  } else {
-    userMatricula = userMatricula.toString().replace(/\D/g,'');
-  }
-
-  if (!userMatricula) {
-    userIsAuthorized = false;
-    applyAuthUI();
-    return false;
-  }
-
-  // exige que o Code.gs tenha action=validateUser (retorna success:true para ativo)
-  const url = buildUrl(MAINT_WEBAPP_URL, { action: 'validateUser', matricula: userMatricula, _: Date.now() });
-  const res = await jsonpRequestWithRetry(url, 3, 15000);
-
-  userIsAuthorized = !!(res && res.success === true);
-  applyAuthUI();
-  return userIsAuthorized;
+  userIsAuthorized = false;
 }
 
 function buildUrl(baseUrl, params) {
@@ -1529,37 +1425,6 @@ function buildUrl(baseUrl, params) {
         u.searchParams.set(k, String(v));
     });
     return u.toString();
-}
-
-function jsonpRequest(url, params) {
-    return new Promise((resolve, reject) => {
-        const callbackName = 'cb_' + Math.random().toString(36).slice(2);
-        const qs = new URLSearchParams({ ...params, callback: callbackName }).toString();
-        const script = document.createElement('script');
-        const timeout = setTimeout(() => {
-            cleanup();
-            reject(new Error('Timeout ao chamar Apps Script'));
-        }, 15000);
-
-        function cleanup() {
-            clearTimeout(timeout);
-            if (script && script.parentNode) script.parentNode.removeChild(script);
-            try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
-        }
-
-        window[callbackName] = (data) => {
-            cleanup();
-            resolve(data);
-        };
-
-        script.onerror = () => {
-            cleanup();
-            reject(new Error('Falha ao carregar script JSONP'));
-        };
-
-        script.src = url + (url.includes('?') ? '&' : '?') + qs;
-        document.body.appendChild(script);
-    });
 }
 
 async function jsonpRequestWithRetry(url, tries = 3, timeoutMs = 30000) {
@@ -1739,16 +1604,13 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
             if (savedMaintenances) {
                 maintenances = savedMaintenances;
             }
-            // valida acesso (não trava o carregamento da frota)
-validateUserAccess()
-  .then(() => renderVehicles())
-  .catch(() => { userIsAuthorized = false; renderVehicles(); });
+            // Frota em modo leitura: não solicita matrícula ao abrir o site.
+            // A matrícula continua sendo informada apenas no lançamento de manutenção.
+            userIsAuthorized = false;
+            applyAuthUI();
             renderVehicles();
             updateStats();
             populateCityFilter();
-            validateUserAccess()
-  .then(() => { renderVehicles(); updateStats(); populateCityFilter(); })
-  .catch(() => { userIsAuthorized = false; applyAuthUI(); renderVehicles(); updateStats(); populateCityFilter(); });
         }
 
         // Armazenamento persistente
@@ -1790,6 +1652,15 @@ function normalizeText(str) {
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .trim();
+}
+
+function escapeHTML(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // JSONP helper (evita CORS no GitHub Pages)
@@ -1861,31 +1732,39 @@ function getMaintenancesForVehicle(vOrId) {
     const store = window.maintenances || maintenances || {};
     const coerce = (val) => {
         if (!val) return [];
-        if (Array.isArray(val)) return val;
-        return [val];
+        return Array.isArray(val) ? val : [val];
     };
 
     if (!vOrId) return [];
-    if (typeof vOrId === "string") {
-        const k = normalizeKey(vOrId);
-        return coerce(store[k]);
-    }
 
-    const keys = getVehicleKeyCandidates(vOrId);
-    for (const k of keys) {
-        const arr = coerce(store[k]);
-        if (arr.length) return arr;
-    }
-    return [];
+    const keys = typeof vOrId === "string"
+        ? [normalizeKey(vOrId)]
+        : getVehicleKeyCandidates(vOrId);
+
+    const seen = new Set();
+    const out = [];
+
+    keys.forEach(k => {
+        coerce(store[k]).forEach(item => {
+            const unique = maintenanceUniqueKey(item);
+            if (seen.has(unique)) return;
+            seen.add(unique);
+            out.push(item);
+        });
+    });
+
+    return out;
 }
-window.getMaintenancesForVehicle = getMaintenancesForVehicle;
 window.getMaintenancesForVehicle = getMaintenancesForVehicle;
 // =========================
 // Padronização de "Cidade de Lotação" (coluna G da planilha verdade)
 // Regras definidas pela Seção de Transporte
 // =========================
 function mapLotacaoToPadrao(lotacaoRaw) {
-    const s = String(lotacaoRaw || "").toUpperCase();
+    const s = String(lotacaoRaw || "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toUpperCase();
 
     if (s.includes("ARACUAI")) return "6º BBM - PELOTÃO ARAÇUAÍ";
     if (s.includes("ITAOBIM")) return "6º BBM - PELOTÃO ITAOBIM";
@@ -1977,8 +1856,8 @@ function daysBetween(a, b) {
     return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
-function getLastOilChangeForVehicle(vehicleId) {
-    const list = (maintenances && maintenances[vehicleId]) ? maintenances[vehicleId] : [];
+function getLastOilChangeForVehicle(vehicle) {
+    const list = getMaintenancesForVehicle(vehicle);
     const oils = list.filter(isOilChangeMaintenance);
     if (!oils.length) return null;
 
@@ -1996,7 +1875,7 @@ function getLastOilChangeForVehicle(vehicleId) {
 }
 
 function getOilStatusForVehicle(v) {
-    const last = getLastOilChangeForVehicle(v.id);
+    const last = getLastOilChangeForVehicle(v);
     if (!last) {
         return {
             level: 'unknown',
@@ -2062,8 +1941,8 @@ function isBrakeMaintenance(m) {
     return false;
 }
 
-function getLastBrakeMaintenanceForVehicle(vehicleId) {
-    const list = (maintenances && maintenances[vehicleId]) ? maintenances[vehicleId] : [];
+function getLastBrakeMaintenanceForVehicle(vehicle) {
+    const list = getMaintenancesForVehicle(vehicle);
     const brakes = list.filter(isBrakeMaintenance);
     if (!brakes.length) return null;
 
@@ -2081,7 +1960,7 @@ function getLastBrakeMaintenanceForVehicle(vehicleId) {
 }
 
 function getBrakeStatusForVehicle(v) {
-    const last = getLastBrakeMaintenanceForVehicle(v.id);
+    const last = getLastBrakeMaintenanceForVehicle(v);
     if (!last) {
         return {
             level: 'unknown',
@@ -2127,49 +2006,8 @@ function renderBrakeBadge(v) {
     const safeTitle = String(st.title || '').replace(/"/g, '&quot;');
     return `<span class="badge ${cls}" title="${safeTitle}">${st.label}</span>`;
 }
-        function getStoredMatricula() {
-  try {
-    return (localStorage.getItem('user-matricula') || '').trim();
-  } catch {
-    return '';
-  }
-}
-
-function setStoredMatricula(m) {
-  try {
-    localStorage.setItem('user-matricula', String(m || '').trim());
-  } catch {}
-}
-
-async function validateUserAccess() {
-  // pega matrícula salva ou pede uma vez
-  userMatricula = getStoredMatricula();
-  if (!userMatricula) {
-    userMatricula = prompt('Digite sua matrícula para habilitar ações (editar/excluir):') || '';
-    userMatricula = userMatricula.toString().replace(/\D/g,'');
-    if (userMatricula) setStoredMatricula(userMatricula);
-  } else {
-    userMatricula = userMatricula.toString().replace(/\D/g,'');
-  }
-
-  // se não informou, não autoriza
-  if (!userMatricula) {
-    userIsAuthorized = false;
-    return false;
-  }
-
-  // chama WebApp (JSONP)
-  const url = buildUrl(MAINT_WEBAPP_URL, { action: 'validateUser', matricula: userMatricula, _: Date.now() });
-  const res = await jsonpRequestWithRetry(url, 3, 15000);
-
-  userIsAuthorized = !!(res && res.success === true);
-  return userIsAuthorized;
-}
-
         function renderVehicles() {
             const tbody = document.getElementById('vehicleTableBody');
-            const thAcoes = document.getElementById('thAcoes');
-if (thAcoes) thAcoes.style.display = userIsAuthorized ? '' : 'none';
             const search = document.getElementById('searchInput').value.toLowerCase();
             const filterSit = document.getElementById('filterSituation').value;
             const filterCty = document.getElementById('filterCity').value;
@@ -2212,7 +2050,7 @@ filtered.sort((a, b) => {
 });
 
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${userIsAuthorized ? 11 : 10}" class="loading">Nenhuma viatura encontrada</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="loading">Nenhuma viatura encontrada</td></tr>`;
                 return;
             }
 
@@ -2251,28 +2089,24 @@ filtered.sort((a, b) => {
         }
     }
 
+    const vehicleIdParam = encodeURIComponent(String(v.id || ''));
+
     return `
     <tr>
-        <td title="Valor venal: ${formatBRL(v.valorVenal)} • Modelo/Ano: ${(v.modeloAno || '—')}"><strong>${v.placa || '—'}</strong></td>
-        <td><strong>${v.prefixo || '—'}</strong></td>
-        <td>${v.subclasse || '—'}</td>
-        <td><strong style="color: var(--secondary);">${v.cidade || v.unidade || '—'}</strong></td>
+        <td title="Valor venal: ${formatBRL(v.valorVenal)} • Modelo/Ano: ${escapeHTML(v.modeloAno || '—')}"><strong>${escapeHTML(v.placa || '—')}</strong></td>
+        <td><strong>${escapeHTML(v.prefixo || '—')}</strong></td>
+        <td>${escapeHTML(v.subclasse || '—')}</td>
+        <td><strong style="color: var(--secondary);">${escapeHTML(v.cidade || v.unidade || '—')}</strong></td>
         <td>${v.hodometro ? v.hodometro.toLocaleString('pt-BR') : '0'} km</td>
         <td>${renderOilBadge(v)}</td>
         <td>${renderBrakeBadge(v)}</td>
-        <td><span class="badge ${getBadgeClass(v.situacao)}">${v.situacao || 'N/A'}</span></td>
-        <td>${dataFormatada}${tempoParadoInfo}</td>
+        <td><span class="badge ${getBadgeClass(v.situacao)}">${escapeHTML(v.situacao || 'N/A')}</span></td>
+        <td>${escapeHTML(dataFormatada)}${tempoParadoInfo}</td>
         <td>
-            <button class="btn-icon" onclick="openMaintenanceModal('${v.id}')" title="Ver Manutenções">
+            <button class="btn-icon" onclick="openMaintenanceModal(decodeURIComponent('${vehicleIdParam}'))" title="Ver Manutenções">
                 🔧 ${maintenanceCount > 0 ? `(${maintenanceCount})` : ''}
             </button>
         </td>
-        ${userIsAuthorized ? `
-<td class="actions">
-  <button class="btn-icon" onclick="editVehicle('${v.id}')" title="Editar">✏️</button>
-  <button class="btn-icon" onclick="deleteVehicle('${v.id}')" title="Excluir">🗑️</button>
-</td>
-` : ``}
     </tr>
 `;
 };
@@ -2292,7 +2126,7 @@ const order = ['1ª Companhia', '2ª Companhia'];
 let htmlRows = '';
 for (const g of order) {
     if (!groups[g] || groups[g].length === 0) continue;
-    htmlRows += `<tr><td colspan="11" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${g}</td></tr>`;
+    htmlRows += `<tr><td colspan="10" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${g}</td></tr>`;
     htmlRows += groups[g].map(rowHtml).join('');
 }
 tbody.innerHTML = htmlRows;
@@ -2350,7 +2184,7 @@ function situacaoRank(s) {
             const cidades = [...new Set(vehicles.map(v => v.cidade).filter(c => c && c !== 'N/D'))].sort();
             const select = document.getElementById('filterCity');
             select.innerHTML = '<option value="">Todas Cidades</option>' + 
-                cidades.map(c => `<option value="${c}">${c}</option>`).join('');
+                cidades.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
         }
 
         // Filtrar viaturas
@@ -2358,82 +2192,22 @@ function situacaoRank(s) {
             renderVehicles();
         }
 
-        // Modal
+        // Frota em modo somente leitura
         function openAddModal() {
-            editingId = null;
-            document.getElementById('modalTitle').textContent = 'Adicionar Viatura';
-            document.getElementById('vehicleForm').reset();
-            document.getElementById('vehicleId').value = '';
-            document.getElementById('vehicleModal').classList.add('active');
+            showAlert('A frota é carregada pela planilha verdade. Para incluir viatura, atualize a planilha.', 'error');
         }
 
         function editVehicle(id) {
-            editingId = id;
-            const vehicle = vehicles.find(v => v.id === id);
-            if (!vehicle) return;
-
-            document.getElementById('modalTitle').textContent = 'Editar Viatura';
-            document.getElementById('vehicleId').value = id;
-            document.getElementById('placa').value = vehicle.placa;
-            document.getElementById('prefixo').value = vehicle.prefixo;
-            document.getElementById('tipo').value = vehicle.tipo;
-            document.getElementById('cidade').value = vehicle.cidade;
-            document.getElementById('hodometro').value = vehicle.hodometro;
-            document.getElementById('situacao').value = vehicle.situacao;
-            document.getElementById('ultimaMovimentacaoSiad').value = vehicle.ultimaMovimentacaoSiad;
-            
-            document.getElementById('vehicleModal').classList.add('active');
+            showAlert('A frota é somente leitura neste site. Edite a viatura diretamente na planilha verdade.', 'error');
         }
 
-        function closeModal() {
-            document.getElementById('vehicleModal').classList.remove('active');
-        }
-
-        // Salvar viatura
         async function saveVehicle(event) {
-            event.preventDefault();
-
-            const data = {
-                placa: document.getElementById('placa').value.toUpperCase(),
-                prefixo: document.getElementById('prefixo').value.toUpperCase(),
-                tipo: document.getElementById('tipo').value,
-                cidade: document.getElementById('cidade').value,
-                hodometro: parseInt(document.getElementById('hodometro').value) || 0,
-                situacao: document.getElementById('situacao').value,
-                ultimaMovimentacaoSiad: document.getElementById('ultimaMovimentacaoSiad').value.trim() || 0
-            };
-
-            if (editingId) {
-                const index = vehicles.findIndex(v => v.id === editingId);
-                vehicles[index] = { ...vehicles[index], ...data };
-                showAlert('Viatura atualizada com sucesso!');
-            } else {
-                const newId = Math.max(0, ...vehicles.map(v => v.id)) + 1;
-                vehicles.push({ id: newId, ...data });
-                showAlert('Viatura adicionada com sucesso!');
-            }
-
-            saveToStorage('frota-6bbm', vehicles);
-            renderVehicles();
-            updateStats();
-            populateCityFilter();
-            closeModal();
+            if (event) event.preventDefault();
+            showAlert('A frota é somente leitura neste site. As alterações devem ser feitas na planilha verdade.', 'error');
         }
 
-        // Excluir viatura
         async function deleteVehicle(id) {
-            if (!confirm('Tem certeza que deseja excluir esta viatura?')) return;
-            
-            vehicles = vehicles.filter(v => v.id !== id);
-            // Também excluir manutenções associadas
-            delete maintenances[id];
-            
-            saveToStorage('frota-6bbm', vehicles);
-            saveToStorage('manutencoes-6bbm', maintenances);
-            renderVehicles();
-            updateStats();
-            populateCityFilter();
-            showAlert('Viatura excluída com sucesso!');
+            showAlert('A frota é somente leitura neste site. Exclua a viatura diretamente na planilha verdade.', 'error');
         }
 
         // === FUNÇÕES DE MANUTENÇÃO ===
@@ -2509,10 +2283,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
     showAlert('Não foi possível registrar: ' + (err.message || err), 'error');
     // NÃO salva localmente
   }
-hideAddMaintenance();
-            renderMaintenanceList();
-            showAlert('Manutenção registrada com sucesso!');
-        }
+}
 
         function renderMaintenanceList() {
     const container = document.getElementById('maintenanceRecords');
@@ -2547,6 +2318,9 @@ hideAddMaintenance();
         const tipo = safeText(item.tipo || item.type, 'N/D');
         const descricao = safeText(item.descricao || item.description, '(sem descrição)');
         const dataStr = getDateLabel(item);
+        const tipoSafe = escapeHTML(tipo);
+        const descricaoSafe = escapeHTML(descricao);
+        const dataStrSafe = escapeHTML(dataStr);
 
         const kmVal = Number(String(item.km ?? item.hodometro ?? '').replace(',', '.'));
         const km = Number.isFinite(kmVal) ? kmVal : 0;
@@ -2557,26 +2331,28 @@ hideAddMaintenance();
         const responsavel = safeText(item.responsavel || item.responsible, '');
         const matricula = safeText(item.matricula, '');
         const obs = safeText(item.observacoes || item.notes, '');
+        const deleteKeyParam = encodeURIComponent(String(item.timestamp || item.Timestamp || item.id || ''));
+        const deleteMatParam = encodeURIComponent(String(item.matricula || ''));
 
         return `
             <div style="background: var(--bg-dark); padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid ${getMaintenanceTypeColor(tipo)};">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
                     <div>
                         <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">
-                            ${descricao}
+                            ${descricaoSafe}
                         </div>
                         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                            <span class="badge ${getMaintenanceTypeBadge(tipo)}">${tipo}</span>
-                            <span style="color: var(--text-muted);">📅 ${dataStr}</span>
+                            <span class="badge ${getMaintenanceTypeBadge(tipo)}">${tipoSafe}</span>
+                            <span style="color: var(--text-muted);">📅 ${dataStrSafe}</span>
                             ${km > 0 ? `<span style="color: var(--text-muted);">🛣️ ${km.toLocaleString('pt-BR')} km</span>` : ''}
                             ${custo > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
                         </div>
                     </div>
-                    <button class="btn-icon" onclick="deleteMaintenance('${item.timestamp || item.Timestamp || item.id}', '${item.matricula || ''}')" title="Excluir">🗑️</button>
+                    <button class="btn-icon" onclick="deleteMaintenance(decodeURIComponent('${deleteKeyParam}'), decodeURIComponent('${deleteMatParam}'))" title="Excluir">🗑️</button>
                 </div>
 
-                ${responsavel ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${responsavel}${matricula ? ` - <strong>Matrícula:</strong> ${matricula}` : ''}</div>` : ''}
-                ${obs ? `<div style="color: var(--text-muted); font-size: 0.95rem; white-space: pre-wrap;">${obs}</div>` : ''}
+                ${responsavel ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${escapeHTML(responsavel)}${matricula ? ` - <strong>Matrícula:</strong> ${escapeHTML(matricula)}` : ''}</div>` : ''}
+                ${obs ? `<div style="color: var(--text-muted); font-size: 0.95rem; white-space: pre-wrap;">${escapeHTML(obs)}</div>` : ''}
             </div>
         `;
     }).join('');
@@ -2692,7 +2468,7 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
             grid.innerHTML = rows.map(row => `
                 <div class="type-card">
                     <div class="type-card-header">
-                        <div class="type-card-name">${row.tipo}</div>
+                        <div class="type-card-name">${escapeHTML(row.tipo)}</div>
                         <div class="type-card-total">${row.total}</div>
                     </div>
                     <div class="type-card-meta">Total de viaturas deste tipo</div>
@@ -2938,7 +2714,7 @@ function getMaintenanceISODate(m) {
             const currentValue = select.value;
             select.innerHTML = '<option value="">Todas as Viaturas</option>';
             (vehicles || []).forEach(v => {
-                select.innerHTML += `<option value="${v.id}">${v.placa || 'S/PLACA'} - ${v.prefixo || 'S/PREFIXO'}</option>`;
+                select.innerHTML += `<option value="${escapeHTML(v.id)}">${escapeHTML(v.placa || 'S/PLACA')} - ${escapeHTML(v.prefixo || 'S/PREFIXO')}</option>`;
             });
 
             if (currentValue) select.value = currentValue;
@@ -3038,9 +2814,9 @@ function getMaintenanceISODate(m) {
                         ${filtered.map(m => `
                             <tr>
                                 <td>${formatDate(m.iso)}</td>
-                                <td>${m.vehicle?.placa || m.raw.placa || 'N/A'} - ${m.vehicle?.prefixo || m.raw.prefixo || 'N/A'}</td>
-                                <td><span class="badge ${getMaintenanceTypeBadge(m.type)}">${m.type}</span></td>
-                                <td>${m.description}</td>
+                                <td>${escapeHTML(m.vehicle?.placa || m.raw.placa || 'N/A')} - ${escapeHTML(m.vehicle?.prefixo || m.raw.prefixo || 'N/A')}</td>
+                                <td><span class="badge ${getMaintenanceTypeBadge(m.type)}">${escapeHTML(m.type)}</span></td>
+                                <td>${escapeHTML(m.description)}</td>
                                 <td>${m.km > 0 ? m.km.toLocaleString('pt-BR') + ' km' : '-'}</td>
                                 <td>${m.cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                             </tr>
@@ -3243,19 +3019,6 @@ function getMaintenanceISODate(m) {
 
         // Inicializar sistema
         /* ===== Gestão: helpers ===== */
-function getMaintenanceISODate(m) {
-  const raw = (m && (m.date || m.data || m.dataManutencao || m.timestamp || m.Timestamp)) || '';
-  if (!raw) return '';
-  if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0,10);
-  if (typeof raw === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
-    const [dd,mm,yyyy]=raw.split('/');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  const d = parseDateValue(raw);
-  if (!d) return '';
-  const y=d.getFullYear(), mo=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0');
-  return `${y}-${mo}-${da}`;
-}
 function getLast12MonthsKeys() {
   const now=new Date();
   const start=new Date(now.getFullYear(), now.getMonth(), 1);
@@ -3447,7 +3210,7 @@ function renderMgmtByVehicle12m() {
         <tbody>
           ${rows.map(r => `
             <tr>
-              <td>${vehicleLabel(r.key, r)}</td>
+              <td>${escapeHTML(vehicleLabel(r.key, r))}</td>
               <td>${r.count}</td>
               <td>${r.cost.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</td>
             </tr>

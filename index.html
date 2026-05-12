@@ -1089,8 +1089,8 @@ table{
                     </div>
 
                     <div class="form-group">
-                        <label>Matrícula do Bombeiro</label>
-                        <input type="text" id="maintenanceMatricula" placeholder="000.000-0" maxlength="9" oninput="formatMatricula(this)">
+                        <label>Matrícula do Bombeiro autorizada *</label>
+                        <input type="text" id="maintenanceMatricula" placeholder="000.000-0" maxlength="9" oninput="formatMatricula(this)" readonly>
                     </div>
 
                     <div class="form-group">
@@ -1124,6 +1124,7 @@ table{
 };
         let userIsAuthorized = false;
 let userMatricula = '';
+let maintenanceUserMatricula = '';
         // Expor para depuração / console
         window.vehicles = vehicles;
         window.maintenances = maintenances;
@@ -1412,10 +1413,57 @@ const MAINT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbymLlluCMny9se
 const MAINTENANCE_WEBAPP_URL = MAINT_WEBAPP_URL;
 
         // =========================
-// AUTORIZAÇÃO DE VIATURAS REMOVIDA
+// AUTORIZAÇÃO
 // A frota é somente leitura e vem da planilha verdade; não há edição/exclusão de viaturas pela interface.
+// Para registrar manutenção, a matrícula é exigida e validada na aba/planilha USUARIOS pelo Apps Script.
 function applyAuthUI() {
   userIsAuthorized = false;
+}
+
+function formatMatriculaText(value) {
+  let digits = String(value || '').replace(/\D/g, '').slice(0, 7);
+  if (digits.length > 6) return digits.substring(0, 3) + '.' + digits.substring(3, 6) + '-' + digits.substring(6, 7);
+  if (digits.length > 3) return digits.substring(0, 3) + '.' + digits.substring(3);
+  return digits;
+}
+
+async function validateMaintenanceMatricula(matriculaDigits) {
+  const cleanMat = String(matriculaDigits || '').replace(/\D/g, '');
+  if (!cleanMat) return false;
+
+  const url = buildUrl(MAINT_WEBAPP_URL, {
+    action: 'validateUser',
+    matricula: cleanMat,
+    _: Date.now()
+  });
+
+  const res = await jsonpRequestWithRetry(url, 3, 15000);
+  return !!(res && res.success === true);
+}
+
+async function requestMaintenanceAuthorization() {
+  const typed = prompt('Digite sua matrícula para registrar manutenção:') || '';
+  const cleanMat = typed.toString().replace(/\D/g, '');
+
+  if (!cleanMat) {
+    showAlert('Registro não autorizado: informe uma matrícula válida.', 'error');
+    return null;
+  }
+
+  try {
+    const ok = await validateMaintenanceMatricula(cleanMat);
+    if (!ok) {
+      showAlert('Registro não autorizado: matrícula inexistente ou inativa na planilha USUARIOS.', 'error');
+      return null;
+    }
+
+    maintenanceUserMatricula = cleanMat;
+    return cleanMat;
+  } catch (err) {
+    console.error(err);
+    showAlert('Não foi possível validar a matrícula: ' + (err.message || err), 'error');
+    return null;
+  }
 }
 
 function buildUrl(baseUrl, params) {
@@ -2231,16 +2279,32 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
             renderVehicles();
         }
 
-        function showAddMaintenance() {
+        async function showAddMaintenance() {
+            const authorizedMatricula = await requestMaintenanceAuthorization();
+            if (!authorizedMatricula) return;
+
             document.getElementById('addMaintenanceForm').style.display = 'block';
             // Definir data de hoje como padrão
             document.getElementById('maintenanceDate').valueAsDate = new Date();
+
+            const matriculaInput = document.getElementById('maintenanceMatricula');
+            if (matriculaInput) {
+                matriculaInput.value = formatMatriculaText(authorizedMatricula);
+                matriculaInput.readOnly = true;
+                matriculaInput.title = 'Matrícula validada na planilha USUARIOS';
+            }
         }
 
         function hideAddMaintenance() {
             document.getElementById('addMaintenanceForm').style.display = 'none';
             // Limpar formulário
             document.getElementById('addMaintenanceForm').querySelector('form').reset();
+            maintenanceUserMatricula = '';
+            const matriculaInput = document.getElementById('maintenanceMatricula');
+            if (matriculaInput) {
+                matriculaInput.readOnly = false;
+                matriculaInput.title = '';
+            }
         }
 
         async function saveMaintenanceRecord(event) {
@@ -2258,12 +2322,25 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
     notes: document.getElementById('maintenanceNotes').value
   };
 
-  // matrícula obrigatória (e com máscara ok)
+  // matrícula obrigatória e validada antes de gravar
   const cleanMat = (maintenance.matricula || '').toString().replace(/\D/g, '');
   if (!cleanMat) {
-    showAlert('Informe uma matrícula válida.', 'error');
+    showAlert('Registro não autorizado: informe uma matrícula válida.', 'error');
     return;
   }
+
+  try {
+    const ok = await validateMaintenanceMatricula(cleanMat);
+    if (!ok) {
+      showAlert('Registro não autorizado: matrícula inexistente ou inativa na planilha USUARIOS.', 'error');
+      return;
+    }
+  } catch (err) {
+    console.error(err);
+    showAlert('Não foi possível validar a matrícula: ' + (err.message || err), 'error');
+    return;
+  }
+
   maintenance.matricula = cleanMat;
 
   // sincroniza primeiro (fonte da verdade)

@@ -1413,11 +1413,22 @@ const MAINT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbymLlluCMny9se
 const MAINTENANCE_WEBAPP_URL = MAINT_WEBAPP_URL;
 
         // =========================
-// AUTORIZAÇÃO
-// A frota é somente leitura e vem da planilha verdade; não há edição/exclusão de viaturas pela interface.
-// Para registrar manutenção, a matrícula é exigida e validada na aba/planilha USUARIOS pelo Apps Script.
+// AUTORIZAÇÃO DE MANUTENÇÕES
+// Frota: somente leitura pela planilha verdade.
+// Manutenções: adicionar/excluir exige matrícula ativa na aba/planilha USUARIOS.
+// OBS.: a proteção real precisa existir também no Apps Script, nas ações addMaintenance e deleteMaintenance.
+// =========================
+const MAINT_AUTH_TTL_MS = 10 * 60 * 1000; // sessão local curta: 10 minutos
+let maintenanceAuth = { matricula: '', expiresAt: 0 };
+
 function applyAuthUI() {
+  // Não há edição/exclusão de viaturas pela interface.
   userIsAuthorized = false;
+}
+
+function clearMaintenanceAuthorization() {
+  maintenanceAuth = { matricula: '', expiresAt: 0 };
+  maintenanceUserMatricula = '';
 }
 
 function formatMatriculaText(value) {
@@ -1441,29 +1452,45 @@ async function validateMaintenanceMatricula(matriculaDigits) {
   return !!(res && res.success === true);
 }
 
-async function requestMaintenanceAuthorization() {
-  const typed = prompt('Digite sua matrícula para registrar manutenção:') || '';
+async function ensureMaintenanceAuthorization(actionLabel = 'executar esta ação') {
+  const now = Date.now();
+  if (maintenanceAuth.matricula && maintenanceAuth.expiresAt > now) {
+    return maintenanceAuth.matricula;
+  }
+
+  const typed = prompt(`Digite sua matrícula para ${actionLabel}:`) || '';
   const cleanMat = typed.toString().replace(/\D/g, '');
 
   if (!cleanMat) {
-    showAlert('Registro não autorizado: informe uma matrícula válida.', 'error');
+    showAlert('Ação não autorizada: informe uma matrícula válida.', 'error');
     return null;
   }
 
   try {
     const ok = await validateMaintenanceMatricula(cleanMat);
     if (!ok) {
-      showAlert('Registro não autorizado: matrícula inexistente ou inativa na planilha USUARIOS.', 'error');
+      clearMaintenanceAuthorization();
+      showAlert('Ação não autorizada: matrícula inexistente ou inativa na planilha USUARIOS.', 'error');
       return null;
     }
 
+    maintenanceAuth = {
+      matricula: cleanMat,
+      expiresAt: Date.now() + MAINT_AUTH_TTL_MS
+    };
     maintenanceUserMatricula = cleanMat;
     return cleanMat;
   } catch (err) {
+    clearMaintenanceAuthorization();
     console.error(err);
     showAlert('Não foi possível validar a matrícula: ' + (err.message || err), 'error');
     return null;
   }
+}
+
+// Compatibilidade com versões anteriores do arquivo.
+async function requestMaintenanceAuthorization(actionLabel = 'registrar manutenção') {
+  return ensureMaintenanceAuthorization(actionLabel);
 }
 
 function buildUrl(baseUrl, params) {
@@ -2280,7 +2307,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
         }
 
         async function showAddMaintenance() {
-            const authorizedMatricula = await requestMaintenanceAuthorization();
+            const authorizedMatricula = await ensureMaintenanceAuthorization('registrar manutenção');
             if (!authorizedMatricula) return;
 
             document.getElementById('addMaintenanceForm').style.display = 'block';
@@ -2299,7 +2326,6 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
             document.getElementById('addMaintenanceForm').style.display = 'none';
             // Limpar formulário
             document.getElementById('addMaintenanceForm').querySelector('form').reset();
-            maintenanceUserMatricula = '';
             const matriculaInput = document.getElementById('maintenanceMatricula');
             if (matriculaInput) {
                 matriculaInput.readOnly = false;
@@ -2322,26 +2348,12 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
     notes: document.getElementById('maintenanceNotes').value
   };
 
-  // matrícula obrigatória e validada antes de gravar
-  const cleanMat = (maintenance.matricula || '').toString().replace(/\D/g, '');
-  if (!cleanMat) {
-    showAlert('Registro não autorizado: informe uma matrícula válida.', 'error');
-    return;
-  }
+  // matrícula obrigatória e validada antes de gravar.
+  // Não confia no valor digitado no input: usa a matrícula autorizada na sessão.
+  const authorizedMatricula = await ensureMaintenanceAuthorization('registrar manutenção');
+  if (!authorizedMatricula) return;
 
-  try {
-    const ok = await validateMaintenanceMatricula(cleanMat);
-    if (!ok) {
-      showAlert('Registro não autorizado: matrícula inexistente ou inativa na planilha USUARIOS.', 'error');
-      return;
-    }
-  } catch (err) {
-    console.error(err);
-    showAlert('Não foi possível validar a matrícula: ' + (err.message || err), 'error');
-    return;
-  }
-
-  maintenance.matricula = cleanMat;
+  maintenance.matricula = authorizedMatricula;
 
   // sincroniza primeiro (fonte da verdade)
   try {
@@ -2425,7 +2437,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
                             ${custo > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
                         </div>
                     </div>
-                    <button class="btn-icon" onclick="deleteMaintenance(decodeURIComponent('${deleteKeyParam}'), decodeURIComponent('${deleteMatParam}'))" title="Excluir">🗑️</button>
+                    <button class="btn-icon" onclick="deleteMaintenance(decodeURIComponent('${deleteKeyParam}'), decodeURIComponent('${deleteMatParam}'))" title="Excluir manutenção (exige matrícula autorizada)">🗑️</button>
                 </div>
 
                 ${responsavel ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${escapeHTML(responsavel)}${matricula ? ` - <strong>Matrícula:</strong> ${escapeHTML(matricula)}` : ''}</div>` : ''}
@@ -2436,17 +2448,19 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
 }
 
 async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
+    if (!maintenanceKey) {
+        showAlert('Não foi possível excluir: registro sem identificador/timestamp.', 'error');
+        return;
+    }
+
+    const authorizedMatricula = await ensureMaintenanceAuthorization('excluir manutenção');
+    if (!authorizedMatricula) return;
+
     if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
 
     try {
-        const cleanMat = (matriculaFromItem || '').toString().replace(/\D/g,'');
-        if (!cleanMat) {
-            showAlert('Não foi possível excluir: registro sem matrícula. Atualize a lista e tente novamente.', 'error');
-            return;
-        }
-
-        // remover na planilha (fonte da verdade)
-        await deleteMaintenanceFromTransportSheet(String(maintenanceKey), cleanMat);
+        // remover na planilha (fonte da verdade) usando a matrícula do usuário autorizado atual
+        await deleteMaintenanceFromTransportSheet(String(maintenanceKey), authorizedMatricula);
 
         // recarregar do Sheets e redesenhar
         await loadMaintenancesFromSheet();

@@ -825,7 +825,6 @@ table{
         <!-- Tabs de Navegação -->
         <div class="tabs">
             <button class="tab active" onclick="switchTab('frota', this)">🚒 Frota</button>
-<button class="tab" onclick="switchTab('pendencias', this)">🚨 Pendências</button>
 <button class="tab" onclick="switchTab('graficos', this)">🚒 Tipos de Viatura</button>
 <button class="tab" onclick="switchTab('gestao', this)">📌 Gestão</button>
             <button class="tab" onclick="switchTab('relatorios', this)">📈 Relatórios</button>
@@ -876,8 +875,6 @@ table{
     <option value="">Todas Companhias</option>
     <option value="1">1ª Companhia</option>
     <option value="2">2ª Companhia</option>
-    <option value="5cob">5º COB</option>
-    <option value="na">Unidade não classificada</option>
 </select>
 <label class="group-toggle" style="display:flex; align-items:center; gap:6px; font-size:0.95rem;">
     <input type="checkbox" id="groupByCompany" onchange="filterVehicles()">
@@ -896,8 +893,8 @@ table{
                         <th>Subclasse</th>
                         <th>Cidade de Lotação</th>
                         <th>Hodômetro</th>
-                        <th>Óleo motor</th>
-                        <th>Pastilha/disco</th>
+                        <th>Óleo</th>
+                        <th>Freios</th>
                         <th>Situação</th>
                         <th>Última movimentação no SIAD</th>
                         <th>Manutenções</th>
@@ -915,68 +912,6 @@ table{
         </div>
         </div>
         <!-- Fim Tab Frota -->
-
-        <!-- Tab Pendências -->
-        <div id="pendencias" class="tab-content">
-            <div class="report-section">
-                <div class="report-header">
-                    <div>
-                        <div class="report-title">🚨 Painel de Pendências</div>
-                        <div style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.35rem;">
-                            Acompanhamento preventivo de óleo do motor, pastilha/disco de freio e registros ausentes, calculado a partir das manutenções lançadas na planilha.
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                        <button class="btn btn-secondary" onclick="renderPendenciesDashboard()">🔄 Atualizar</button>
-                    </div>
-                </div>
-
-                <div class="dashboard" id="pendingSummary" style="margin-bottom: 1rem;">
-                    <div class="stat-card">
-                        <div class="stat-icon">🛢️</div>
-                        <div class="stat-label">Óleo do motor vencido</div>
-                        <div class="stat-value" id="pendingOilOverdue">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">🛢️</div>
-                        <div class="stat-label">Óleo do motor em atenção</div>
-                        <div class="stat-value" id="pendingOilWarn">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">🛑</div>
-                        <div class="stat-label">Pastilha/disco vencidos</div>
-                        <div class="stat-value" id="pendingBrakeOverdue">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">🧾</div>
-                        <div class="stat-label">Sem registro</div>
-                        <div class="stat-value" id="pendingNoRecord">0</div>
-                    </div>
-                </div>
-
-                <div class="report-filters">
-                    <select id="pendingSeverityFilter" onchange="renderPendenciesDashboard()">
-                        <option value="">Todas as pendências</option>
-                        <option value="overdue">Somente vencidas</option>
-                        <option value="warn">Somente atenção</option>
-                        <option value="unknown">Somente sem registro</option>
-                    </select>
-                    <select id="pendingTypeFilter" onchange="renderPendenciesDashboard()">
-                        <option value="">Óleo do motor e pastilha/disco</option>
-                        <option value="Óleo do motor">Somente óleo do motor</option>
-                        <option value="Pastilha/disco de freio">Somente pastilha/disco</option>
-                    </select>
-                </div>
-
-                <div id="pendingContent">
-                    <div class="empty-state">
-                        <div class="empty-state-icon">⏳</div>
-                        <p>Aguardando sincronização da frota e das manutenções.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Fim Tab Pendências -->
 
         <!-- Tab Tipos de Viatura -->
         <div id="graficos" class="tab-content">
@@ -1134,37 +1069,8 @@ table{
                     </div>
 
                     <div class="form-group">
-                        <label>Categoria do Serviço *</label>
-                        <select id="maintenanceServiceCategory" required>
-                            <option value="">Selecione...</option>
-                            <optgroup label="Óleos e fluidos">
-                                <option value="OLEO_MOTOR">Óleo do motor</option>
-                                <option value="OLEO_CAMBIO">Óleo do câmbio/transmissão</option>
-                                <option value="FLUIDO_FREIO">Fluido de freio</option>
-                                <option value="OLEO_DIRECAO">Óleo da direção hidráulica</option>
-                                <option value="ARREFECIMENTO">Arrefecimento/aditivo</option>
-                            </optgroup>
-                            <optgroup label="Freios">
-                                <option value="PASTILHA_FREIO">Pastilha de freio</option>
-                                <option value="DISCO_FREIO">Disco de freio</option>
-                                <option value="LONA_TAMBOR">Lona/tambor de freio</option>
-                            </optgroup>
-                            <optgroup label="Outros sistemas">
-                                <option value="PNEUS">Pneus</option>
-                                <option value="SUSPENSAO">Suspensão</option>
-                                <option value="ELETRICA">Elétrica</option>
-                                <option value="MOTOR_OUTROS">Motor - outros serviços</option>
-                                <option value="OUTROS">Outros</option>
-                            </optgroup>
-                        </select>
-                        <small style="display:block; margin-top:0.4rem; color: var(--text-muted);">
-                            Para os alertas automáticos, somente “Óleo do motor” conta na coluna Óleo; e somente “Pastilha de freio” ou “Disco de freio” contam na coluna Freios.
-                        </small>
-                    </div>
-
-                    <div class="form-group">
                         <label>Descrição do Serviço *</label>
-                        <input type="text" id="maintenanceDescription" required placeholder="Ex: Troca de óleo do motor e filtro">
+                        <input type="text" id="maintenanceDescription" required placeholder="Ex: Troca de óleo e filtros">
                     </div>
 
                     <div class="form-group">
@@ -1219,76 +1125,53 @@ table{
         let userIsAuthorized = false;
 let userMatricula = '';
 let maintenanceUserMatricula = '';
-let lastMaintLoadError = '';
-window.allMaintenances = [];
         // Expor para depuração / console
         window.vehicles = vehicles;
         window.maintenances = maintenances;
         async function loadMaintenancesFromSheet() {
-    lastMaintLoadError = '';
-    console.log("Buscando manutenções na planilha...", `${MAINTENANCE_WEBAPP_URL}?action=listMaint`);
-
-    const endpoints = [
-        `${MAINTENANCE_WEBAPP_URL}?action=listMaint&_=${Date.now()}`,
-        `${MAINTENANCE_WEBAPP_URL}?action=listMaintenances&_=${Date.now()}`
-    ];
+    console.log("Buscando manutenções:", `${MAINTENANCE_WEBAPP_URL}?action=listMaint...`);
 
     try {
-        let data = null;
-        let lastErr = null;
-
-        for (const url of endpoints) {
-            try {
-                data = await jsonpRequestWithRetry(url, 2, 30000);
-                if (data && data.success === true) break;
-                lastErr = new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Resposta inválida ao carregar manutenções');
-            } catch (err) {
-                lastErr = err;
-            }
-        }
-
-        if (!data || data.success !== true) {
-            throw lastErr || new Error('Falha ao carregar manutenções');
-        }
+        const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaint&_=${Date.now()}`;
+        const data = await jsonpRequestWithRetry(url, 3, 30000);
+        if (!data || !data.success) throw new Error((data && data.message) ? data.message : "Falha ao carregar manutenções");
 
         const raw =
-            (Array.isArray(data.maintenances) ? data.maintenances :
-            (Array.isArray(data.items) ? data.items :
-            (Array.isArray(data.records) ? data.records :
-            (Array.isArray(data.data) ? data.data : []))));
+            (data.items !== undefined ? data.items :
+            (data.maintenances !== undefined ? data.maintenances :
+            (data.records !== undefined ? data.records :
+            (data.data !== undefined ? data.data : []))));
 
         const map = {};
-        const seenGlobal = new Set();
-        const all = [];
 
         const pushUnderKeys = (it, keys) => {
-            const uniqKeys = [...new Set((keys || []).map(normalizeKey).filter(Boolean))];
-            uniqKeys.forEach(k => {
+            keys.forEach(k => {
                 if (!map[k]) map[k] = [];
-                const unique = maintenanceUniqueKey(it);
-                if (!map[k].some(existing => maintenanceUniqueKey(existing) === unique)) {
-                    map[k].push(it);
-                }
+                map[k].push(it);
             });
         };
 
-        raw.forEach(it0 => {
-            if (!it0 || typeof it0 !== 'object') return;
+        if (Array.isArray(raw)) {
+            raw.forEach(it => {
+                const keys = getMaintenanceKeyCandidates(it);
+                if (!keys.length) return;
+                pushUnderKeys(it, keys);
+            });
+        } else if (raw && typeof raw === "object") {
+            Object.keys(raw).forEach(k0 => {
+                const arr = raw[k0];
+                const keyNorm = normalizeKey(k0);
+                if (!keyNorm) return;
 
-            const it = normalizeMaintenanceRecord(it0);
-            const unique = maintenanceUniqueKey(it);
-            if (!seenGlobal.has(unique)) {
-                seenGlobal.add(unique);
-                all.push(it);
-            }
-
-            const keys = getMaintenanceKeyCandidates(it);
-            if (!keys.length) {
-                console.warn('Manutenção sem placa/prefixo para vincular à viatura:', it);
-                return;
-            }
-            pushUnderKeys(it, keys);
-        });
+                if (Array.isArray(arr)) {
+                    arr.forEach(it => {
+                        const keys = [keyNorm, ...getMaintenanceKeyCandidates(it)];
+                        const uniq = [...new Set(keys)].filter(Boolean);
+                        pushUnderKeys(it, uniq);
+                    });
+                }
+            });
+        }
 
         Object.keys(map).forEach(k => {
             map[k].sort((a, b) => {
@@ -1299,20 +1182,14 @@ window.allMaintenances = [];
         });
 
         maintenances = map;
-        window.maintenances = maintenances;
-        window.allMaintenances = all;
+                window.maintenances = maintenances;
+        const total = Object.values(map).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
+        console.log(`Manutenções carregadas: ${total} registros (chaves: ${Object.keys(map).length})`);
         syncGate.maintReady = true;
-
-        const total = all.length;
-        console.log(`Manutenções carregadas: ${total} registros (chaves de vínculo: ${Object.keys(map).length})`, map);
         return true;
     } catch (err) {
         console.warn("Falha ao carregar manutenções:", err);
-        lastMaintLoadError = err && err.message ? err.message : String(err);
         syncGate.maintReady = false;
-        maintenances = {};
-        window.maintenances = maintenances;
-        window.allMaintenances = [];
         return false;
     }
 }
@@ -1377,7 +1254,6 @@ async function syncFleetFromSheet(force = true) {
     const unidadeCompleta = String(v.unidade || '').trim();
     const cidadeRaw = String(v.cidade || '').trim();
     const situacao = String(v.situacao || '').trim();
-    const companhia = String(v.companhia || v.cia || v.companhiaLotacao || '').trim();
 
     const hodometro = (parseKmValue(v.hodometro) || 0);
     const dataUltimaMovimentacao = String(v.ultimaMovimentacaoSiad || '').trim();
@@ -1395,8 +1271,6 @@ async function syncFleetFromSheet(force = true) {
         subclasse,
         unidade: unidadeCompleta,
         cidade,
-        lotacaoOriginal: cidadeRaw || unidadeCompleta,
-        companhia,
         situacao,
         hodometro,
         dataUltimaMovimentacao,
@@ -1454,9 +1328,6 @@ async function syncFleetFromSheet(force = true) {
             renderVehicles();
             updateStats();
             populateCityFilter();
-            if (typeof renderPendenciesDashboard === "function" && document.getElementById('pendencias')?.classList.contains('active')) {
-                renderPendenciesDashboard();
-            }
             console.log('Interface atualizada');
         }
 
@@ -1527,17 +1398,11 @@ async function bootSyncPlanilhaVerdade() {
     console.log("Carregando manutenções da planilha...");
     await loadMaintenancesFromSheet();
     renderVehicles();
-    if (typeof renderPendenciesDashboard === "function" && document.getElementById('pendencias')?.classList.contains('active')) {
-        renderPendenciesDashboard();
-    }
 // Atualização automática (a cada 5 minutos)
     setInterval(async () => {
         await syncFleetFromSheet(false);
         await loadMaintenancesFromSheet();
         renderVehicles();
-        if (typeof renderPendenciesDashboard === "function" && document.getElementById('pendencias')?.classList.contains('active')) {
-            renderPendenciesDashboard();
-        }
     }, 5 * 60 * 1000);
 }
 
@@ -1550,7 +1415,7 @@ const MAINTENANCE_WEBAPP_URL = MAINT_WEBAPP_URL;
         // =========================
 // AUTORIZAÇÃO DE MANUTENÇÕES
 // Frota: somente leitura pela planilha verdade.
-// Manutenções: adicionar/excluir exige matrícula com perfil ADMIN na aba/planilha USUARIOS.
+// Manutenções: adicionar/excluir exige matrícula ativa na aba/planilha USUARIOS.
 // OBS.: a proteção real precisa existir também no Apps Script, nas ações addMaintenance e deleteMaintenance.
 // =========================
 const MAINT_AUTH_TTL_MS = 10 * 60 * 1000; // sessão local curta: 10 minutos
@@ -1578,13 +1443,13 @@ async function validateMaintenanceMatricula(matriculaDigits) {
   if (!cleanMat) return false;
 
   const url = buildUrl(MAINT_WEBAPP_URL, {
-    action: 'validateAdmin',
+    action: 'validateUser',
     matricula: cleanMat,
     _: Date.now()
   });
 
   const res = await jsonpRequestWithRetry(url, 3, 15000);
-  return !!(res && res.success === true && (res.admin === true || String(res.perfil || '').toUpperCase().includes('ADMIN') || String(res.perfil || '').toUpperCase() === 'ADM'));
+  return !!(res && res.success === true);
 }
 
 async function ensureMaintenanceAuthorization(actionLabel = 'executar esta ação') {
@@ -1663,8 +1528,6 @@ async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
         cidade: maintenance.cidade || (vehicle ? (vehicle.cidadeLotacaoPadrao || vehicle.cidadeLotacao || vehicle.cidade || '') : ''),
         tipoViatura: maintenance.tipoViatura || (vehicle ? (vehicle.subclasse || vehicle.tipo || '') : ''),
         tipo: (maintenance.tipo || maintenance.type || ''),
-        categoriaServico: maintenance.categoriaServico || maintenance.serviceCategory || maintenance.category || '',
-        categoria: maintenance.categoriaServico || maintenance.serviceCategory || maintenance.category || '',
         descricao: maintenance.descricao || maintenance.description || '',
         km: maintenance.km || maintenance.hodometro || '',
         custo: maintenance.custo || maintenance.cost || '',
@@ -1767,7 +1630,6 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
   const panel = document.getElementById(tabName);
   if (panel) panel.classList.add('active');
 
-  if (tabName === 'pendencias') { try { renderPendenciesDashboard(); } catch(e){ console.error(e);} }
   if (tabName === 'graficos') { try { renderTypeOverview(); } catch(e){ console.error(e);} }
   if (tabName === 'relatorios') {
     try { populateReportFilters(); } catch(e){ console.error(e); }
@@ -1913,65 +1775,6 @@ function jsonpRequest(url, timeoutMs = 30000) {
 }
 
 
-
-function readField(obj, aliases) {
-    if (!obj || typeof obj !== 'object') return '';
-    for (const name of aliases) {
-        if (Object.prototype.hasOwnProperty.call(obj, name) && obj[name] !== null && obj[name] !== undefined && String(obj[name]).trim() !== '') {
-            return obj[name];
-        }
-    }
-
-    const wanted = aliases.map(normHeaderName);
-    for (const [key, value] of Object.entries(obj)) {
-        if (value === null || value === undefined || String(value).trim() === '') continue;
-        if (wanted.includes(normHeaderName(key))) return value;
-    }
-    return '';
-}
-
-function normHeaderName(value) {
-    return String(value || '')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '');
-}
-
-function normalizeMaintenanceRecord(item) {
-    const placa = readField(item, ['placa', 'Placa', 'placaViatura', 'placa_viatura']);
-    const prefixo = readField(item, ['prefixo', 'Prefixo', 'prefixoViatura', 'prefixo_viatura']);
-    const viatura = readField(item, ['viatura', 'Viatura', 'veiculo', 'Veículo', 'Veiculo']);
-    const parsed = parseVehicleLabel(viatura);
-
-    return {
-        ...item,
-        timestamp: readField(item, ['timestamp', 'Timestamp', 'id', 'ID']) || item.timestamp || item.Timestamp || item.id || '',
-        data: readField(item, ['data', 'Data', 'date', 'Data Manutenção', 'Data da Manutenção', 'dataManutencao']) || item.data || item.date || item.dataManutencao || '',
-        prefixo: String(prefixo || parsed.prefixo || '').trim(),
-        placa: String(placa || parsed.placa || '').trim().toUpperCase(),
-        cidade: readField(item, ['cidade', 'Cidade', 'cidadeLotacao', 'Cidade de Lotação']) || item.cidade || '',
-        tipoViatura: readField(item, ['tipoViatura', 'Tipo Viatura', 'Tipo de Viatura']) || item.tipoViatura || '',
-        tipo: readField(item, ['tipo', 'Tipo', 'tipoManutencao', 'Tipo Manutenção', 'Tipo de Manutenção']) || item.tipo || item.type || '',
-        categoriaServico: readField(item, ['categoriaServico', 'Categoria Serviço', 'Categoria do Serviço', 'Categoria Servico', 'Categoria', 'Item Serviço', 'Item do Serviço', 'Item Servico', 'serviceCategory', 'category']) || item.categoriaServico || item.categoria || item.serviceCategory || item.category || '',
-        descricao: readField(item, ['descricao', 'Descrição', 'Descricao', 'description']) || item.descricao || item.description || '',
-        km: readField(item, ['km', 'KM', 'hodometro', 'Hodômetro', 'Hodometro']) || item.km || item.hodometro || '',
-        custo: readField(item, ['custo', 'Custo', 'valor', 'Valor', 'cost']) || item.custo || item.cost || '',
-        responsavel: readField(item, ['responsavel', 'Responsável', 'Responsavel', 'responsible']) || item.responsavel || item.responsible || '',
-        matricula: readField(item, ['matricula', 'Matrícula', 'Matricula']) || item.matricula || '',
-        observacoes: readField(item, ['observacoes', 'Observações', 'Observacoes', 'notes']) || item.observacoes || item.notes || ''
-    };
-}
-
-function parseVehicleLabel(value) {
-    const s = String(value || '').toUpperCase();
-    const placaMatch = s.match(/[A-Z]{3}\d[A-Z0-9]\d{2}|[A-Z]{3}\d{4}/);
-    const prefixoMatch = s.match(/\b(ABTS|ABT|ABS|ASL|ASM|ASF|UR|APV|TLP|TC|MO)\s*[- ]?\s*\d{1,5}\b/);
-    return {
-        placa: placaMatch ? placaMatch[0].replace(/[^A-Z0-9]/g, '') : '',
-        prefixo: prefixoMatch ? prefixoMatch[0].replace(/\s+/g, '') : ''
-    };
-}
-
 // Normaliza chaves de identificação (placa/prefixo) para bater manutenção x viatura
 function normalizeKey(str) {
     return String(str || "")
@@ -1981,37 +1784,22 @@ function normalizeKey(str) {
 }
 
 function getMaintenanceKeyCandidates(item) {
-    const it = normalizeMaintenanceRecord(item || {});
-
+    // Prioriza vinculação por placa/prefixo. Usa "id" apenas se não houver nenhum identificador útil.
     const preferred = [
-        it.placa,
-        it.prefixo,
-        readField(it, ['placaViatura', 'placa_viatura']),
-        readField(it, ['prefixoViatura', 'prefixo_viatura']),
-        readField(it, ['vehicleId', 'vehicle_id', 'viaturaId', 'viatura_id']),
-        readField(it, ['viatura', 'Viatura', 'veiculo', 'Veículo', 'Veiculo', 'veiculoId'])
-    ];
+        item.placa, item.placaViatura, item.placa_viatura,
+        item.prefixo, item.prefixoViatura, item.prefixo_viatura,
+        item.vehicleId, item.vehicle_id, item.viaturaId, item.viatura_id,
+        item.viatura, item.veiculo, item.veiculoId
+    ].map(c => normalizeKey(c)).filter(Boolean);
 
-    const parsed = parseVehicleLabel(readField(it, ['viatura', 'Viatura', 'veiculo', 'Veículo', 'Veiculo']));
-    preferred.push(parsed.placa, parsed.prefixo);
+    if (preferred.length) return [...new Set(preferred)];
 
-    const keys = preferred.map(c => normalizeKey(c)).filter(Boolean);
-    return [...new Set(keys)];
+    const fallbackId = normalizeKey(item.id);
+    return fallbackId ? [fallbackId] : [];
 }
 
 function getVehicleKeyCandidates(v) {
-    if (!v || typeof v !== 'object') return [];
-    return [
-        v.id,
-        v.placa,
-        v.prefixo,
-        v.Prefixo,
-        v.Placa,
-        v.codigo,
-        v.veiculo,
-        `${v.placa || ''} ${v.prefixo || ''}`,
-        `${v.prefixo || ''} ${v.placa || ''}`
-    ].map(x => normalizeKey(x)).filter(Boolean);
+    return [v.id, v.placa, v.prefixo].map(x => normalizeKey(x)).filter(Boolean);
 }
 
 // Retorna lista de manutenções para uma viatura, tentando por placa e por prefixo
@@ -2047,132 +1835,31 @@ window.getMaintenancesForVehicle = getMaintenancesForVehicle;
 // Padronização de "Cidade de Lotação" (coluna G da planilha verdade)
 // Regras definidas pela Seção de Transporte
 // =========================
-function normalizeUnitText(str) {
-    return String(str || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toUpperCase()
-        .trim();
-}
-
-function formatUnknownLotacao(raw) {
-    const clean = String(raw || "").trim();
-    if (!clean) return "5º COB";
-
-    const n = normalizeUnitText(clean);
-
-    // Se a planilha já trouxer a descrição completa, preserva o texto informado.
-    if (n.includes("6 BBM") || n.includes("6O BBM") || n.includes("6º BBM") ||
-        n.includes("5 COB") || n.includes("5O COB") || n.includes("5º COB")) {
-        return clean;
-    }
-
-    // Unidades novas informadas nesta etapa pertencem ao 5º COB.
-    // Assim elas aparecem no site sem serem lançadas indevidamente como 6º BBM - SEDE.
-    return `5º COB - ${clean.toUpperCase()}`;
-}
-
-// =========================
-// Padronização de "Cidade de Lotação" (planilha verdade)
-// As unidades conhecidas continuam padronizadas.
-// Unidades conhecidas do 6º BBM são padronizadas.
-// Unidades novas desta base passam a aparecer como 5º COB.
-// =========================
 function mapLotacaoToPadrao(lotacaoRaw) {
-    const raw = String(lotacaoRaw || "").trim();
-    const s = normalizeUnitText(raw);
-
-    if (!s) return "5º COB";
+    const s = String(lotacaoRaw || "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toUpperCase();
 
     if (s.includes("ARACUAI")) return "6º BBM - PELOTÃO ARAÇUAÍ";
     if (s.includes("ITAOBIM")) return "6º BBM - PELOTÃO ITAOBIM";
     if (s.includes("GUANHAES")) return "6º BBM - POSTO AVANÇADO DE GUANHÃES";
     if (s.includes("RESPLENDOR")) return "6º BBM - PELOTÃO RESPLENDOR";
-    if (s.includes("SAO J EVANGELISTA") || s.includes("SAO JOAO EVANGELISTA") || s.includes("S JOAO EVANGELISTA")) {
+    if (s.includes("SAO J. EVANGELISTA") || s.includes("SAO J EVANGELISTA") || s.includes("SAO JOAO EVANGELISTA")) {
         return "6º BBM - PELOTÃO SÃO JOÃO EVANGELISTA";
     }
     if (s.includes("TEOFILO OTONI")) return "6º BBM - COMPANHIA TEÓFILO OTONI";
     if (s.includes("ALMENARA")) return "6º BBM - PELOTÃO ALMENARA";
-    if (s.includes("SEDE") || s.includes("GOVERNADOR VALADARES")) return "6º BBM - SEDE";
 
-    return formatUnknownLotacao(raw);
-}
-
-// =========================
-// Classificação estruturada de serviços
-// Evita que "óleo" genérico conte como óleo do motor e que "freio" genérico conte como pastilha/disco.
-// Para novos lançamentos, use sempre o campo Categoria do Serviço.
-// Para registros antigos, há uma leitura conservadora por descrição, excluindo óleo de freio, câmbio, direção etc.
-// =========================
-function serviceCategoryKey(value) {
-    return normalizeText(value)
-        .replace(/[^a-z0-9]/g, '');
-}
-
-function getMaintenanceServiceCategory(m) {
-    if (!m || typeof m !== 'object') return '';
-    return m.categoriaServico || m.categoria || m.serviceCategory || m.category || m.itemServico || m.item || '';
-}
-
-function getServiceCategoryLabel(value) {
-    const key = serviceCategoryKey(value);
-    const labels = {
-        oleomotor: 'Óleo do motor',
-        oleocambio: 'Óleo do câmbio/transmissão',
-        fluidofreio: 'Fluido de freio',
-        oleodirecao: 'Óleo da direção hidráulica',
-        arrefecimento: 'Arrefecimento/aditivo',
-        pastilhafreio: 'Pastilha de freio',
-        discofreio: 'Disco de freio',
-        lonatambor: 'Lona/tambor de freio',
-        pneus: 'Pneus',
-        suspensao: 'Suspensão',
-        eletrica: 'Elétrica',
-        motoroutros: 'Motor - outros serviços',
-        outros: 'Outros'
-    };
-    return labels[key] || String(value || '').trim() || 'Não classificada';
-}
-
-function getMaintenanceTextForClassification(m) {
-    return normalizeText([
-        getMaintenanceServiceCategory(m),
-        m && (m.descricao || m.description || ''),
-        m && (m.observacoes || m.notes || '')
-    ].join(' '));
-}
-
-function isEngineOilMaintenance(m) {
-    const categoryKey = serviceCategoryKey(getMaintenanceServiceCategory(m));
-
-    // Regra preferencial: categoria estruturada.
-    if (categoryKey) {
-        return categoryKey === 'oleomotor';
-    }
-
-    // Regra de compatibilidade para registros antigos, mais conservadora.
-    const desc = normalizeText((m && (m.descricao || m.description)) || '');
-    if (!desc.includes('oleo')) return false;
-
-    const exclusions = [
-        'freio', 'cambio', 'transmissao', 'direcao', 'hidraulica',
-        'diferencial', 'caixa', 'fluido', 'arrefecimento'
-    ];
-    if (exclusions.some(term => desc.includes(term))) return false;
-
-    return (
-        desc.includes('oleo do motor') ||
-        desc.includes('oleo motor') ||
-        desc.includes('oleo lubrificante') ||
-        desc.includes('filtro de oleo') ||
-        desc.includes('filtro oleo') ||
-        desc.includes('troca de oleo e filtro') ||
-        desc.includes('troca oleo e filtro')
-    );
+    return "6º BBM - SEDE";
 }
 
 function isOilChangeMaintenance(m) {
-    return isEngineOilMaintenance(m);
+    const desc = normalizeText((m && (m.descricao || m.description)) || '');
+    if (!desc.includes('oleo')) return false;
+    if (desc.includes('troca')) return true;
+    if (desc.includes('filtro')) return true;
+    return true;
 }
 
 function parseKmValue(val) {
@@ -2268,7 +1955,7 @@ function getOilStatusForVehicle(v) {
         return {
             level: 'unknown',
             label: 'SEM REGISTRO',
-            title: 'Sem registro de troca de óleo do motor. Registre manutenção com Categoria do Serviço = "Óleo do motor".'
+            title: 'Sem registro de troca de óleo. Registre uma manutenção com descrição contendo "troca de óleo".'
         };
     }
 
@@ -2319,28 +2006,14 @@ const BRAKE_INTERVAL_KM = 30000;
 const BRAKE_WARN_KM = 5000;    // alerta quando faltar <= 5.000 km
 const BRAKE_WARN_DAYS = 60;    // alerta quando faltar <= 60 dias
 
-function isBrakePadOrDiscMaintenance(m) {
-    const categoryKey = serviceCategoryKey(getMaintenanceServiceCategory(m));
-
-    // Regra preferencial: categoria estruturada.
-    if (categoryKey) {
-        return categoryKey === 'pastilhafreio' || categoryKey === 'discofreio';
-    }
-
-    // Regra de compatibilidade para registros antigos.
-    // Não considera fluido/óleo de freio, lona ou tambor.
-    const desc = normalizeText((m && (m.descricao || m.description)) || '');
-    if (!desc) return false;
-    if (desc.includes('fluido') || desc.includes('oleo de freio') || desc.includes('oleo freio')) return false;
-    if (desc.includes('lona') || desc.includes('tambor')) return false;
-
-    if (desc.includes('pastilha')) return true;
-    if (desc.includes('disco') && desc.includes('freio')) return true;
-    return false;
-}
-
 function isBrakeMaintenance(m) {
-    return isBrakePadOrDiscMaintenance(m);
+    const desc = normalizeText((m && (m.descricao || m.description)) || '');
+    // palavras-chave principais
+    const keys = ['freio', 'pastilha', 'lona', 'disco', 'tambor'];
+    for (const k of keys) {
+        if (desc.includes(k)) return true;
+    }
+    return false;
 }
 
 function getLastBrakeMaintenanceForVehicle(vehicle) {
@@ -2367,7 +2040,7 @@ function getBrakeStatusForVehicle(v) {
         return {
             level: 'unknown',
             label: 'SEM REGISTRO',
-            title: 'Sem registro de pastilha/disco de freio. Registre manutenção com Categoria do Serviço = "Pastilha de freio" ou "Disco de freio".'
+            title: 'Sem registro de manutenção de freios. Registre uma manutenção com descrição contendo "freio", "pastilha", "lona", "disco" ou "tambor".'
         };
     }
 
@@ -2438,14 +2111,8 @@ filtered.sort((a, b) => {
     // Dentro do mesmo grupo, ordenar por Companhia (1ª primeiro), depois por lotação e prefixo
     const ca = getCompanyLabel(a);
     const cb = getCompanyLabel(b);
-    const companyRank = (label) => {
-        if (label.startsWith('1')) return 0;
-        if (label.startsWith('2')) return 1;
-        if (normalizeUnitText(label).includes('5 COB')) return 2;
-        return 3;
-    };
-    const cRankA = companyRank(ca);
-    const cRankB = companyRank(cb);
+    const cRankA = ca.startsWith('1') ? 0 : 1;
+    const cRankB = cb.startsWith('1') ? 0 : 1;
     if (cRankA !== cRankB) return cRankA - cRankB;
 
     const la = String(a.cidade || '');
@@ -2525,29 +2192,16 @@ if (!groupCmp) {
 }
 
 // Agrupado por Companhia (insere linhas-separador)
-const groups = {};
+const groups = { '1ª Companhia': [], '2ª Companhia': [] };
 for (const v of filtered) {
-    const label = getCompanyLabel(v);
-    if (!groups[label]) groups[label] = [];
-    groups[label].push(v);
+    groups[getCompanyLabel(v)].push(v);
 }
 
-const fixedOrder = ['1ª Companhia', '2ª Companhia', '5º COB', 'Unidade não classificada'];
-const dynamicOrder = Object.keys(groups).sort((a, b) => {
-    const ia = fixedOrder.indexOf(a);
-    const ib = fixedOrder.indexOf(b);
-    if (ia !== -1 || ib !== -1) {
-        if (ia === -1) return 1;
-        if (ib === -1) return -1;
-        return ia - ib;
-    }
-    return a.localeCompare(b, 'pt-BR');
-});
-
+const order = ['1ª Companhia', '2ª Companhia'];
 let htmlRows = '';
-for (const g of dynamicOrder) {
+for (const g of order) {
     if (!groups[g] || groups[g].length === 0) continue;
-    htmlRows += `<tr><td colspan="10" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${escapeHTML(g)}</td></tr>`;
+    htmlRows += `<tr><td colspan="10" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${g}</td></tr>`;
     htmlRows += groups[g].map(rowHtml).join('');
 }
 tbody.innerHTML = htmlRows;
@@ -2563,48 +2217,19 @@ tbody.innerHTML = htmlRows;
 
 
 function getCompanyLabel(v) {
-    const explicit = normalizeUnitText(v.companhia || '');
-    if (explicit) {
-        if (explicit.includes('5') || explicit.includes('COB')) return '5º COB';
-        if (explicit.includes('1')) return '1ª Companhia';
-        if (explicit.includes('2')) return '2ª Companhia';
-    }
-
-    const lot = normalizeUnitText(`${v.cidade || ''} ${v.unidade || ''} ${v.lotacaoOriginal || ''}`);
-
-    // Unidades do 5º COB: se a planilha já vier com 5º COB, respeita a origem.
-    if (lot.includes('5 COB') || lot.includes('5O COB') || lot.includes('5º COB')) {
-        return '5º COB';
-    }
-
-    // Regras conhecidas da 1ª Companhia do 6º BBM
-    if (lot.includes('SAO JOAO EVANGELISTA') ||
-        lot.includes('RESPLENDOR') ||
-        lot.includes('GUANHAES') ||
-        lot.includes('SEDE') ||
-        lot.includes('GOVERNADOR VALADARES')) {
+    const lot = String(v.cidade || '').toUpperCase();
+    // Regra informada: São João Evangelista, Resplendor e Sede pertencem à 1ª Companhia
+    if (lot.includes('SÃO JOÃO EVANGELISTA') || lot.includes('SAO JOAO EVANGELISTA') || lot.includes('RESPLENDOR') || lot.includes('GUANHÃES') || lot.includes('GUANHAES') || lot.includes('SEDE')) {
         return '1ª Companhia';
     }
-
-    // Regras conhecidas da 2ª Companhia do 6º BBM
-    if (lot.includes('TEOFILO OTONI') ||
-        lot.includes('ARACUAI') ||
-        lot.includes('ITAOBIM') ||
-        lot.includes('ALMENARA')) {
-        return '2ª Companhia';
-    }
-
-    // As novas unidades adicionadas pertencem ao 5º COB.
-    return '5º COB';
+    return '2ª Companhia';
 }
 
 function matchCompanyFilter(v, filterCompanyValue) {
     if (!filterCompanyValue) return true;
     const label = getCompanyLabel(v);
     return (filterCompanyValue === '1' && label === '1ª Companhia') ||
-           (filterCompanyValue === '2' && label === '2ª Companhia') ||
-           (filterCompanyValue === '5cob' && label === '5º COB') ||
-           (filterCompanyValue === 'na' && label === 'Unidade não classificada');
+           (filterCompanyValue === '2' && label === '2ª Companhia');
 }
 
 function situacaoRank(s) {
@@ -2693,7 +2318,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
             if (matriculaInput) {
                 matriculaInput.value = formatMatriculaText(authorizedMatricula);
                 matriculaInput.readOnly = true;
-                matriculaInput.title = 'Matrícula validada como ADMIN na planilha USUARIOS';
+                matriculaInput.title = 'Matrícula validada na planilha USUARIOS';
             }
         }
 
@@ -2715,7 +2340,6 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
     id: Date.now(),
     date: document.getElementById('maintenanceDate').value,
     type: document.getElementById('maintenanceType').value,
-    categoriaServico: document.getElementById('maintenanceServiceCategory').value,
     description: document.getElementById('maintenanceDescription').value,
     km: parseInt(document.getElementById('maintenanceKm').value) || 0,
     cost: parseFloat(document.getElementById('maintenanceCost').value) || 0,
@@ -2756,10 +2380,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
     const records = getMaintenancesForVehicle(vehicle) || [];
 
     if (records.length === 0) {
-        const msg = lastMaintLoadError
-            ? `Não foi possível ler as manutenções da planilha. Erro: ${escapeHTML(lastMaintLoadError)}`
-            : 'Nenhuma manutenção registrada ainda.';
-        container.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--text-muted);">${msg}</div>`;
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma manutenção registrada ainda.</div>';
         return;
     }
 
@@ -2784,11 +2405,9 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
 
     container.innerHTML = sorted.map(item => {
         const tipo = safeText(item.tipo || item.type, 'N/D');
-        const categoriaServico = getServiceCategoryLabel(item.categoriaServico || item.categoria || item.serviceCategory || item.category || '');
         const descricao = safeText(item.descricao || item.description, '(sem descrição)');
         const dataStr = getDateLabel(item);
         const tipoSafe = escapeHTML(tipo);
-        const categoriaSafe = escapeHTML(categoriaServico);
         const descricaoSafe = escapeHTML(descricao);
         const dataStrSafe = escapeHTML(dataStr);
 
@@ -2813,13 +2432,12 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
                         </div>
                         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
                             <span class="badge ${getMaintenanceTypeBadge(tipo)}">${tipoSafe}</span>
-                            <span class="badge badge-info" title="Categoria do serviço">${categoriaSafe}</span>
                             <span style="color: var(--text-muted);">📅 ${dataStrSafe}</span>
                             ${km > 0 ? `<span style="color: var(--text-muted);">🛣️ ${km.toLocaleString('pt-BR')} km</span>` : ''}
                             ${custo > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
                         </div>
                     </div>
-                    ${maintenanceAuth && maintenanceAuth.matricula && maintenanceAuth.expiresAt > Date.now() ? `<button class="btn-icon" onclick="deleteMaintenance(decodeURIComponent('${deleteKeyParam}'), decodeURIComponent('${deleteMatParam}'))" title="Excluir manutenção (ADMIN)">🗑️</button>` : ``}
+                    <button class="btn-icon" onclick="deleteMaintenance(decodeURIComponent('${deleteKeyParam}'), decodeURIComponent('${deleteMatParam}'))" title="Excluir manutenção (exige matrícula autorizada)">🗑️</button>
                 </div>
 
                 ${responsavel ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${escapeHTML(responsavel)}${matricula ? ` - <strong>Matrícula:</strong> ${escapeHTML(matricula)}` : ''}</div>` : ''}
@@ -2907,178 +2525,6 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
             setTimeout(() => alert.classList.remove('active'), 3500);
         }
 
-
-        // === PAINEL DE PENDÊNCIAS ===
-        function pendingSeverityRank(level) {
-            if (level === 'overdue') return 0;
-            if (level === 'warn') return 1;
-            if (level === 'unknown') return 2;
-            return 3;
-        }
-
-        function pendingStatusLabel(level) {
-            if (level === 'overdue') return 'VENCIDO';
-            if (level === 'warn') return 'ATENÇÃO';
-            if (level === 'unknown') return 'SEM REGISTRO';
-            return 'OK';
-        }
-
-        function pendingBadgeClass(level) {
-            if (level === 'overdue') return 'badge-danger';
-            if (level === 'warn') return 'badge-warning';
-            if (level === 'unknown') return 'badge-info';
-            return 'badge-success';
-        }
-
-        function getVehicleDisplayName(v) {
-            if (!v) return '—';
-            const placa = v.placa || 'S/PLACA';
-            const prefixo = v.prefixo || 'S/PREFIXO';
-            return `${placa} / ${prefixo}`;
-        }
-
-        function buildPendingItems() {
-            const items = [];
-            const stats = {
-                oilOverdue: 0,
-                oilWarn: 0,
-                oilUnknown: 0,
-                brakeOverdue: 0,
-                brakeWarn: 0,
-                brakeUnknown: 0
-            };
-
-            (vehicles || []).forEach(v => {
-                const oil = getOilStatusForVehicle(v);
-                if (oil && oil.level && oil.level !== 'ok') {
-                    if (oil.level === 'overdue') stats.oilOverdue += 1;
-                    if (oil.level === 'warn') stats.oilWarn += 1;
-                    if (oil.level === 'unknown') stats.oilUnknown += 1;
-
-                    items.push({
-                        vehicle: v,
-                        type: 'Óleo do motor',
-                        level: oil.level,
-                        status: pendingStatusLabel(oil.level),
-                        detail: oil.title || '',
-                        maintenanceCount: getMaintenancesForVehicle(v).length
-                    });
-                }
-
-                const brake = getBrakeStatusForVehicle(v);
-                if (brake && brake.level && brake.level !== 'ok') {
-                    if (brake.level === 'overdue') stats.brakeOverdue += 1;
-                    if (brake.level === 'warn') stats.brakeWarn += 1;
-                    if (brake.level === 'unknown') stats.brakeUnknown += 1;
-
-                    items.push({
-                        vehicle: v,
-                        type: 'Pastilha/disco de freio',
-                        level: brake.level,
-                        status: pendingStatusLabel(brake.level),
-                        detail: brake.title || '',
-                        maintenanceCount: getMaintenancesForVehicle(v).length
-                    });
-                }
-            });
-
-            items.sort((a, b) => {
-                const sr = pendingSeverityRank(a.level) - pendingSeverityRank(b.level);
-                if (sr !== 0) return sr;
-                const tr = String(a.type || '').localeCompare(String(b.type || ''), 'pt-BR');
-                if (tr !== 0) return tr;
-                return getVehicleDisplayName(a.vehicle).localeCompare(getVehicleDisplayName(b.vehicle), 'pt-BR');
-            });
-
-            return { items, stats };
-        }
-
-        function setPendingSummaryValue(id, value) {
-            const el = document.getElementById(id);
-            if (el) el.textContent = String(value || 0);
-        }
-
-        function renderPendenciesDashboard() {
-            const content = document.getElementById('pendingContent');
-            if (!content) return;
-
-            if (!syncGate.isReady()) {
-                setPendingSummaryValue('pendingOilOverdue', 0);
-                setPendingSummaryValue('pendingOilWarn', 0);
-                setPendingSummaryValue('pendingBrakeOverdue', 0);
-                setPendingSummaryValue('pendingNoRecord', 0);
-                content.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">⏳</div>
-                        <p>Aguardando sincronização da frota e das manutenções.</p>
-                        ${lastMaintLoadError ? `<p style="margin-top:0.5rem; color: var(--warning);">Erro ao ler manutenções: ${escapeHTML(lastMaintLoadError)}</p>` : ''}
-                    </div>
-                `;
-                return;
-            }
-
-            const { items, stats } = buildPendingItems();
-            const noRecordTotal = (stats.oilUnknown || 0) + (stats.brakeUnknown || 0);
-
-            setPendingSummaryValue('pendingOilOverdue', stats.oilOverdue);
-            setPendingSummaryValue('pendingOilWarn', stats.oilWarn);
-            setPendingSummaryValue('pendingBrakeOverdue', stats.brakeOverdue);
-            setPendingSummaryValue('pendingNoRecord', noRecordTotal);
-
-            const severityFilter = document.getElementById('pendingSeverityFilter')?.value || '';
-            const typeFilter = document.getElementById('pendingTypeFilter')?.value || '';
-
-            const filtered = items.filter(item => {
-                const matchSeverity = !severityFilter || item.level === severityFilter;
-                const matchType = !typeFilter || item.type === typeFilter;
-                return matchSeverity && matchType;
-            });
-
-            if (!filtered.length) {
-                content.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">✅</div>
-                        <p>Nenhuma pendência encontrada para os filtros selecionados.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            content.innerHTML = `
-                <table class="report-table">
-                    <thead>
-                        <tr>
-                            <th>Viatura</th>
-                            <th>Lotação</th>
-                            <th>Item controlado</th>
-                            <th>Situação</th>
-                            <th>Detalhe</th>
-                            <th>Histórico</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${filtered.map(item => {
-                            const v = item.vehicle;
-                            const vehicleIdParam = encodeURIComponent(String(v.id || ''));
-                            return `
-                                <tr>
-                                    <td><strong>${escapeHTML(getVehicleDisplayName(v))}</strong></td>
-                                    <td>${escapeHTML(v.cidade || v.unidade || '—')}</td>
-                                    <td>${escapeHTML(item.type)}</td>
-                                    <td><span class="badge ${pendingBadgeClass(item.level)}">${escapeHTML(item.status)}</span></td>
-                                    <td>${escapeHTML(item.detail || '—')}</td>
-                                    <td>
-                                        <button class="btn-icon" onclick="openMaintenanceModal(decodeURIComponent('${vehicleIdParam}'))" title="Ver manutenções">
-                                            🔧 ${item.maintenanceCount > 0 ? `(${item.maintenanceCount})` : ''}
-                                        </button>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
 
         function renderTypeOverview() {
             const grid = document.getElementById('typeOverviewGrid');

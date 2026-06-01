@@ -875,8 +875,6 @@ table{
     <option value="">Todas Companhias</option>
     <option value="1">1ª Companhia</option>
     <option value="2">2ª Companhia</option>
-    <option value="5cob">5º COB</option>
-    <option value="na">Unidade não classificada</option>
 </select>
 <label class="group-toggle" style="display:flex; align-items:center; gap:6px; font-size:0.95rem;">
     <input type="checkbox" id="groupByCompany" onchange="filterVehicles()">
@@ -1127,76 +1125,53 @@ table{
         let userIsAuthorized = false;
 let userMatricula = '';
 let maintenanceUserMatricula = '';
-let lastMaintLoadError = '';
-window.allMaintenances = [];
         // Expor para depuração / console
         window.vehicles = vehicles;
         window.maintenances = maintenances;
         async function loadMaintenancesFromSheet() {
-    lastMaintLoadError = '';
-    console.log("Buscando manutenções na planilha...", `${MAINTENANCE_WEBAPP_URL}?action=listMaint`);
-
-    const endpoints = [
-        `${MAINTENANCE_WEBAPP_URL}?action=listMaint&_=${Date.now()}`,
-        `${MAINTENANCE_WEBAPP_URL}?action=listMaintenances&_=${Date.now()}`
-    ];
+    console.log("Buscando manutenções:", `${MAINTENANCE_WEBAPP_URL}?action=listMaint...`);
 
     try {
-        let data = null;
-        let lastErr = null;
-
-        for (const url of endpoints) {
-            try {
-                data = await jsonpRequestWithRetry(url, 2, 30000);
-                if (data && data.success === true) break;
-                lastErr = new Error((data && (data.error || data.message)) ? (data.error || data.message) : 'Resposta inválida ao carregar manutenções');
-            } catch (err) {
-                lastErr = err;
-            }
-        }
-
-        if (!data || data.success !== true) {
-            throw lastErr || new Error('Falha ao carregar manutenções');
-        }
+        const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaint&_=${Date.now()}`;
+        const data = await jsonpRequestWithRetry(url, 3, 30000);
+        if (!data || !data.success) throw new Error((data && data.message) ? data.message : "Falha ao carregar manutenções");
 
         const raw =
-            (Array.isArray(data.maintenances) ? data.maintenances :
-            (Array.isArray(data.items) ? data.items :
-            (Array.isArray(data.records) ? data.records :
-            (Array.isArray(data.data) ? data.data : []))));
+            (data.items !== undefined ? data.items :
+            (data.maintenances !== undefined ? data.maintenances :
+            (data.records !== undefined ? data.records :
+            (data.data !== undefined ? data.data : []))));
 
         const map = {};
-        const seenGlobal = new Set();
-        const all = [];
 
         const pushUnderKeys = (it, keys) => {
-            const uniqKeys = [...new Set((keys || []).map(normalizeKey).filter(Boolean))];
-            uniqKeys.forEach(k => {
+            keys.forEach(k => {
                 if (!map[k]) map[k] = [];
-                const unique = maintenanceUniqueKey(it);
-                if (!map[k].some(existing => maintenanceUniqueKey(existing) === unique)) {
-                    map[k].push(it);
-                }
+                map[k].push(it);
             });
         };
 
-        raw.forEach(it0 => {
-            if (!it0 || typeof it0 !== 'object') return;
+        if (Array.isArray(raw)) {
+            raw.forEach(it => {
+                const keys = getMaintenanceKeyCandidates(it);
+                if (!keys.length) return;
+                pushUnderKeys(it, keys);
+            });
+        } else if (raw && typeof raw === "object") {
+            Object.keys(raw).forEach(k0 => {
+                const arr = raw[k0];
+                const keyNorm = normalizeKey(k0);
+                if (!keyNorm) return;
 
-            const it = normalizeMaintenanceRecord(it0);
-            const unique = maintenanceUniqueKey(it);
-            if (!seenGlobal.has(unique)) {
-                seenGlobal.add(unique);
-                all.push(it);
-            }
-
-            const keys = getMaintenanceKeyCandidates(it);
-            if (!keys.length) {
-                console.warn('Manutenção sem placa/prefixo para vincular à viatura:', it);
-                return;
-            }
-            pushUnderKeys(it, keys);
-        });
+                if (Array.isArray(arr)) {
+                    arr.forEach(it => {
+                        const keys = [keyNorm, ...getMaintenanceKeyCandidates(it)];
+                        const uniq = [...new Set(keys)].filter(Boolean);
+                        pushUnderKeys(it, uniq);
+                    });
+                }
+            });
+        }
 
         Object.keys(map).forEach(k => {
             map[k].sort((a, b) => {
@@ -1207,20 +1182,14 @@ window.allMaintenances = [];
         });
 
         maintenances = map;
-        window.maintenances = maintenances;
-        window.allMaintenances = all;
+                window.maintenances = maintenances;
+        const total = Object.values(map).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
+        console.log(`Manutenções carregadas: ${total} registros (chaves: ${Object.keys(map).length})`);
         syncGate.maintReady = true;
-
-        const total = all.length;
-        console.log(`Manutenções carregadas: ${total} registros (chaves de vínculo: ${Object.keys(map).length})`, map);
         return true;
     } catch (err) {
         console.warn("Falha ao carregar manutenções:", err);
-        lastMaintLoadError = err && err.message ? err.message : String(err);
         syncGate.maintReady = false;
-        maintenances = {};
-        window.maintenances = maintenances;
-        window.allMaintenances = [];
         return false;
     }
 }
@@ -1285,7 +1254,6 @@ async function syncFleetFromSheet(force = true) {
     const unidadeCompleta = String(v.unidade || '').trim();
     const cidadeRaw = String(v.cidade || '').trim();
     const situacao = String(v.situacao || '').trim();
-    const companhia = String(v.companhia || v.cia || v.companhiaLotacao || '').trim();
 
     const hodometro = (parseKmValue(v.hodometro) || 0);
     const dataUltimaMovimentacao = String(v.ultimaMovimentacaoSiad || '').trim();
@@ -1303,8 +1271,6 @@ async function syncFleetFromSheet(force = true) {
         subclasse,
         unidade: unidadeCompleta,
         cidade,
-        lotacaoOriginal: cidadeRaw || unidadeCompleta,
-        companhia,
         situacao,
         hodometro,
         dataUltimaMovimentacao,
@@ -1449,7 +1415,7 @@ const MAINTENANCE_WEBAPP_URL = MAINT_WEBAPP_URL;
         // =========================
 // AUTORIZAÇÃO DE MANUTENÇÕES
 // Frota: somente leitura pela planilha verdade.
-// Manutenções: adicionar/excluir exige matrícula com perfil ADMIN na aba/planilha USUARIOS.
+// Manutenções: adicionar/excluir exige matrícula ativa na aba/planilha USUARIOS.
 // OBS.: a proteção real precisa existir também no Apps Script, nas ações addMaintenance e deleteMaintenance.
 // =========================
 const MAINT_AUTH_TTL_MS = 10 * 60 * 1000; // sessão local curta: 10 minutos
@@ -1477,13 +1443,13 @@ async function validateMaintenanceMatricula(matriculaDigits) {
   if (!cleanMat) return false;
 
   const url = buildUrl(MAINT_WEBAPP_URL, {
-    action: 'validateAdmin',
+    action: 'validateUser',
     matricula: cleanMat,
     _: Date.now()
   });
 
   const res = await jsonpRequestWithRetry(url, 3, 15000);
-  return !!(res && res.success === true && (res.admin === true || String(res.perfil || '').toUpperCase().includes('ADMIN') || String(res.perfil || '').toUpperCase() === 'ADM'));
+  return !!(res && res.success === true);
 }
 
 async function ensureMaintenanceAuthorization(actionLabel = 'executar esta ação') {
@@ -1809,64 +1775,6 @@ function jsonpRequest(url, timeoutMs = 30000) {
 }
 
 
-
-function readField(obj, aliases) {
-    if (!obj || typeof obj !== 'object') return '';
-    for (const name of aliases) {
-        if (Object.prototype.hasOwnProperty.call(obj, name) && obj[name] !== null && obj[name] !== undefined && String(obj[name]).trim() !== '') {
-            return obj[name];
-        }
-    }
-
-    const wanted = aliases.map(normHeaderName);
-    for (const [key, value] of Object.entries(obj)) {
-        if (value === null || value === undefined || String(value).trim() === '') continue;
-        if (wanted.includes(normHeaderName(key))) return value;
-    }
-    return '';
-}
-
-function normHeaderName(value) {
-    return String(value || '')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '');
-}
-
-function normalizeMaintenanceRecord(item) {
-    const placa = readField(item, ['placa', 'Placa', 'placaViatura', 'placa_viatura']);
-    const prefixo = readField(item, ['prefixo', 'Prefixo', 'prefixoViatura', 'prefixo_viatura']);
-    const viatura = readField(item, ['viatura', 'Viatura', 'veiculo', 'Veículo', 'Veiculo']);
-    const parsed = parseVehicleLabel(viatura);
-
-    return {
-        ...item,
-        timestamp: readField(item, ['timestamp', 'Timestamp', 'id', 'ID']) || item.timestamp || item.Timestamp || item.id || '',
-        data: readField(item, ['data', 'Data', 'date', 'Data Manutenção', 'Data da Manutenção', 'dataManutencao']) || item.data || item.date || item.dataManutencao || '',
-        prefixo: String(prefixo || parsed.prefixo || '').trim(),
-        placa: String(placa || parsed.placa || '').trim().toUpperCase(),
-        cidade: readField(item, ['cidade', 'Cidade', 'cidadeLotacao', 'Cidade de Lotação']) || item.cidade || '',
-        tipoViatura: readField(item, ['tipoViatura', 'Tipo Viatura', 'Tipo de Viatura']) || item.tipoViatura || '',
-        tipo: readField(item, ['tipo', 'Tipo', 'tipoManutencao', 'Tipo Manutenção', 'Tipo de Manutenção']) || item.tipo || item.type || '',
-        descricao: readField(item, ['descricao', 'Descrição', 'Descricao', 'description']) || item.descricao || item.description || '',
-        km: readField(item, ['km', 'KM', 'hodometro', 'Hodômetro', 'Hodometro']) || item.km || item.hodometro || '',
-        custo: readField(item, ['custo', 'Custo', 'valor', 'Valor', 'cost']) || item.custo || item.cost || '',
-        responsavel: readField(item, ['responsavel', 'Responsável', 'Responsavel', 'responsible']) || item.responsavel || item.responsible || '',
-        matricula: readField(item, ['matricula', 'Matrícula', 'Matricula']) || item.matricula || '',
-        observacoes: readField(item, ['observacoes', 'Observações', 'Observacoes', 'notes']) || item.observacoes || item.notes || ''
-    };
-}
-
-function parseVehicleLabel(value) {
-    const s = String(value || '').toUpperCase();
-    const placaMatch = s.match(/[A-Z]{3}\d[A-Z0-9]\d{2}|[A-Z]{3}\d{4}/);
-    const prefixoMatch = s.match(/\b(ABTS|ABT|ABS|ASL|ASM|ASF|UR|APV|TLP|TC|MO)\s*[- ]?\s*\d{1,5}\b/);
-    return {
-        placa: placaMatch ? placaMatch[0].replace(/[^A-Z0-9]/g, '') : '',
-        prefixo: prefixoMatch ? prefixoMatch[0].replace(/\s+/g, '') : ''
-    };
-}
-
 // Normaliza chaves de identificação (placa/prefixo) para bater manutenção x viatura
 function normalizeKey(str) {
     return String(str || "")
@@ -1876,37 +1784,22 @@ function normalizeKey(str) {
 }
 
 function getMaintenanceKeyCandidates(item) {
-    const it = normalizeMaintenanceRecord(item || {});
-
+    // Prioriza vinculação por placa/prefixo. Usa "id" apenas se não houver nenhum identificador útil.
     const preferred = [
-        it.placa,
-        it.prefixo,
-        readField(it, ['placaViatura', 'placa_viatura']),
-        readField(it, ['prefixoViatura', 'prefixo_viatura']),
-        readField(it, ['vehicleId', 'vehicle_id', 'viaturaId', 'viatura_id']),
-        readField(it, ['viatura', 'Viatura', 'veiculo', 'Veículo', 'Veiculo', 'veiculoId'])
-    ];
+        item.placa, item.placaViatura, item.placa_viatura,
+        item.prefixo, item.prefixoViatura, item.prefixo_viatura,
+        item.vehicleId, item.vehicle_id, item.viaturaId, item.viatura_id,
+        item.viatura, item.veiculo, item.veiculoId
+    ].map(c => normalizeKey(c)).filter(Boolean);
 
-    const parsed = parseVehicleLabel(readField(it, ['viatura', 'Viatura', 'veiculo', 'Veículo', 'Veiculo']));
-    preferred.push(parsed.placa, parsed.prefixo);
+    if (preferred.length) return [...new Set(preferred)];
 
-    const keys = preferred.map(c => normalizeKey(c)).filter(Boolean);
-    return [...new Set(keys)];
+    const fallbackId = normalizeKey(item.id);
+    return fallbackId ? [fallbackId] : [];
 }
 
 function getVehicleKeyCandidates(v) {
-    if (!v || typeof v !== 'object') return [];
-    return [
-        v.id,
-        v.placa,
-        v.prefixo,
-        v.Prefixo,
-        v.Placa,
-        v.codigo,
-        v.veiculo,
-        `${v.placa || ''} ${v.prefixo || ''}`,
-        `${v.prefixo || ''} ${v.placa || ''}`
-    ].map(x => normalizeKey(x)).filter(Boolean);
+    return [v.id, v.placa, v.prefixo].map(x => normalizeKey(x)).filter(Boolean);
 }
 
 // Retorna lista de manutenções para uma viatura, tentando por placa e por prefixo
@@ -1942,55 +1835,23 @@ window.getMaintenancesForVehicle = getMaintenancesForVehicle;
 // Padronização de "Cidade de Lotação" (coluna G da planilha verdade)
 // Regras definidas pela Seção de Transporte
 // =========================
-function normalizeUnitText(str) {
-    return String(str || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toUpperCase()
-        .trim();
-}
-
-function formatUnknownLotacao(raw) {
-    const clean = String(raw || "").trim();
-    if (!clean) return "5º COB";
-
-    const n = normalizeUnitText(clean);
-
-    // Se a planilha já trouxer a descrição completa, preserva o texto informado.
-    if (n.includes("6 BBM") || n.includes("6O BBM") || n.includes("6º BBM") ||
-        n.includes("5 COB") || n.includes("5O COB") || n.includes("5º COB")) {
-        return clean;
-    }
-
-    // Unidades novas informadas nesta etapa pertencem ao 5º COB.
-    // Assim elas aparecem no site sem serem lançadas indevidamente como 6º BBM - SEDE.
-    return `5º COB - ${clean.toUpperCase()}`;
-}
-
-// =========================
-// Padronização de "Cidade de Lotação" (planilha verdade)
-// As unidades conhecidas continuam padronizadas.
-// Unidades conhecidas do 6º BBM são padronizadas.
-// Unidades novas desta base passam a aparecer como 5º COB.
-// =========================
 function mapLotacaoToPadrao(lotacaoRaw) {
-    const raw = String(lotacaoRaw || "").trim();
-    const s = normalizeUnitText(raw);
-
-    if (!s) return "5º COB";
+    const s = String(lotacaoRaw || "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toUpperCase();
 
     if (s.includes("ARACUAI")) return "6º BBM - PELOTÃO ARAÇUAÍ";
     if (s.includes("ITAOBIM")) return "6º BBM - PELOTÃO ITAOBIM";
     if (s.includes("GUANHAES")) return "6º BBM - POSTO AVANÇADO DE GUANHÃES";
     if (s.includes("RESPLENDOR")) return "6º BBM - PELOTÃO RESPLENDOR";
-    if (s.includes("SAO J EVANGELISTA") || s.includes("SAO JOAO EVANGELISTA") || s.includes("S JOAO EVANGELISTA")) {
+    if (s.includes("SAO J. EVANGELISTA") || s.includes("SAO J EVANGELISTA") || s.includes("SAO JOAO EVANGELISTA")) {
         return "6º BBM - PELOTÃO SÃO JOÃO EVANGELISTA";
     }
     if (s.includes("TEOFILO OTONI")) return "6º BBM - COMPANHIA TEÓFILO OTONI";
     if (s.includes("ALMENARA")) return "6º BBM - PELOTÃO ALMENARA";
-    if (s.includes("SEDE") || s.includes("GOVERNADOR VALADARES")) return "6º BBM - SEDE";
 
-    return formatUnknownLotacao(raw);
+    return "6º BBM - SEDE";
 }
 
 function isOilChangeMaintenance(m) {
@@ -2250,14 +2111,8 @@ filtered.sort((a, b) => {
     // Dentro do mesmo grupo, ordenar por Companhia (1ª primeiro), depois por lotação e prefixo
     const ca = getCompanyLabel(a);
     const cb = getCompanyLabel(b);
-    const companyRank = (label) => {
-        if (label.startsWith('1')) return 0;
-        if (label.startsWith('2')) return 1;
-        if (normalizeUnitText(label).includes('5 COB')) return 2;
-        return 3;
-    };
-    const cRankA = companyRank(ca);
-    const cRankB = companyRank(cb);
+    const cRankA = ca.startsWith('1') ? 0 : 1;
+    const cRankB = cb.startsWith('1') ? 0 : 1;
     if (cRankA !== cRankB) return cRankA - cRankB;
 
     const la = String(a.cidade || '');
@@ -2337,29 +2192,16 @@ if (!groupCmp) {
 }
 
 // Agrupado por Companhia (insere linhas-separador)
-const groups = {};
+const groups = { '1ª Companhia': [], '2ª Companhia': [] };
 for (const v of filtered) {
-    const label = getCompanyLabel(v);
-    if (!groups[label]) groups[label] = [];
-    groups[label].push(v);
+    groups[getCompanyLabel(v)].push(v);
 }
 
-const fixedOrder = ['1ª Companhia', '2ª Companhia', '5º COB', 'Unidade não classificada'];
-const dynamicOrder = Object.keys(groups).sort((a, b) => {
-    const ia = fixedOrder.indexOf(a);
-    const ib = fixedOrder.indexOf(b);
-    if (ia !== -1 || ib !== -1) {
-        if (ia === -1) return 1;
-        if (ib === -1) return -1;
-        return ia - ib;
-    }
-    return a.localeCompare(b, 'pt-BR');
-});
-
+const order = ['1ª Companhia', '2ª Companhia'];
 let htmlRows = '';
-for (const g of dynamicOrder) {
+for (const g of order) {
     if (!groups[g] || groups[g].length === 0) continue;
-    htmlRows += `<tr><td colspan="10" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${escapeHTML(g)}</td></tr>`;
+    htmlRows += `<tr><td colspan="10" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${g}</td></tr>`;
     htmlRows += groups[g].map(rowHtml).join('');
 }
 tbody.innerHTML = htmlRows;
@@ -2375,48 +2217,19 @@ tbody.innerHTML = htmlRows;
 
 
 function getCompanyLabel(v) {
-    const explicit = normalizeUnitText(v.companhia || '');
-    if (explicit) {
-        if (explicit.includes('5') || explicit.includes('COB')) return '5º COB';
-        if (explicit.includes('1')) return '1ª Companhia';
-        if (explicit.includes('2')) return '2ª Companhia';
-    }
-
-    const lot = normalizeUnitText(`${v.cidade || ''} ${v.unidade || ''} ${v.lotacaoOriginal || ''}`);
-
-    // Unidades do 5º COB: se a planilha já vier com 5º COB, respeita a origem.
-    if (lot.includes('5 COB') || lot.includes('5O COB') || lot.includes('5º COB')) {
-        return '5º COB';
-    }
-
-    // Regras conhecidas da 1ª Companhia do 6º BBM
-    if (lot.includes('SAO JOAO EVANGELISTA') ||
-        lot.includes('RESPLENDOR') ||
-        lot.includes('GUANHAES') ||
-        lot.includes('SEDE') ||
-        lot.includes('GOVERNADOR VALADARES')) {
+    const lot = String(v.cidade || '').toUpperCase();
+    // Regra informada: São João Evangelista, Resplendor e Sede pertencem à 1ª Companhia
+    if (lot.includes('SÃO JOÃO EVANGELISTA') || lot.includes('SAO JOAO EVANGELISTA') || lot.includes('RESPLENDOR') || lot.includes('GUANHÃES') || lot.includes('GUANHAES') || lot.includes('SEDE')) {
         return '1ª Companhia';
     }
-
-    // Regras conhecidas da 2ª Companhia do 6º BBM
-    if (lot.includes('TEOFILO OTONI') ||
-        lot.includes('ARACUAI') ||
-        lot.includes('ITAOBIM') ||
-        lot.includes('ALMENARA')) {
-        return '2ª Companhia';
-    }
-
-    // As novas unidades adicionadas pertencem ao 5º COB.
-    return '5º COB';
+    return '2ª Companhia';
 }
 
 function matchCompanyFilter(v, filterCompanyValue) {
     if (!filterCompanyValue) return true;
     const label = getCompanyLabel(v);
     return (filterCompanyValue === '1' && label === '1ª Companhia') ||
-           (filterCompanyValue === '2' && label === '2ª Companhia') ||
-           (filterCompanyValue === '5cob' && label === '5º COB') ||
-           (filterCompanyValue === 'na' && label === 'Unidade não classificada');
+           (filterCompanyValue === '2' && label === '2ª Companhia');
 }
 
 function situacaoRank(s) {
@@ -2505,7 +2318,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
             if (matriculaInput) {
                 matriculaInput.value = formatMatriculaText(authorizedMatricula);
                 matriculaInput.readOnly = true;
-                matriculaInput.title = 'Matrícula validada como ADMIN na planilha USUARIOS';
+                matriculaInput.title = 'Matrícula validada na planilha USUARIOS';
             }
         }
 
@@ -2567,10 +2380,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
     const records = getMaintenancesForVehicle(vehicle) || [];
 
     if (records.length === 0) {
-        const msg = lastMaintLoadError
-            ? `Não foi possível ler as manutenções da planilha. Erro: ${escapeHTML(lastMaintLoadError)}`
-            : 'Nenhuma manutenção registrada ainda.';
-        container.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--text-muted);">${msg}</div>`;
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma manutenção registrada ainda.</div>';
         return;
     }
 
@@ -2627,7 +2437,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
                             ${custo > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}
                         </div>
                     </div>
-                    ${maintenanceAuth && maintenanceAuth.matricula && maintenanceAuth.expiresAt > Date.now() ? `<button class="btn-icon" onclick="deleteMaintenance(decodeURIComponent('${deleteKeyParam}'), decodeURIComponent('${deleteMatParam}'))" title="Excluir manutenção (ADMIN)">🗑️</button>` : ``}
+                    <button class="btn-icon" onclick="deleteMaintenance(decodeURIComponent('${deleteKeyParam}'), decodeURIComponent('${deleteMatParam}'))" title="Excluir manutenção (exige matrícula autorizada)">🗑️</button>
                 </div>
 
                 ${responsavel ? `<div style="margin-bottom: 0.5rem;"><strong>Responsável:</strong> ${escapeHTML(responsavel)}${matricula ? ` - <strong>Matrícula:</strong> ${escapeHTML(matricula)}` : ''}</div>` : ''}

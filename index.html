@@ -795,6 +795,180 @@ table{
     text-align: center;
 }
 
+
+/* ===============================
+   Módulo Orçamentário
+   =============================== */
+.budget-toolbar {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.budget-search {
+    flex: 1;
+    min-width: 260px;
+}
+
+.budget-search input,
+.budget-toolbar select,
+.budget-form-grid input,
+.budget-form-grid select,
+.budget-form-grid textarea {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+}
+
+.budget-form-grid textarea {
+    resize: vertical;
+    min-height: 84px;
+}
+
+.budget-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+}
+
+.budget-form-grid .full-row {
+    grid-column: 1 / -1;
+}
+
+.budget-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.budget-kpi {
+    background: linear-gradient(180deg, rgba(11,22,54,.95) 0%, rgba(21,27,61,.95) 100%);
+    border: 1px solid rgba(25,118,210,.35);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+}
+
+.budget-kpi-label {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-size: .85rem;
+    margin-bottom: .4rem;
+}
+
+.budget-kpi-value {
+    color: var(--white);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 1.45rem;
+    font-weight: 700;
+}
+
+.budget-contract-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.budget-contract-title h3 {
+    font-size: 1.25rem;
+    margin-bottom: .35rem;
+}
+
+.commitment-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--secondary);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.commitment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+}
+
+.commitment-number {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--white);
+}
+
+.commitment-meta {
+    color: var(--text-muted);
+    margin-top: .25rem;
+}
+
+.commitment-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: .65rem;
+    margin: .85rem 0 1rem;
+}
+
+.commitment-summary-item {
+    background: rgba(255,255,255,.04);
+    border-radius: 10px;
+    padding: .65rem .75rem;
+}
+
+.commitment-summary-item span {
+    display: block;
+    color: var(--text-muted);
+    font-size: .82rem;
+    text-transform: uppercase;
+}
+
+.commitment-summary-item strong {
+    display: block;
+    margin-top: .25rem;
+    color: var(--white);
+    font-family: 'Roboto Mono', monospace;
+}
+
+.inline-form-box {
+    display: none;
+    background: rgba(7,16,38,.92);
+    border: 1px solid rgba(255,143,0,.35);
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.inline-form-box.active {
+    display: block;
+}
+
+.budget-note {
+    color: var(--text-muted);
+    font-size: .92rem;
+    line-height: 1.35;
+}
+
+.saldo-positive { color: var(--success); }
+.saldo-warning { color: var(--warning); }
+.saldo-danger { color: var(--danger); }
+
+@media (max-width: 768px) {
+    .budget-kpi-value { font-size: 1.1rem; }
+    .commitment-header { align-items: stretch; }
+}
+
 </style>
 </head>
 <body>
@@ -827,6 +1001,7 @@ table{
             <button class="tab active" onclick="switchTab('frota', this)">🚒 Frota</button>
 <button class="tab" onclick="switchTab('graficos', this)">🚒 Tipos de Viatura</button>
 <button class="tab" onclick="switchTab('gestao', this)">📌 Gestão</button>
+<button class="tab" onclick="switchTab('orcamentario', this)">💳 Orçamentário</button>
             <button class="tab" onclick="switchTab('relatorios', this)">📈 Relatórios</button>
 <button class="tab" id="configTab" onclick="switchTab('config', this)" style="display: none;">⚙️ Configurações</button>
         </div>
@@ -946,6 +1121,62 @@ table{
 </div>
 <!-- Fim Tab Gestão -->
 
+        
+
+<!-- Tab Orçamentário -->
+<div id="orcamentario" class="tab-content">
+    <div class="report-section">
+        <div class="report-header">
+            <div>
+                <div class="report-title">💳 Gestão Orçamentária</div>
+                <div class="budget-note">Controle por contrato, com empenhos como entrada de crédito e movimentações lançadas dentro de cada empenho.</div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-secondary" onclick="renderBudgetModule()">🔄 Atualizar</button>
+                <button class="btn btn-primary" onclick="openBudgetContractForm()">➕ Novo Contrato</button>
+            </div>
+        </div>
+
+        <div class="budget-kpi-grid" id="budgetSummaryCards"></div>
+
+        <div class="budget-toolbar">
+            <div class="budget-search">
+                <input type="text" id="budgetSearchInput" placeholder="Buscar por contrato, empresa, objeto ou CNPJ..." onkeyup="renderBudgetContractsTable()">
+            </div>
+            <select id="budgetStatusFilter" onchange="renderBudgetContractsTable()">
+                <option value="">Todas Situações</option>
+                <option value="ATIVO">Ativo</option>
+                <option value="ENCERRADO">Encerrado</option>
+                <option value="SUSPENSO">Suspenso</option>
+                <option value="RESCINDIDO">Rescindido</option>
+            </select>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Contrato</th>
+                        <th>Empresa</th>
+                        <th>Objeto</th>
+                        <th>Contratado</th>
+                        <th>Empenhado</th>
+                        <th>Pago</th>
+                        <th>Anulado</th>
+                        <th>Saldo</th>
+                        <th>Situação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="budgetContractsBody">
+                    <tr><td colspan="10" class="loading">Nenhum contrato cadastrado.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- Fim Tab Orçamentário -->
+
         <!-- Tab Relatórios -->
         <div id="relatorios" class="tab-content">
             <div class="report-section">
@@ -1035,6 +1266,173 @@ table{
     <!-- Fim Container -->
 
     <!-- Modal de Adicionar/Editar viatura removido: frota em modo somente leitura pela planilha verdade. -->
+
+
+
+    <!-- Modal Orçamentário: Contrato -->
+    <div class="modal" id="budgetContractModal">
+        <div class="modal-content" style="max-width: 920px;">
+            <div class="modal-header">
+                <h2 id="budgetContractFormTitle">💳 Novo Contrato</h2>
+                <button class="close-modal" onclick="closeBudgetContractForm()">✕</button>
+            </div>
+            <form onsubmit="saveBudgetContract(event)">
+                <input type="hidden" id="budgetContractId">
+                <div class="budget-form-grid">
+                    <div class="form-group">
+                        <label>Número do Contrato *</label>
+                        <input type="text" id="budgetContractNumber" required placeholder="Ex: 12/2026">
+                    </div>
+                    <div class="form-group">
+                        <label>Situação *</label>
+                        <select id="budgetContractStatus" required>
+                            <option value="ATIVO">Ativo</option>
+                            <option value="ENCERRADO">Encerrado</option>
+                            <option value="SUSPENSO">Suspenso</option>
+                            <option value="RESCINDIDO">Rescindido</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Empresa Contratada *</label>
+                        <input type="text" id="budgetContractCompany" required placeholder="Nome da empresa">
+                    </div>
+                    <div class="form-group">
+                        <label>CNPJ</label>
+                        <input type="text" id="budgetContractCnpj" placeholder="00.000.000/0000-00">
+                    </div>
+                    <div class="form-group">
+                        <label>Vigência Inicial</label>
+                        <input type="date" id="budgetContractStart">
+                    </div>
+                    <div class="form-group">
+                        <label>Vigência Final</label>
+                        <input type="date" id="budgetContractEnd">
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Contratado (R$) *</label>
+                        <input type="number" id="budgetContractValue" step="0.01" min="0" required placeholder="0.00">
+                    </div>
+                    <div class="form-group full-row">
+                        <label>Objeto *</label>
+                        <textarea id="budgetContractObject" required placeholder="Descreva o objeto do contrato"></textarea>
+                    </div>
+                    <div class="form-group full-row">
+                        <label>Observações</label>
+                        <textarea id="budgetContractNotes" placeholder="Informações complementares"></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">💾 Salvar Contrato</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeBudgetContractForm()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Orçamentário: Detalhe do Contrato -->
+    <div class="modal" id="budgetDetailModal">
+        <div class="modal-content" style="max-width: 1100px;">
+            <div class="modal-header">
+                <h2>💳 Contrato - <span id="budgetDetailContractNumber"></span></h2>
+                <button class="close-modal" onclick="closeBudgetDetailModal()">✕</button>
+            </div>
+
+            <div id="budgetContractDetailContent"></div>
+
+            <div style="margin: 1rem 0; display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="showBudgetCommitmentForm()">➕ Novo Empenho/Reforço</button>
+                <button class="btn btn-secondary" onclick="hideBudgetCommitmentForm(); hideBudgetMovementForm();">Cancelar Lançamento</button>
+            </div>
+
+            <div id="budgetCommitmentFormBox" class="inline-form-box">
+                <h3 style="margin-bottom: 1rem;">Novo Empenho/Reforço</h3>
+                <form onsubmit="saveBudgetCommitment(event)">
+                    <input type="hidden" id="budgetCommitmentId">
+                    <div class="budget-form-grid">
+                        <div class="form-group">
+                            <label>Número do Empenho *</label>
+                            <input type="text" id="budgetCommitmentNumber" required placeholder="Ex: 2026NE000123">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo *</label>
+                            <select id="budgetCommitmentType" required>
+                                <option value="EMPENHO INICIAL">Empenho inicial</option>
+                                <option value="REFORÇO DE EMPENHO">Reforço de empenho</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Data do Empenho *</label>
+                            <input type="date" id="budgetCommitmentDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor (R$) *</label>
+                            <input type="number" id="budgetCommitmentValue" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Fonte de Recurso</label>
+                            <input type="text" id="budgetCommitmentSource" placeholder="Ex: 10.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Natureza de Despesa</label>
+                            <input type="text" id="budgetCommitmentNature" placeholder="Ex: 339039">
+                        </div>
+                        <div class="form-group full-row">
+                            <label>Observação</label>
+                            <textarea id="budgetCommitmentNotes" placeholder="Detalhes do empenho ou reforço"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">💾 Salvar Empenho</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideBudgetCommitmentForm()">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="budgetMovementFormBox" class="inline-form-box">
+                <h3 style="margin-bottom: 1rem;">Nova Movimentação do Empenho <span id="budgetMovementCommitmentLabel"></span></h3>
+                <form onsubmit="saveBudgetMovement(event)">
+                    <input type="hidden" id="budgetMovementId">
+                    <input type="hidden" id="budgetMovementCommitmentId">
+                    <div class="budget-form-grid">
+                        <div class="form-group">
+                            <label>Tipo de Movimentação *</label>
+                            <select id="budgetMovementType" required onchange="updateBudgetMovementLabels()">
+                                <option value="PAGAMENTO DE NF">Pagamento de NF</option>
+                                <option value="ANULAÇÃO DE CRÉDITO">Anulação de crédito</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label id="budgetMovementDocumentLabel">Número da Nota Fiscal / Documento *</label>
+                            <input type="text" id="budgetMovementDocument" required placeholder="Ex: NF 1452">
+                        </div>
+                        <div class="form-group">
+                            <label>Data da Movimentação *</label>
+                            <input type="date" id="budgetMovementDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor (R$) *</label>
+                            <input type="number" id="budgetMovementValue" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Favorecido</label>
+                            <input type="text" id="budgetMovementFavored" placeholder="Empresa ou favorecido">
+                        </div>
+                        <div class="form-group full-row">
+                            <label>Observação</label>
+                            <textarea id="budgetMovementNotes" placeholder="Detalhes do pagamento, anulação ou documento"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">💾 Salvar Movimentação</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideBudgetMovementForm()">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="budgetCommitmentsContainer"></div>
+        </div>
+    </div>
+
 
     <!-- Modal Manutenções -->
     <div class="modal" id="maintenanceModal">
@@ -1136,6 +1534,11 @@ table{
         let userIsAuthorized = false;
 let userMatricula = '';
 let maintenanceUserMatricula = '';
+let budgetContracts = [];
+let budgetCommitments = [];
+let budgetMovements = [];
+let currentBudgetContractId = null;
+let currentBudgetCommitmentId = null;
         // Expor para depuração / console
         window.vehicles = vehicles;
         window.maintenances = maintenances;
@@ -1650,6 +2053,7 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
     try { updateCostChart(); } catch(e){ console.error(e); }
   }
   if (tabName === 'gestao') { try { renderMgmtDashboard(); } catch(e){ console.error(e);} }
+  if (tabName === 'orcamentario') { try { renderBudgetModule(); } catch(e){ console.error(e);} }
 }
 
 
@@ -1658,6 +2062,9 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
             // Carregar manutenções salvas
             const savedMaintenances = loadFromStorage('manutencoes-6bbm');
             googleSheetsConfig = loadFromStorage('google-sheets-config');
+            budgetContracts = loadFromStorage('budget-contracts-6bbm') || [];
+            budgetCommitments = loadFromStorage('budget-commitments-6bbm') || [];
+            budgetMovements = loadFromStorage('budget-movements-6bbm') || [];
             
             // Verificar autenticação
             checkAuth();
@@ -3631,6 +4038,641 @@ function exportMgmtDashboardPDF() {
     const fileStamp = new Date().toISOString().slice(0, 10);
     doc.save(`relatorio_global_manutencoes_${fileStamp}.pdf`);
     showAlert('PDF gerencial gerado com sucesso!');
+}
+
+
+
+// =========================
+// MÓDULO ORÇAMENTÁRIO
+// Contrato -> Empenhos/Reforços -> Movimentações dentro do empenho
+// Dados persistidos em localStorage nesta versão do index.
+// =========================
+const BUDGET_STORAGE_KEYS = {
+    contracts: 'budget-contracts-6bbm',
+    commitments: 'budget-commitments-6bbm',
+    movements: 'budget-movements-6bbm'
+};
+
+function saveBudgetStorage() {
+    saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
+    saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
+    saveToStorage(BUDGET_STORAGE_KEYS.movements, budgetMovements);
+}
+
+function generateBudgetId(prefix) {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function budgetMoney(value) {
+    const n = Number(value || 0);
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function budgetDateLabel(value) {
+    const d = parseDateValue(value);
+    return d ? d.toLocaleDateString('pt-BR') : '—';
+}
+
+function getBudgetContractById(contractId) {
+    return (budgetContracts || []).find(c => String(c.id) === String(contractId)) || null;
+}
+
+function getBudgetCommitmentById(commitmentId) {
+    return (budgetCommitments || []).find(e => String(e.id) === String(commitmentId)) || null;
+}
+
+function getBudgetCommitmentsForContract(contractId) {
+    return (budgetCommitments || [])
+        .filter(e => String(e.contractId) === String(contractId))
+        .sort((a, b) => {
+            const da = parseDateValue(a.date) || new Date(0);
+            const db = parseDateValue(b.date) || new Date(0);
+            return da.getTime() - db.getTime();
+        });
+}
+
+function getBudgetMovementsForCommitment(commitmentId) {
+    return (budgetMovements || [])
+        .filter(m => String(m.commitmentId) === String(commitmentId))
+        .sort((a, b) => {
+            const da = parseDateValue(a.date) || new Date(0);
+            const db = parseDateValue(b.date) || new Date(0);
+            return da.getTime() - db.getTime();
+        });
+}
+
+function getBudgetMovementsForContract(contractId) {
+    const ids = new Set(getBudgetCommitmentsForContract(contractId).map(e => String(e.id)));
+    return (budgetMovements || []).filter(m => ids.has(String(m.commitmentId)));
+}
+
+function getBudgetCommitmentTotals(commitmentId) {
+    const commitment = getBudgetCommitmentById(commitmentId);
+    const value = Number(commitment?.value || 0);
+    const movements = getBudgetMovementsForCommitment(commitmentId);
+    const paid = movements
+        .filter(m => m.type === 'PAGAMENTO DE NF')
+        .reduce((sum, m) => sum + Number(m.value || 0), 0);
+    const canceled = movements
+        .filter(m => m.type === 'ANULAÇÃO DE CRÉDITO')
+        .reduce((sum, m) => sum + Number(m.value || 0), 0);
+    const out = paid + canceled;
+    return { value, paid, canceled, out, balance: value - out };
+}
+
+function getBudgetContractTotals(contractId) {
+    const contract = getBudgetContractById(contractId);
+    const committed = getBudgetCommitmentsForContract(contractId)
+        .reduce((sum, e) => sum + Number(e.value || 0), 0);
+    const movements = getBudgetMovementsForContract(contractId);
+    const paid = movements
+        .filter(m => m.type === 'PAGAMENTO DE NF')
+        .reduce((sum, m) => sum + Number(m.value || 0), 0);
+    const canceled = movements
+        .filter(m => m.type === 'ANULAÇÃO DE CRÉDITO')
+        .reduce((sum, m) => sum + Number(m.value || 0), 0);
+    const balance = committed - paid - canceled;
+    return {
+        contracted: Number(contract?.value || 0),
+        committed,
+        paid,
+        canceled,
+        balance
+    };
+}
+
+function getBudgetGlobalTotals() {
+    return (budgetContracts || []).reduce((acc, c) => {
+        const t = getBudgetContractTotals(c.id);
+        acc.contracted += t.contracted;
+        acc.committed += t.committed;
+        acc.paid += t.paid;
+        acc.canceled += t.canceled;
+        acc.balance += t.balance;
+        return acc;
+    }, { contracted: 0, committed: 0, paid: 0, canceled: 0, balance: 0 });
+}
+
+function saldoClass(value) {
+    const n = Number(value || 0);
+    if (n < 0) return 'saldo-danger';
+    if (n <= 1000 && n > 0) return 'saldo-warning';
+    return 'saldo-positive';
+}
+
+function renderBudgetModule() {
+    renderBudgetSummaryCards();
+    renderBudgetContractsTable();
+    if (currentBudgetContractId) renderBudgetContractDetail();
+}
+
+function renderBudgetSummaryCards() {
+    const el = document.getElementById('budgetSummaryCards');
+    if (!el) return;
+
+    const totals = getBudgetGlobalTotals();
+    el.innerHTML = `
+        <div class="budget-kpi">
+            <div class="budget-kpi-label">Total Contratado</div>
+            <div class="budget-kpi-value">${budgetMoney(totals.contracted)}</div>
+        </div>
+        <div class="budget-kpi">
+            <div class="budget-kpi-label">Total Empenhado</div>
+            <div class="budget-kpi-value">${budgetMoney(totals.committed)}</div>
+        </div>
+        <div class="budget-kpi">
+            <div class="budget-kpi-label">Total Pago</div>
+            <div class="budget-kpi-value">${budgetMoney(totals.paid)}</div>
+        </div>
+        <div class="budget-kpi">
+            <div class="budget-kpi-label">Total Anulado</div>
+            <div class="budget-kpi-value">${budgetMoney(totals.canceled)}</div>
+        </div>
+        <div class="budget-kpi">
+            <div class="budget-kpi-label">Saldo Disponível</div>
+            <div class="budget-kpi-value ${saldoClass(totals.balance)}">${budgetMoney(totals.balance)}</div>
+        </div>
+    `;
+}
+
+function renderBudgetContractsTable() {
+    const tbody = document.getElementById('budgetContractsBody');
+    if (!tbody) return;
+
+    const search = normalizeText(document.getElementById('budgetSearchInput')?.value || '');
+    const status = document.getElementById('budgetStatusFilter')?.value || '';
+
+    let rows = [...(budgetContracts || [])].filter(c => {
+        const blob = normalizeText(`${c.number || ''} ${c.company || ''} ${c.object || ''} ${c.cnpj || ''}`);
+        const matchSearch = !search || blob.includes(search);
+        const matchStatus = !status || c.status === status;
+        return matchSearch && matchStatus;
+    });
+
+    rows.sort((a, b) => String(a.number || '').localeCompare(String(b.number || ''), 'pt-BR'));
+
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="10" class="loading">Nenhum contrato cadastrado.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(c => {
+        const t = getBudgetContractTotals(c.id);
+        const id = encodeURIComponent(c.id);
+        return `
+            <tr>
+                <td><strong>${escapeHTML(c.number || '—')}</strong></td>
+                <td>${escapeHTML(c.company || '—')}</td>
+                <td>${escapeHTML(c.object || '—')}</td>
+                <td>${budgetMoney(t.contracted)}</td>
+                <td>${budgetMoney(t.committed)}</td>
+                <td>${budgetMoney(t.paid)}</td>
+                <td>${budgetMoney(t.canceled)}</td>
+                <td><strong class="${saldoClass(t.balance)}">${budgetMoney(t.balance)}</strong></td>
+                <td><span class="badge ${getBudgetStatusBadge(c.status)}">${escapeHTML(c.status || 'N/A')}</span></td>
+                <td>
+                    <div class="actions">
+                        <button class="btn-icon" onclick="openBudgetDetailModal(decodeURIComponent('${id}'))" title="Ver contrato, empenhos e movimentações">👁️</button>
+                        <button class="btn-icon" onclick="openBudgetDetailAndCommitment(decodeURIComponent('${id}'))" title="Novo empenho/reforço">➕</button>
+                        <button class="btn-icon" onclick="editBudgetContract(decodeURIComponent('${id}'))" title="Editar contrato">✏️</button>
+                        <button class="btn-icon" onclick="deleteBudgetContract(decodeURIComponent('${id}'))" title="Excluir contrato">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getBudgetStatusBadge(status) {
+    if (status === 'ATIVO') return 'badge-success';
+    if (status === 'SUSPENSO') return 'badge-warning';
+    if (status === 'RESCINDIDO') return 'badge-danger';
+    return 'badge-info';
+}
+
+function openBudgetContractForm(contractId = null) {
+    const modal = document.getElementById('budgetContractModal');
+    const formTitle = document.getElementById('budgetContractFormTitle');
+    if (!modal) return;
+
+    const contract = contractId ? getBudgetContractById(contractId) : null;
+    document.getElementById('budgetContractId').value = contract?.id || '';
+    document.getElementById('budgetContractNumber').value = contract?.number || '';
+    document.getElementById('budgetContractStatus').value = contract?.status || 'ATIVO';
+    document.getElementById('budgetContractCompany').value = contract?.company || '';
+    document.getElementById('budgetContractCnpj').value = contract?.cnpj || '';
+    document.getElementById('budgetContractStart').value = contract?.startDate || '';
+    document.getElementById('budgetContractEnd').value = contract?.endDate || '';
+    document.getElementById('budgetContractValue').value = contract?.value ?? '';
+    document.getElementById('budgetContractObject').value = contract?.object || '';
+    document.getElementById('budgetContractNotes').value = contract?.notes || '';
+    if (formTitle) formTitle.textContent = contract ? '💳 Editar Contrato' : '💳 Novo Contrato';
+
+    modal.classList.add('active');
+}
+
+function closeBudgetContractForm() {
+    const modal = document.getElementById('budgetContractModal');
+    if (modal) modal.classList.remove('active');
+}
+
+function saveBudgetContract(event) {
+    event.preventDefault();
+
+    const id = document.getElementById('budgetContractId').value || generateBudgetId('CTR');
+    const existingIndex = budgetContracts.findIndex(c => String(c.id) === String(id));
+    const contract = {
+        id,
+        number: document.getElementById('budgetContractNumber').value.trim(),
+        status: document.getElementById('budgetContractStatus').value,
+        company: document.getElementById('budgetContractCompany').value.trim(),
+        cnpj: document.getElementById('budgetContractCnpj').value.trim(),
+        startDate: document.getElementById('budgetContractStart').value,
+        endDate: document.getElementById('budgetContractEnd').value,
+        value: parseFloat(document.getElementById('budgetContractValue').value) || 0,
+        object: document.getElementById('budgetContractObject').value.trim(),
+        notes: document.getElementById('budgetContractNotes').value.trim(),
+        updatedAt: new Date().toISOString()
+    };
+
+    if (!contract.number || !contract.company || !contract.object) {
+        showAlert('Preencha número do contrato, empresa e objeto.', 'error');
+        return;
+    }
+
+    const duplicated = budgetContracts.some(c => String(c.id) !== String(id) && normalizeText(c.number) === normalizeText(contract.number));
+    if (duplicated) {
+        showAlert('Já existe contrato cadastrado com este número.', 'error');
+        return;
+    }
+
+    if (existingIndex >= 0) budgetContracts[existingIndex] = contract;
+    else budgetContracts.push(contract);
+
+    saveBudgetStorage();
+    renderBudgetModule();
+    closeBudgetContractForm();
+    showAlert('Contrato salvo com sucesso!');
+}
+
+function editBudgetContract(contractId) {
+    openBudgetContractForm(contractId);
+}
+
+function deleteBudgetContract(contractId) {
+    const c = getBudgetContractById(contractId);
+    if (!c) return;
+
+    const hasCommitments = getBudgetCommitmentsForContract(contractId).length > 0;
+    const msg = hasCommitments
+        ? `O contrato ${c.number} possui empenhos e movimentações vinculadas. Excluir apagará todos esses registros. Confirma?`
+        : `Confirma a exclusão do contrato ${c.number}?`;
+
+    if (!confirm(msg)) return;
+
+    const commitmentIds = new Set(getBudgetCommitmentsForContract(contractId).map(e => String(e.id)));
+    budgetContracts = budgetContracts.filter(x => String(x.id) !== String(contractId));
+    budgetCommitments = budgetCommitments.filter(e => String(e.contractId) !== String(contractId));
+    budgetMovements = budgetMovements.filter(m => !commitmentIds.has(String(m.commitmentId)));
+
+    if (String(currentBudgetContractId) === String(contractId)) closeBudgetDetailModal();
+    saveBudgetStorage();
+    renderBudgetModule();
+    showAlert('Contrato excluído.');
+}
+
+function openBudgetDetailModal(contractId) {
+    currentBudgetContractId = contractId;
+    currentBudgetCommitmentId = null;
+    const modal = document.getElementById('budgetDetailModal');
+    if (!modal) return;
+
+    const contract = getBudgetContractById(contractId);
+    document.getElementById('budgetDetailContractNumber').textContent = contract ? contract.number : 'N/D';
+    hideBudgetCommitmentForm();
+    hideBudgetMovementForm();
+    renderBudgetContractDetail();
+    modal.classList.add('active');
+}
+
+function openBudgetDetailAndCommitment(contractId) {
+    openBudgetDetailModal(contractId);
+    setTimeout(() => showBudgetCommitmentForm(), 0);
+}
+
+function closeBudgetDetailModal() {
+    const modal = document.getElementById('budgetDetailModal');
+    if (modal) modal.classList.remove('active');
+    currentBudgetContractId = null;
+    currentBudgetCommitmentId = null;
+    hideBudgetCommitmentForm();
+    hideBudgetMovementForm();
+    renderBudgetModule();
+}
+
+function renderBudgetContractDetail() {
+    const contract = getBudgetContractById(currentBudgetContractId);
+    const detail = document.getElementById('budgetContractDetailContent');
+    const container = document.getElementById('budgetCommitmentsContainer');
+    if (!detail || !container) return;
+
+    if (!contract) {
+        detail.innerHTML = '<div class="empty-state">Contrato não encontrado.</div>';
+        container.innerHTML = '';
+        return;
+    }
+
+    const t = getBudgetContractTotals(contract.id);
+    detail.innerHTML = `
+        <div class="budget-contract-title">
+            <div>
+                <h3>${escapeHTML(contract.number || '—')} • ${escapeHTML(contract.company || '—')}</h3>
+                <div class="budget-note"><strong>Objeto:</strong> ${escapeHTML(contract.object || '—')}</div>
+                <div class="budget-note"><strong>Vigência:</strong> ${budgetDateLabel(contract.startDate)} a ${budgetDateLabel(contract.endDate)} • <strong>CNPJ:</strong> ${escapeHTML(contract.cnpj || '—')}</div>
+            </div>
+            <span class="badge ${getBudgetStatusBadge(contract.status)}">${escapeHTML(contract.status || 'N/A')}</span>
+        </div>
+        <div class="budget-kpi-grid">
+            <div class="budget-kpi"><div class="budget-kpi-label">Valor Contratado</div><div class="budget-kpi-value">${budgetMoney(t.contracted)}</div></div>
+            <div class="budget-kpi"><div class="budget-kpi-label">Total Empenhado</div><div class="budget-kpi-value">${budgetMoney(t.committed)}</div></div>
+            <div class="budget-kpi"><div class="budget-kpi-label">Total Pago</div><div class="budget-kpi-value">${budgetMoney(t.paid)}</div></div>
+            <div class="budget-kpi"><div class="budget-kpi-label">Total Anulado</div><div class="budget-kpi-value">${budgetMoney(t.canceled)}</div></div>
+            <div class="budget-kpi"><div class="budget-kpi-label">Saldo Disponível</div><div class="budget-kpi-value ${saldoClass(t.balance)}">${budgetMoney(t.balance)}</div></div>
+        </div>
+    `;
+
+    renderBudgetCommitmentsList();
+}
+
+function showBudgetCommitmentForm(commitmentId = null) {
+    if (!currentBudgetContractId) {
+        showAlert('Abra um contrato antes de lançar empenho.', 'error');
+        return;
+    }
+
+    hideBudgetMovementForm();
+    const box = document.getElementById('budgetCommitmentFormBox');
+    if (!box) return;
+
+    const e = commitmentId ? getBudgetCommitmentById(commitmentId) : null;
+    document.getElementById('budgetCommitmentId').value = e?.id || '';
+    document.getElementById('budgetCommitmentNumber').value = e?.number || '';
+    document.getElementById('budgetCommitmentType').value = e?.type || 'EMPENHO INICIAL';
+    document.getElementById('budgetCommitmentDate').value = e?.date || new Date().toISOString().slice(0, 10);
+    document.getElementById('budgetCommitmentValue').value = e?.value ?? '';
+    document.getElementById('budgetCommitmentSource').value = e?.source || '';
+    document.getElementById('budgetCommitmentNature').value = e?.nature || '';
+    document.getElementById('budgetCommitmentNotes').value = e?.notes || '';
+    box.classList.add('active');
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideBudgetCommitmentForm() {
+    const box = document.getElementById('budgetCommitmentFormBox');
+    if (box) box.classList.remove('active');
+}
+
+function saveBudgetCommitment(event) {
+    event.preventDefault();
+
+    const contract = getBudgetContractById(currentBudgetContractId);
+    if (!contract) {
+        showAlert('Contrato não localizado para lançamento do empenho.', 'error');
+        return;
+    }
+
+    const id = document.getElementById('budgetCommitmentId').value || generateBudgetId('EMP');
+    const existingIndex = budgetCommitments.findIndex(e => String(e.id) === String(id));
+    const commitment = {
+        id,
+        contractId: contract.id,
+        number: document.getElementById('budgetCommitmentNumber').value.trim(),
+        type: document.getElementById('budgetCommitmentType').value,
+        date: document.getElementById('budgetCommitmentDate').value,
+        value: parseFloat(document.getElementById('budgetCommitmentValue').value) || 0,
+        source: document.getElementById('budgetCommitmentSource').value.trim(),
+        nature: document.getElementById('budgetCommitmentNature').value.trim(),
+        notes: document.getElementById('budgetCommitmentNotes').value.trim(),
+        updatedAt: new Date().toISOString()
+    };
+
+    if (!commitment.number || !commitment.date || commitment.value <= 0) {
+        showAlert('Preencha número, data e valor do empenho.', 'error');
+        return;
+    }
+
+    const duplicated = budgetCommitments.some(e => String(e.id) !== String(id) && normalizeText(e.number) === normalizeText(commitment.number));
+    if (duplicated) {
+        showAlert('Já existe empenho cadastrado com este número.', 'error');
+        return;
+    }
+
+    if (existingIndex >= 0) budgetCommitments[existingIndex] = commitment;
+    else budgetCommitments.push(commitment);
+
+    saveBudgetStorage();
+    hideBudgetCommitmentForm();
+    renderBudgetModule();
+    showAlert('Empenho/Reforço salvo com sucesso!');
+}
+
+function editBudgetCommitment(commitmentId) {
+    showBudgetCommitmentForm(commitmentId);
+}
+
+function deleteBudgetCommitment(commitmentId) {
+    const e = getBudgetCommitmentById(commitmentId);
+    if (!e) return;
+    const hasMovements = getBudgetMovementsForCommitment(commitmentId).length > 0;
+    const msg = hasMovements
+        ? `O empenho ${e.number} possui movimentações. Excluir apagará pagamentos/anulações vinculados. Confirma?`
+        : `Confirma a exclusão do empenho ${e.number}?`;
+    if (!confirm(msg)) return;
+
+    budgetCommitments = budgetCommitments.filter(x => String(x.id) !== String(commitmentId));
+    budgetMovements = budgetMovements.filter(m => String(m.commitmentId) !== String(commitmentId));
+    saveBudgetStorage();
+    renderBudgetModule();
+    showAlert('Empenho excluído.');
+}
+
+function showBudgetMovementForm(commitmentId, type = 'PAGAMENTO DE NF') {
+    const e = getBudgetCommitmentById(commitmentId);
+    if (!e) {
+        showAlert('Empenho não localizado.', 'error');
+        return;
+    }
+
+    hideBudgetCommitmentForm();
+    currentBudgetCommitmentId = commitmentId;
+    const box = document.getElementById('budgetMovementFormBox');
+    if (!box) return;
+
+    document.getElementById('budgetMovementId').value = '';
+    document.getElementById('budgetMovementCommitmentId').value = commitmentId;
+    document.getElementById('budgetMovementType').value = type;
+    document.getElementById('budgetMovementDocument').value = '';
+    document.getElementById('budgetMovementDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('budgetMovementValue').value = '';
+    document.getElementById('budgetMovementFavored').value = getBudgetContractById(e.contractId)?.company || '';
+    document.getElementById('budgetMovementNotes').value = '';
+    document.getElementById('budgetMovementCommitmentLabel').textContent = e.number || '';
+    updateBudgetMovementLabels();
+    box.classList.add('active');
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideBudgetMovementForm() {
+    const box = document.getElementById('budgetMovementFormBox');
+    if (box) box.classList.remove('active');
+    currentBudgetCommitmentId = null;
+}
+
+function updateBudgetMovementLabels() {
+    const type = document.getElementById('budgetMovementType')?.value || '';
+    const label = document.getElementById('budgetMovementDocumentLabel');
+    const input = document.getElementById('budgetMovementDocument');
+    if (!label || !input) return;
+
+    if (type === 'ANULAÇÃO DE CRÉDITO') {
+        label.textContent = 'Número do Documento de Anulação *';
+        input.placeholder = 'Ex: Anulação 001/2026';
+    } else {
+        label.textContent = 'Número da Nota Fiscal / Documento *';
+        input.placeholder = 'Ex: NF 1452';
+    }
+}
+
+function saveBudgetMovement(event) {
+    event.preventDefault();
+
+    const commitmentId = document.getElementById('budgetMovementCommitmentId').value;
+    const e = getBudgetCommitmentById(commitmentId);
+    if (!e) {
+        showAlert('Empenho não localizado para movimentação.', 'error');
+        return;
+    }
+
+    const value = parseFloat(document.getElementById('budgetMovementValue').value) || 0;
+    const totals = getBudgetCommitmentTotals(commitmentId);
+    if (value <= 0) {
+        showAlert('Informe valor válido para a movimentação.', 'error');
+        return;
+    }
+    if (value > totals.balance) {
+        showAlert(`Movimentação bloqueada: valor superior ao saldo do empenho (${budgetMoney(totals.balance)}).`, 'error');
+        return;
+    }
+
+    const movement = {
+        id: generateBudgetId('MOV'),
+        commitmentId,
+        contractId: e.contractId,
+        type: document.getElementById('budgetMovementType').value,
+        document: document.getElementById('budgetMovementDocument').value.trim(),
+        date: document.getElementById('budgetMovementDate').value,
+        value,
+        favored: document.getElementById('budgetMovementFavored').value.trim(),
+        notes: document.getElementById('budgetMovementNotes').value.trim(),
+        createdAt: new Date().toISOString()
+    };
+
+    if (!movement.document || !movement.date) {
+        showAlert('Preencha documento e data da movimentação.', 'error');
+        return;
+    }
+
+    budgetMovements.push(movement);
+    saveBudgetStorage();
+    hideBudgetMovementForm();
+    renderBudgetModule();
+    showAlert('Movimentação lançada com sucesso!');
+}
+
+function deleteBudgetMovement(movementId) {
+    const m = (budgetMovements || []).find(x => String(x.id) === String(movementId));
+    if (!m) return;
+    if (!confirm(`Confirma a exclusão da movimentação ${m.document || ''}?`)) return;
+
+    budgetMovements = budgetMovements.filter(x => String(x.id) !== String(movementId));
+    saveBudgetStorage();
+    renderBudgetModule();
+    showAlert('Movimentação excluída.');
+}
+
+function renderBudgetCommitmentsList() {
+    const container = document.getElementById('budgetCommitmentsContainer');
+    if (!container) return;
+
+    const commitments = getBudgetCommitmentsForContract(currentBudgetContractId);
+    if (!commitments.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📄</div>
+                <p>Nenhum empenho cadastrado para este contrato.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = commitments.map(e => {
+        const totals = getBudgetCommitmentTotals(e.id);
+        const movements = getBudgetMovementsForCommitment(e.id);
+        const id = encodeURIComponent(e.id);
+        return `
+            <div class="commitment-card">
+                <div class="commitment-header">
+                    <div>
+                        <div class="commitment-number">${escapeHTML(e.number || '—')}</div>
+                        <div class="commitment-meta">${escapeHTML(e.type || '—')} • ${budgetDateLabel(e.date)} • Fonte: ${escapeHTML(e.source || '—')} • ND: ${escapeHTML(e.nature || '—')}</div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'PAGAMENTO DE NF')" title="Pagamento de nota fiscal">🧾</button>
+                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'ANULAÇÃO DE CRÉDITO')" title="Anulação de crédito">➖</button>
+                        <button class="btn-icon" onclick="editBudgetCommitment(decodeURIComponent('${id}'))" title="Editar empenho">✏️</button>
+                        <button class="btn-icon" onclick="deleteBudgetCommitment(decodeURIComponent('${id}'))" title="Excluir empenho">🗑️</button>
+                    </div>
+                </div>
+
+                <div class="commitment-summary">
+                    <div class="commitment-summary-item"><span>Valor do Empenho</span><strong>${budgetMoney(totals.value)}</strong></div>
+                    <div class="commitment-summary-item"><span>Pago</span><strong>${budgetMoney(totals.paid)}</strong></div>
+                    <div class="commitment-summary-item"><span>Anulado</span><strong>${budgetMoney(totals.canceled)}</strong></div>
+                    <div class="commitment-summary-item"><span>Saldo</span><strong class="${saldoClass(totals.balance)}">${budgetMoney(totals.balance)}</strong></div>
+                </div>
+
+                ${e.notes ? `<div class="budget-note" style="margin-bottom:.75rem;"><strong>Observação:</strong> ${escapeHTML(e.notes)}</div>` : ''}
+
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>NF / Documento</th>
+                            <th>Data</th>
+                            <th>Valor</th>
+                            <th>Favorecido</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${movements.length ? movements.map(m => {
+                            const mid = encodeURIComponent(m.id);
+                            return `
+                                <tr>
+                                    <td><span class="badge ${m.type === 'PAGAMENTO DE NF' ? 'badge-success' : 'badge-warning'}">${escapeHTML(m.type)}</span></td>
+                                    <td>${escapeHTML(m.document || '—')}</td>
+                                    <td>${budgetDateLabel(m.date)}</td>
+                                    <td>${budgetMoney(m.value)}</td>
+                                    <td>${escapeHTML(m.favored || '—')}</td>
+                                    <td><button class="btn-icon" onclick="deleteBudgetMovement(decodeURIComponent('${mid}'))" title="Excluir movimentação">🗑️</button></td>
+                                </tr>
+                            `;
+                        }).join('') : `<tr><td colspan="6" class="loading">Nenhuma movimentação neste empenho.</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
 }
 
 initializeData();

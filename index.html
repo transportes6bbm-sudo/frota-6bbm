@@ -1044,14 +1044,16 @@ table{
                 <button class="close-modal" onclick="closeMaintenanceModal()">✕</button>
             </div>
             
-            <div style="margin-bottom: 2rem;">
+            <div style="margin-bottom: 2rem; display: flex; gap: 1rem; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="showAddMaintenance()">➕ Adicionar Manutenção</button>
+                <button class="btn btn-secondary" onclick="showAddEngineOilChange()" title="Lançar troca de óleo do motor com descrição padronizada e separada de outros tipos de óleo">🛢️ Troca de Óleo do Motor</button>
             </div>
 
             <!-- Formulário de nova manutenção -->
             <div id="addMaintenanceForm" style="display: none; background: var(--bg-dark); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
-                <h3 style="margin-bottom: 1rem; font-size: 1.2rem;">Nova Manutenção</h3>
+                <h3 id="maintenanceFormTitle" style="margin-bottom: 1rem; font-size: 1.2rem;">Nova Manutenção</h3>
                 <form onsubmit="saveMaintenanceRecord(event)">
+                    <input type="hidden" id="maintenanceSystemCategory" value="">
                     <div class="form-group">
                         <label>Data da Manutenção *</label>
                         <input type="date" id="maintenanceDate" required>
@@ -1070,7 +1072,10 @@ table{
 
                     <div class="form-group">
                         <label>Descrição do Serviço *</label>
-                        <input type="text" id="maintenanceDescription" required placeholder="Ex: Troca de óleo e filtros">
+                        <input type="text" id="maintenanceDescription" required placeholder="Ex: Revisão elétrica, troca de óleo hidráulico, suspensão">
+                        <small id="engineOilHint" style="display:none; color: var(--secondary); margin-top: 0.5rem; line-height: 1.35;">
+                            Este lançamento será gravado como <strong>Troca de óleo do motor</strong>. Ele alimenta exclusivamente o indicador da coluna Óleo e não se mistura com óleo de freio, óleo hidráulico, câmbio ou outras manutenções.
+                        </small>
                     </div>
 
                     <div class="form-group">
@@ -1528,6 +1533,8 @@ async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
         cidade: maintenance.cidade || (vehicle ? (vehicle.cidadeLotacaoPadrao || vehicle.cidadeLotacao || vehicle.cidade || '') : ''),
         tipoViatura: maintenance.tipoViatura || (vehicle ? (vehicle.subclasse || vehicle.tipo || '') : ''),
         tipo: (maintenance.tipo || maintenance.type || ''),
+        categoriaSistema: maintenance.categoriaSistema || maintenance.systemCategory || '',
+        manutencaoSistema: maintenance.categoriaSistema || maintenance.systemCategory || '',
         descricao: maintenance.descricao || maintenance.description || '',
         km: maintenance.km || maintenance.hodometro || '',
         custo: maintenance.custo || maintenance.cost || '',
@@ -1720,6 +1727,10 @@ const OIL_INTERVAL_KM = 10000;
 const OIL_WARN_KM = 1000;      // alerta quando faltar <= 1.000 km
 const OIL_WARN_DAYS = 30;      // alerta quando faltar <= 30 dias
 
+// Categoria técnica usada para separar óleo do motor de outras manutenções com a palavra "óleo".
+const ENGINE_OIL_SYSTEM_CATEGORY = 'OLEO_MOTOR';
+const ENGINE_OIL_STANDARD_DESCRIPTION = 'Troca de óleo do motor';
+
 function normalizeText(str) {
     return (str ?? '')
         .toString()
@@ -1854,12 +1865,49 @@ function mapLotacaoToPadrao(lotacaoRaw) {
     return "6º BBM - SEDE";
 }
 
+function getMaintenanceSystemCategory(m) {
+    return normalizeText((m && (
+        m.categoriaSistema ||
+        m.manutencaoSistema ||
+        m.systemCategory ||
+        m.maintenanceSystemCategory ||
+        m.categoria_sistema ||
+        m.categoria
+    )) || '');
+}
+
 function isOilChangeMaintenance(m) {
+    const category = getMaintenanceSystemCategory(m);
+    if (category === 'oleo_motor' || category.includes('oleo_motor')) return true;
+
     const desc = normalizeText((m && (m.descricao || m.description)) || '');
-    if (!desc.includes('oleo')) return false;
-    if (desc.includes('troca')) return true;
-    if (desc.includes('filtro')) return true;
-    return true;
+    const notes = normalizeText((m && (m.observacoes || m.notes)) || '');
+    const text = `${desc} ${notes}`.trim();
+
+    if (!text.includes('oleo') && !text.includes('lubrificante')) return false;
+
+    // Impede que óleo de freio, hidráulico, câmbio, diferencial etc. alimente o indicador de óleo do motor.
+    const nonEngineOilTerms = [
+        'freio', 'hidraulic', 'direcao', 'cambio', 'transmissao',
+        'diferencial', 'caixa', 'embreagem', 'redutor', 'compressor'
+    ];
+    if (nonEngineOilTerms.some(term => text.includes(term))) return false;
+
+    const hasEngineReference = (
+        text.includes('oleo do motor') ||
+        text.includes('oleo motor') ||
+        text.includes('lubrificante do motor') ||
+        text.includes('lubrificante motor')
+    );
+
+    const hasChangeAction = (
+        text.includes('troca') ||
+        text.includes('substituicao') ||
+        text.includes('substituido') ||
+        text.includes('trocado')
+    );
+
+    return hasEngineReference && hasChangeAction;
 }
 
 function parseKmValue(val) {
@@ -1955,7 +2003,7 @@ function getOilStatusForVehicle(v) {
         return {
             level: 'unknown',
             label: 'SEM REGISTRO',
-            title: 'Sem registro de troca de óleo. Registre uma manutenção com descrição contendo "troca de óleo".'
+            title: 'Sem registro de troca de óleo do motor. Use o botão "Troca de Óleo do Motor" para alimentar este indicador.'
         };
     }
 
@@ -2306,12 +2354,11 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
             renderVehicles();
         }
 
-        async function showAddMaintenance() {
-            const authorizedMatricula = await ensureMaintenanceAuthorization('registrar manutenção');
-            if (!authorizedMatricula) return;
+        function prepareMaintenanceForm(authorizedMatricula) {
+            const form = document.getElementById('addMaintenanceForm').querySelector('form');
+            if (form) form.reset();
 
             document.getElementById('addMaintenanceForm').style.display = 'block';
-            // Definir data de hoje como padrão
             document.getElementById('maintenanceDate').valueAsDate = new Date();
 
             const matriculaInput = document.getElementById('maintenanceMatricula');
@@ -2322,10 +2369,73 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
             }
         }
 
+        function setMaintenanceFormMode(mode) {
+            const isEngineOil = mode === ENGINE_OIL_SYSTEM_CATEGORY;
+
+            const title = document.getElementById('maintenanceFormTitle');
+            const categoryInput = document.getElementById('maintenanceSystemCategory');
+            const typeInput = document.getElementById('maintenanceType');
+            const descInput = document.getElementById('maintenanceDescription');
+            const kmInput = document.getElementById('maintenanceKm');
+            const notesInput = document.getElementById('maintenanceNotes');
+            const hint = document.getElementById('engineOilHint');
+
+            if (title) title.textContent = isEngineOil ? 'Troca de Óleo do Motor' : 'Nova Manutenção';
+            if (categoryInput) categoryInput.value = isEngineOil ? ENGINE_OIL_SYSTEM_CATEGORY : '';
+            if (hint) hint.style.display = isEngineOil ? 'block' : 'none';
+
+            if (typeInput) {
+                typeInput.disabled = false;
+                if (isEngineOil) {
+                    typeInput.value = 'PREVENTIVA';
+                    typeInput.disabled = true;
+                    typeInput.title = 'Tipo fixado para o botão de troca de óleo do motor';
+                } else {
+                    typeInput.title = '';
+                }
+            }
+
+            if (descInput) {
+                descInput.readOnly = false;
+                descInput.title = '';
+                if (isEngineOil) {
+                    descInput.value = ENGINE_OIL_STANDARD_DESCRIPTION;
+                    descInput.readOnly = true;
+                    descInput.title = 'Descrição padronizada para não confundir com outros tipos de óleo';
+                }
+            }
+
+            if (isEngineOil) {
+                const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
+                if (kmInput && vehicle && vehicle.hodometro) kmInput.value = vehicle.hodometro;
+                if (notesInput) {
+                    notesInput.value = 'Lançamento realizado pelo botão específico de troca de óleo do motor. Não utilizar para óleo de freio, óleo hidráulico, câmbio, diferencial ou outras áreas.';
+                }
+            }
+        }
+
+        async function showAddMaintenance() {
+            const authorizedMatricula = await ensureMaintenanceAuthorization('registrar manutenção');
+            if (!authorizedMatricula) return;
+
+            prepareMaintenanceForm(authorizedMatricula);
+            setMaintenanceFormMode('');
+        }
+
+        async function showAddEngineOilChange() {
+            const authorizedMatricula = await ensureMaintenanceAuthorization('registrar troca de óleo do motor');
+            if (!authorizedMatricula) return;
+
+            prepareMaintenanceForm(authorizedMatricula);
+            setMaintenanceFormMode(ENGINE_OIL_SYSTEM_CATEGORY);
+        }
+
         function hideAddMaintenance() {
             document.getElementById('addMaintenanceForm').style.display = 'none';
-            // Limpar formulário
-            document.getElementById('addMaintenanceForm').querySelector('form').reset();
+            const form = document.getElementById('addMaintenanceForm').querySelector('form');
+            if (form) form.reset();
+            setMaintenanceFormMode('');
+
             const matriculaInput = document.getElementById('maintenanceMatricula');
             if (matriculaInput) {
                 matriculaInput.readOnly = false;
@@ -2336,10 +2446,13 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
         async function saveMaintenanceRecord(event) {
   event.preventDefault();
 
+  const systemCategory = document.getElementById('maintenanceSystemCategory')?.value || '';
+
   const maintenance = {
     id: Date.now(),
     date: document.getElementById('maintenanceDate').value,
     type: document.getElementById('maintenanceType').value,
+    systemCategory,
     description: document.getElementById('maintenanceDescription').value,
     km: parseInt(document.getElementById('maintenanceKm').value) || 0,
     cost: parseFloat(document.getElementById('maintenanceCost').value) || 0,
@@ -2347,6 +2460,12 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
     matricula: document.getElementById('maintenanceMatricula').value,
     notes: document.getElementById('maintenanceNotes').value
   };
+
+  if (systemCategory === ENGINE_OIL_SYSTEM_CATEGORY) {
+    maintenance.type = 'PREVENTIVA';
+    maintenance.description = ENGINE_OIL_STANDARD_DESCRIPTION;
+    maintenance.notes = maintenance.notes || 'Lançamento específico de troca de óleo do motor.';
+  }
 
   // matrícula obrigatória e validada antes de gravar.
   // Não confia no valor digitado no input: usa a matrícula autorizada na sessão.
@@ -2432,6 +2551,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
                         </div>
                         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
                             <span class="badge ${getMaintenanceTypeBadge(tipo)}">${tipoSafe}</span>
+                            ${isOilChangeMaintenance(item) ? '<span class="badge badge-info">ÓLEO MOTOR</span>' : ''}
                             <span style="color: var(--text-muted);">📅 ${dataStrSafe}</span>
                             ${km > 0 ? `<span style="color: var(--text-muted);">🛣️ ${km.toLocaleString('pt-BR')} km</span>` : ''}
                             ${custo > 0 ? `<span style="color: var(--text-muted);">💰 R$ ${custo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>` : ''}

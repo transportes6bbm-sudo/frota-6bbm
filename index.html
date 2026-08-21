@@ -1344,7 +1344,7 @@ table{
             </div>
 
             <div id="budgetCommitmentFormBox" class="inline-form-box">
-                <h3 style="margin-bottom: 1rem;">Novo Empenho/Reforço</h3>
+                <h3 style="margin-bottom: 1rem;">Novo Lançamento de Crédito do Empenho</h3>
                 <form onsubmit="saveBudgetCommitment(event)">
                     <input type="hidden" id="budgetCommitmentId">
                     <div class="budget-form-grid">
@@ -1381,7 +1381,7 @@ table{
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">💾 Salvar Empenho</button>
+                        <button type="submit" class="btn btn-primary">💾 Salvar Crédito</button>
                         <button type="button" class="btn btn-secondary" onclick="hideBudgetCommitmentForm()">Cancelar</button>
                     </div>
                 </form>
@@ -4084,6 +4084,69 @@ function getBudgetCommitmentsForContract(contractId) {
     return (budgetCommitments || [])
         .filter(e => String(e.contractId) === String(contractId))
         .sort((a, b) => {
+            const na = normalizeText(a.number || '');
+            const nb = normalizeText(b.number || '');
+            if (na !== nb) return na.localeCompare(nb, 'pt-BR');
+            const da = parseDateValue(a.date) || new Date(0);
+            const db = parseDateValue(b.date) || new Date(0);
+            return da.getTime() - db.getTime();
+        });
+}
+
+function getBudgetCommitmentGroupKeyFromData(contractId, number) {
+    return `${String(contractId || '')}::${normalizeText(number || '')}`;
+}
+
+function getBudgetCommitmentGroupKey(commitment) {
+    return getBudgetCommitmentGroupKeyFromData(commitment?.contractId, commitment?.number);
+}
+
+function getBudgetCommitmentGroupEntries(commitmentId) {
+    const commitment = getBudgetCommitmentById(commitmentId);
+    if (!commitment) return [];
+    const key = getBudgetCommitmentGroupKey(commitment);
+    return getBudgetCommitmentsForContract(commitment.contractId)
+        .filter(e => getBudgetCommitmentGroupKey(e) === key);
+}
+
+function getBudgetCommitmentGroupsForContract(contractId) {
+    const groups = new Map();
+
+    getBudgetCommitmentsForContract(contractId).forEach(e => {
+        const key = getBudgetCommitmentGroupKey(e);
+        if (!groups.has(key)) {
+            groups.set(key, {
+                key,
+                number: e.number,
+                contractId: e.contractId,
+                entries: []
+            });
+        }
+        groups.get(key).entries.push(e);
+    });
+
+    return Array.from(groups.values()).map(group => {
+        group.entries.sort((a, b) => {
+            const da = parseDateValue(a.date) || new Date(0);
+            const db = parseDateValue(b.date) || new Date(0);
+            return da.getTime() - db.getTime();
+        });
+        group.primary = group.entries[0] || null;
+        group.totals = group.primary ? getBudgetCommitmentTotals(group.primary.id) : { value: 0, paid: 0, canceled: 0, out: 0, balance: 0 };
+        return group;
+    }).sort((a, b) => {
+        const da = parseDateValue(a.primary?.date) || new Date(0);
+        const db = parseDateValue(b.primary?.date) || new Date(0);
+        const byDate = da.getTime() - db.getTime();
+        if (byDate !== 0) return byDate;
+        return String(a.number || '').localeCompare(String(b.number || ''), 'pt-BR');
+    });
+}
+
+function getBudgetMovementsForCommitmentExact(commitmentId) {
+    return (budgetMovements || [])
+        .filter(m => String(m.commitmentId) === String(commitmentId))
+        .sort((a, b) => {
             const da = parseDateValue(a.date) || new Date(0);
             const db = parseDateValue(b.date) || new Date(0);
             return da.getTime() - db.getTime();
@@ -4091,8 +4154,10 @@ function getBudgetCommitmentsForContract(contractId) {
 }
 
 function getBudgetMovementsForCommitment(commitmentId) {
+    const groupEntries = getBudgetCommitmentGroupEntries(commitmentId);
+    const ids = new Set(groupEntries.map(e => String(e.id)));
     return (budgetMovements || [])
-        .filter(m => String(m.commitmentId) === String(commitmentId))
+        .filter(m => ids.has(String(m.commitmentId)))
         .sort((a, b) => {
             const da = parseDateValue(a.date) || new Date(0);
             const db = parseDateValue(b.date) || new Date(0);
@@ -4107,7 +4172,12 @@ function getBudgetMovementsForContract(contractId) {
 
 function getBudgetCommitmentTotals(commitmentId) {
     const commitment = getBudgetCommitmentById(commitmentId);
-    const value = Number(commitment?.value || 0);
+    if (!commitment) return { value: 0, paid: 0, canceled: 0, out: 0, balance: 0 };
+
+    // O empenho funciona como conta corrente: todos os lançamentos com o mesmo número
+    // dentro do contrato são somados como crédito do mesmo empenho.
+    const entries = getBudgetCommitmentGroupEntries(commitmentId);
+    const value = entries.reduce((sum, e) => sum + Number(e.value || 0), 0);
     const movements = getBudgetMovementsForCommitment(commitmentId);
     const paid = movements
         .filter(m => m.type === 'PAGAMENTO DE NF')
@@ -4401,7 +4471,7 @@ function renderBudgetContractDetail() {
     renderBudgetCommitmentsList();
 }
 
-function showBudgetCommitmentForm(commitmentId = null) {
+function showBudgetCommitmentForm(commitmentId = null, prefillNumber = '', prefillType = '') {
     if (!currentBudgetContractId) {
         showAlert('Abra um contrato antes de lançar empenho.', 'error');
         return;
@@ -4413,8 +4483,8 @@ function showBudgetCommitmentForm(commitmentId = null) {
 
     const e = commitmentId ? getBudgetCommitmentById(commitmentId) : null;
     document.getElementById('budgetCommitmentId').value = e?.id || '';
-    document.getElementById('budgetCommitmentNumber').value = e?.number || '';
-    document.getElementById('budgetCommitmentType').value = e?.type || 'EMPENHO INICIAL';
+    document.getElementById('budgetCommitmentNumber').value = e?.number || prefillNumber || '';
+    document.getElementById('budgetCommitmentType').value = e?.type || prefillType || 'EMPENHO INICIAL';
     document.getElementById('budgetCommitmentDate').value = e?.date || new Date().toISOString().slice(0, 10);
     document.getElementById('budgetCommitmentValue').value = e?.value ?? '';
     document.getElementById('budgetCommitmentSource').value = e?.source || '';
@@ -4422,6 +4492,15 @@ function showBudgetCommitmentForm(commitmentId = null) {
     document.getElementById('budgetCommitmentNotes').value = e?.notes || '';
     box.classList.add('active');
     box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function showBudgetReinforcementForm(commitmentId) {
+    const e = getBudgetCommitmentById(commitmentId);
+    if (!e) {
+        showAlert('Empenho não localizado para reforço.', 'error');
+        return;
+    }
+    showBudgetCommitmentForm(null, e.number || '', 'REFORÇO DE EMPENHO');
 }
 
 function hideBudgetCommitmentForm() {
@@ -4454,23 +4533,20 @@ function saveBudgetCommitment(event) {
     };
 
     if (!commitment.number || !commitment.date || commitment.value <= 0) {
-        showAlert('Preencha número, data e valor do empenho.', 'error');
+        showAlert('Preencha número, data e valor do empenho/reforço.', 'error');
         return;
     }
 
-    const duplicated = budgetCommitments.some(e => String(e.id) !== String(id) && normalizeText(e.number) === normalizeText(commitment.number));
-    if (duplicated) {
-        showAlert('Já existe empenho cadastrado com este número.', 'error');
-        return;
-    }
-
+    // Números repetidos são permitidos intencionalmente:
+    // o mesmo número de empenho funciona como conta corrente do contrato,
+    // recebendo empenho inicial e reforços posteriores.
     if (existingIndex >= 0) budgetCommitments[existingIndex] = commitment;
     else budgetCommitments.push(commitment);
 
     saveBudgetStorage();
     hideBudgetCommitmentForm();
     renderBudgetModule();
-    showAlert('Empenho/Reforço salvo com sucesso!');
+    showAlert('Lançamento de crédito do empenho salvo com sucesso!');
 }
 
 function editBudgetCommitment(commitmentId) {
@@ -4480,17 +4556,22 @@ function editBudgetCommitment(commitmentId) {
 function deleteBudgetCommitment(commitmentId) {
     const e = getBudgetCommitmentById(commitmentId);
     if (!e) return;
-    const hasMovements = getBudgetMovementsForCommitment(commitmentId).length > 0;
-    const msg = hasMovements
-        ? `O empenho ${e.number} possui movimentações. Excluir apagará pagamentos/anulações vinculados. Confirma?`
-        : `Confirma a exclusão do empenho ${e.number}?`;
+
+    const exactMovements = getBudgetMovementsForCommitmentExact(commitmentId);
+    const groupEntries = getBudgetCommitmentGroupEntries(commitmentId);
+    const msg = exactMovements.length
+        ? `Este lançamento do empenho ${e.number} possui movimentações vinculadas diretamente a ele. Excluir apagará esses pagamentos/anulações. Confirma?`
+        : (groupEntries.length > 1
+            ? `Confirma a exclusão deste lançamento de crédito do empenho ${e.number}? Os demais lançamentos/reforços do mesmo empenho serão mantidos.`
+            : `Confirma a exclusão do empenho ${e.number}?`);
+
     if (!confirm(msg)) return;
 
     budgetCommitments = budgetCommitments.filter(x => String(x.id) !== String(commitmentId));
     budgetMovements = budgetMovements.filter(m => String(m.commitmentId) !== String(commitmentId));
     saveBudgetStorage();
     renderBudgetModule();
-    showAlert('Empenho excluído.');
+    showAlert('Lançamento de crédito excluído.');
 }
 
 function showBudgetMovementForm(commitmentId, type = 'PAGAMENTO DE NF') {
@@ -4601,8 +4682,8 @@ function renderBudgetCommitmentsList() {
     const container = document.getElementById('budgetCommitmentsContainer');
     if (!container) return;
 
-    const commitments = getBudgetCommitmentsForContract(currentBudgetContractId);
-    if (!commitments.length) {
+    const groups = getBudgetCommitmentGroupsForContract(currentBudgetContractId);
+    if (!groups.length) {
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">📄</div>
@@ -4612,34 +4693,76 @@ function renderBudgetCommitmentsList() {
         return;
     }
 
-    container.innerHTML = commitments.map(e => {
-        const totals = getBudgetCommitmentTotals(e.id);
-        const movements = getBudgetMovementsForCommitment(e.id);
-        const id = encodeURIComponent(e.id);
+    container.innerHTML = groups.map(group => {
+        const primary = group.primary;
+        const totals = group.totals || getBudgetCommitmentTotals(primary.id);
+        const movements = primary ? getBudgetMovementsForCommitment(primary.id) : [];
+        const primaryId = encodeURIComponent(primary.id);
+        const creditRows = group.entries.map(entry => {
+            const entryId = encodeURIComponent(entry.id);
+            return `
+                <tr>
+                    <td><span class="badge ${entry.type === 'REFORÇO DE EMPENHO' ? 'badge-info' : 'badge-success'}">${escapeHTML(entry.type || '—')}</span></td>
+                    <td>${budgetDateLabel(entry.date)}</td>
+                    <td>${budgetMoney(entry.value)}</td>
+                    <td>${escapeHTML(entry.source || '—')}</td>
+                    <td>${escapeHTML(entry.nature || '—')}</td>
+                    <td>${escapeHTML(entry.notes || '—')}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn-icon" onclick="editBudgetCommitment(decodeURIComponent('${entryId}'))" title="Editar este lançamento de crédito">✏️</button>
+                            <button class="btn-icon" onclick="deleteBudgetCommitment(decodeURIComponent('${entryId}'))" title="Excluir este lançamento de crédito">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
         return `
             <div class="commitment-card">
                 <div class="commitment-header">
                     <div>
-                        <div class="commitment-number">${escapeHTML(e.number || '—')}</div>
-                        <div class="commitment-meta">${escapeHTML(e.type || '—')} • ${budgetDateLabel(e.date)} • Fonte: ${escapeHTML(e.source || '—')} • ND: ${escapeHTML(e.nature || '—')}</div>
+                        <div class="commitment-number">${escapeHTML(group.number || '—')}</div>
+                        <div class="commitment-meta">
+                            Conta corrente do empenho • ${group.entries.length} lançamento(s) de crédito •
+                            Início: ${budgetDateLabel(primary?.date)}
+                        </div>
                     </div>
                     <div class="actions">
-                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'PAGAMENTO DE NF')" title="Pagamento de nota fiscal">🧾</button>
-                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'ANULAÇÃO DE CRÉDITO')" title="Anulação de crédito">➖</button>
-                        <button class="btn-icon" onclick="editBudgetCommitment(decodeURIComponent('${id}'))" title="Editar empenho">✏️</button>
-                        <button class="btn-icon" onclick="deleteBudgetCommitment(decodeURIComponent('${id}'))" title="Excluir empenho">🗑️</button>
+                        <button class="btn-icon" onclick="showBudgetReinforcementForm(decodeURIComponent('${primaryId}'))" title="Lançar reforço neste empenho">➕</button>
+                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${primaryId}'), 'PAGAMENTO DE NF')" title="Pagamento de nota fiscal">🧾</button>
+                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${primaryId}'), 'ANULAÇÃO DE CRÉDITO')" title="Anulação de crédito">➖</button>
                     </div>
                 </div>
 
                 <div class="commitment-summary">
-                    <div class="commitment-summary-item"><span>Valor do Empenho</span><strong>${budgetMoney(totals.value)}</strong></div>
+                    <div class="commitment-summary-item"><span>Crédito Total</span><strong>${budgetMoney(totals.value)}</strong></div>
                     <div class="commitment-summary-item"><span>Pago</span><strong>${budgetMoney(totals.paid)}</strong></div>
                     <div class="commitment-summary-item"><span>Anulado</span><strong>${budgetMoney(totals.canceled)}</strong></div>
                     <div class="commitment-summary-item"><span>Saldo</span><strong class="${saldoClass(totals.balance)}">${budgetMoney(totals.balance)}</strong></div>
                 </div>
 
-                ${e.notes ? `<div class="budget-note" style="margin-bottom:.75rem;"><strong>Observação:</strong> ${escapeHTML(e.notes)}</div>` : ''}
+                <div class="budget-note" style="margin:.75rem 0 .5rem;">
+                    <strong>Entradas de crédito do empenho:</strong> empenho inicial e reforços com o mesmo número são somados no crédito total.
+                </div>
+                <table class="report-table" style="margin-bottom:1rem;">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Data</th>
+                            <th>Valor</th>
+                            <th>Fonte</th>
+                            <th>ND</th>
+                            <th>Observação</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>${creditRows}</tbody>
+                </table>
 
+                <div class="budget-note" style="margin:.75rem 0 .5rem;">
+                    <strong>Movimentações do empenho:</strong> pagamentos e anulações debitam o saldo total deste número de empenho.
+                </div>
                 <table class="report-table">
                     <thead>
                         <tr>

@@ -1002,6 +1002,7 @@ table{
 <button class="tab" onclick="switchTab('graficos', this)">🚒 Tipos de Viatura</button>
 <button class="tab" onclick="switchTab('gestao', this)">📌 Gestão</button>
 <button class="tab" onclick="switchTab('orcamentario', this)">💳 Orçamentário</button>
+<button class="tab" onclick="switchTab('orcamentos', this)">🧾 Orçamentos</button>
             <button class="tab" onclick="switchTab('relatorios', this)">📈 Relatórios</button>
 <button class="tab" id="configTab" onclick="switchTab('config', this)" style="display: none;">⚙️ Configurações</button>
         </div>
@@ -1176,6 +1177,62 @@ table{
 </div>
 <!-- Fim Tab Orçamentário -->
 
+
+<!-- Tab Orçamentos -->
+<div id="orcamentos" class="tab-content">
+    <div class="report-section">
+        <div class="report-header">
+            <div>
+                <div class="report-title">🧾 Orçamentos</div>
+                <div class="budget-note">Controle de orçamentos vinculados a contrato e empenho. O orçamento reserva/debita o saldo do empenho; a nota fiscal apenas atualiza o documento exibido, evitando duplicidade.</div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-secondary" onclick="renderBudgetQuotesModule()">🔄 Atualizar</button>
+                <button class="btn btn-primary" onclick="openBudgetQuoteForm()">➕ Novo Orçamento</button>
+            </div>
+        </div>
+
+        <div class="budget-kpi-grid" id="budgetQuoteSummaryCards"></div>
+
+        <div class="budget-toolbar">
+            <div class="budget-search">
+                <input type="text" id="budgetQuoteSearchInput" placeholder="Buscar por orçamento, contrato, empenho, viatura, descrição ou nota fiscal..." onkeyup="renderBudgetQuotesTable()">
+            </div>
+            <select id="budgetQuoteStatusFilter" onchange="renderBudgetQuotesTable()">
+                <option value="">Todos Status</option>
+                <option value="EM ABERTO">Em aberto</option>
+                <option value="APROVADO / RESERVADO">Aprovado / reservado</option>
+                <option value="FATURADO PARCIAL">Faturado parcial</option>
+                <option value="FATURADO">Faturado</option>
+                <option value="CANCELADO">Cancelado</option>
+            </select>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Orçamento / Documento</th>
+                        <th>Contrato</th>
+                        <th>Empenho</th>
+                        <th>Viatura</th>
+                        <th>Descrição</th>
+                        <th>Peças</th>
+                        <th>Serviço</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="budgetQuotesBody">
+                    <tr><td colspan="10" class="loading">Nenhum orçamento cadastrado.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- Fim Tab Orçamentos -->
+
         <!-- Tab Relatórios -->
         <div id="relatorios" class="tab-content">
             <div class="report-section">
@@ -1338,7 +1395,54 @@ table{
 
             <div id="budgetContractDetailContent"></div>
 
+            <div id="budgetAddendumFormBox" class="inline-form-box">
+                <h3 style="margin-bottom: 1rem;">Aditivo / Prorrogação do Contrato</h3>
+                <form onsubmit="saveBudgetAddendum(event)">
+                    <input type="hidden" id="budgetAddendumId">
+                    <div class="budget-form-grid">
+                        <div class="form-group">
+                            <label>Tipo *</label>
+                            <select id="budgetAddendumType" required onchange="updateBudgetAddendumLabels()">
+                                <option value="PRAZO">Prorrogação de prazo</option>
+                                <option value="VALOR">Aditivo de valor</option>
+                                <option value="PRAZO E VALOR">Prazo e valor</option>
+                                <option value="SUPRESSÃO DE VALOR">Supressão de valor</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Nº Termo / Aditivo *</label>
+                            <input type="text" id="budgetAddendumDocument" required placeholder="Ex: 1º Termo Aditivo">
+                        </div>
+                        <div class="form-group">
+                            <label>Data do Aditivo *</label>
+                            <input type="date" id="budgetAddendumDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label id="budgetAddendumValueLabel">Valor acrescido / suprimido (R$)</label>
+                            <input type="number" id="budgetAddendumValue" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Nova Vigência Final</label>
+                            <input type="date" id="budgetAddendumEndDate">
+                        </div>
+                        <div class="form-group">
+                            <label>Responsável pelo Lançamento *</label>
+                            <input type="text" id="budgetAddendumResponsible" required placeholder="Nome e matrícula">
+                        </div>
+                        <div class="form-group full-row">
+                            <label>Observação</label>
+                            <textarea id="budgetAddendumNotes" placeholder="Detalhes do aditivo, apostila, SEI ou justificativa"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">💾 Salvar Aditivo</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideBudgetAddendumForm()">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
             <div style="margin: 1rem 0; display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-secondary" onclick="showBudgetAddendumForm()">📄 Aditivo / Prorrogação</button>
                 <button class="btn btn-primary" onclick="showBudgetCommitmentForm()">➕ Novo Empenho</button>
                 <button class="btn btn-secondary" onclick="hideBudgetCommitmentForm(); hideBudgetMovementForm();">Cancelar Lançamento</button>
             </div>
@@ -1432,6 +1536,81 @@ table{
         </div>
     </div>
 
+
+
+    <!-- Modal Orçamentário: Orçamento -->
+    <div class="modal" id="budgetQuoteModal">
+        <div class="modal-content" style="max-width: 980px;">
+            <div class="modal-header">
+                <h2 id="budgetQuoteFormTitle">🧾 Novo Orçamento</h2>
+                <button class="close-modal" onclick="closeBudgetQuoteForm()">✕</button>
+            </div>
+            <form onsubmit="saveBudgetQuote(event)">
+                <input type="hidden" id="budgetQuoteId">
+                <div class="budget-form-grid">
+                    <div class="form-group">
+                        <label>Número do Orçamento *</label>
+                        <input type="text" id="budgetQuoteNumber" required placeholder="Ex: ORÇ 145/2026">
+                    </div>
+                    <div class="form-group">
+                        <label>Data do Orçamento *</label>
+                        <input type="date" id="budgetQuoteDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Contrato *</label>
+                        <select id="budgetQuoteContractId" required onchange="populateBudgetQuoteCommitments()"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Empenho *</label>
+                        <select id="budgetQuoteCommitmentId" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Viatura</label>
+                        <input type="text" id="budgetQuoteVehicle" placeholder="Prefixo, placa ou identificação">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="budgetQuoteManualStatus">
+                            <option value="APROVADO / RESERVADO">Aprovado / reservado</option>
+                            <option value="EM ABERTO">Em aberto</option>
+                            <option value="CANCELADO">Cancelado</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-row">
+                        <label>Descrição Prévia dos Serviços *</label>
+                        <textarea id="budgetQuoteDescription" required placeholder="Descreva os serviços, peças, viatura e observações iniciais"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor de Peças (R$)</label>
+                        <input type="number" id="budgetQuotePartsValue" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Valor de Serviços (R$)</label>
+                        <input type="number" id="budgetQuoteServiceValue" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>NF de Peças</label>
+                        <input type="text" id="budgetQuoteNfParts" placeholder="Preencher quando houver fornecimento de peças">
+                    </div>
+                    <div class="form-group">
+                        <label>NF de Serviços</label>
+                        <input type="text" id="budgetQuoteNfService" placeholder="Preencher quando faturado serviço">
+                    </div>
+                    <div class="form-group full-row">
+                        <label>Observações</label>
+                        <textarea id="budgetQuoteNotes" placeholder="Informações complementares, justificativa, SEI, conferência etc."></textarea>
+                    </div>
+                </div>
+                <div class="budget-note" style="margin-top: .5rem;">
+                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O orçamento debita o saldo do empenho; a inclusão posterior de NF apenas altera o documento exibido no extrato.
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">💾 Salvar Orçamento</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeBudgetQuoteForm()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Modal Manutenções -->
     <div class="modal" id="maintenanceModal">
@@ -1536,6 +1715,9 @@ let maintenanceUserMatricula = '';
 let budgetContracts = [];
 let budgetCommitments = [];
 let budgetMovements = [];
+let budgetAddenda = [];
+let budgetQuotes = [];
+let budgetHistory = [];
 let currentBudgetContractId = null;
 let currentBudgetCommitmentId = null;
         // Expor para depuração / console
@@ -2053,6 +2235,7 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
   }
   if (tabName === 'gestao') { try { renderMgmtDashboard(); } catch(e){ console.error(e);} }
   if (tabName === 'orcamentario') { try { renderBudgetModule(); } catch(e){ console.error(e);} }
+  if (tabName === 'orcamentos') { try { renderBudgetQuotesModule(); } catch(e){ console.error(e);} }
 }
 
 
@@ -2064,6 +2247,9 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
             budgetContracts = loadFromStorage('budget-contracts-6bbm') || [];
             budgetCommitments = loadFromStorage('budget-commitments-6bbm') || [];
             budgetMovements = loadFromStorage('budget-movements-6bbm') || [];
+            budgetAddenda = loadFromStorage('budget-addenda-6bbm') || [];
+            budgetQuotes = loadFromStorage('budget-quotes-6bbm') || [];
+            budgetHistory = loadFromStorage('budget-history-6bbm') || [];
             normalizeBudgetCommitmentsAsCheckingAccounts();
             
             // Verificar autenticação
@@ -4042,21 +4228,28 @@ function exportMgmtDashboardPDF() {
 
 
 
+
 // =========================
-// MÓDULO ORÇAMENTÁRIO
-// Contrato -> Empenhos/Reforços -> Movimentações dentro do empenho
+// MÓDULO ORÇAMENTÁRIO AVANÇADO
+// Contrato -> Aditivos/Prorrogações -> Empenhos -> Extrato -> Orçamentos/NFs
 // Dados persistidos em localStorage nesta versão do index.
 // =========================
 const BUDGET_STORAGE_KEYS = {
     contracts: 'budget-contracts-6bbm',
     commitments: 'budget-commitments-6bbm',
-    movements: 'budget-movements-6bbm'
+    movements: 'budget-movements-6bbm',
+    addenda: 'budget-addenda-6bbm',
+    quotes: 'budget-quotes-6bbm',
+    history: 'budget-history-6bbm'
 };
 
 function saveBudgetStorage() {
     saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
     saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
     saveToStorage(BUDGET_STORAGE_KEYS.movements, budgetMovements);
+    saveToStorage(BUDGET_STORAGE_KEYS.addenda, budgetAddenda);
+    saveToStorage(BUDGET_STORAGE_KEYS.quotes, budgetQuotes);
+    saveToStorage(BUDGET_STORAGE_KEYS.history, budgetHistory);
 }
 
 function generateBudgetId(prefix) {
@@ -4068,29 +4261,277 @@ function budgetMoney(value) {
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function budgetDateLabel(value) {
+    const d = parseDateValue(value);
+    return d ? d.toLocaleDateString('pt-BR') : '—';
+}
+
 function showBudgetError(message) {
-    // Pop-up explícito para incompatibilidades de lançamento orçamentário.
     alert(message);
     showAlert(message, 'error');
+}
+
+function askBudgetChangeIdentity(actionLabel) {
+    const name = prompt(`Identificação obrigatória: informe o nome de quem está ${actionLabel}:`);
+    if (!name || !String(name).trim()) {
+        showBudgetError('Alteração bloqueada: é obrigatório identificar o responsável pelo lançamento/edição.');
+        return null;
+    }
+    const matricula = prompt('Informe a matrícula ou identificação funcional:');
+    if (!matricula || !String(matricula).trim()) {
+        showBudgetError('Alteração bloqueada: é obrigatório informar matrícula ou identificação funcional.');
+        return null;
+    }
+    return { name: String(name).trim(), matricula: String(matricula).trim() };
+}
+
+function recordBudgetHistory(tableName, recordId, action, beforeValue, afterValue, identity, note = '') {
+    budgetHistory.push({
+        id: generateBudgetId('HIS'),
+        timestamp: new Date().toISOString(),
+        tableName,
+        recordId,
+        action,
+        beforeValue: beforeValue ? JSON.stringify(beforeValue) : '',
+        afterValue: afterValue ? JSON.stringify(afterValue) : '',
+        changedBy: identity?.name || '',
+        matricula: identity?.matricula || '',
+        note
+    });
 }
 
 function isBudgetReinforcement(type) {
     return String(type || '').toUpperCase() === 'REFORÇO DE EMPENHO';
 }
 
+function isBudgetCreditMovement(type) {
+    return String(type || '').toUpperCase() === 'REFORÇO DE EMPENHO';
+}
+
+function isBudgetDebitMovement(type) {
+    return ['PAGAMENTO DE NF', 'ANULAÇÃO DE CRÉDITO'].includes(String(type || '').toUpperCase());
+}
+
 function getBudgetMovementBadge(type) {
     if (type === 'PAGAMENTO DE NF') return 'badge-success';
     if (type === 'ANULAÇÃO DE CRÉDITO') return 'badge-warning';
     if (type === 'REFORÇO DE EMPENHO') return 'badge-info';
+    if (type === 'ORÇAMENTO') return 'badge-warning';
+    if (type === 'ORÇAMENTO FATURADO') return 'badge-success';
     return 'badge-info';
 }
 
 function getBudgetMovementSign(type) {
-    return isBudgetReinforcement(type) ? '+' : '-';
+    return isBudgetCreditMovement(type) ? '+' : '-';
 }
 
-// Migração de segurança: caso versões anteriores tenham salvo reforços como novos empenhos
-// com o mesmo número, converte esses registros em movimentações de reforço dentro do empenho original.
+function getBudgetStatusBadge(status) {
+    if (status === 'ATIVO') return 'badge-success';
+    if (status === 'SUSPENSO') return 'badge-warning';
+    if (status === 'RESCINDIDO') return 'badge-danger';
+    return 'badge-info';
+}
+
+function getBudgetQuoteStatusBadge(status) {
+    if (status === 'FATURADO') return 'badge-success';
+    if (status === 'FATURADO PARCIAL') return 'badge-warning';
+    if (status === 'CANCELADO') return 'badge-danger';
+    if (status === 'APROVADO / RESERVADO') return 'badge-info';
+    return 'badge-warning';
+}
+
+function saldoClass(value) {
+    const n = Number(value || 0);
+    if (n < 0) return 'saldo-danger';
+    if (n <= 1000 && n > 0) return 'saldo-warning';
+    return 'saldo-positive';
+}
+
+function getBudgetContractById(contractId) {
+    return (budgetContracts || []).find(c => String(c.id) === String(contractId)) || null;
+}
+
+function getBudgetCommitmentById(commitmentId) {
+    return (budgetCommitments || []).find(e => String(e.id) === String(commitmentId)) || null;
+}
+
+function getBudgetQuoteById(quoteId) {
+    return (budgetQuotes || []).find(q => String(q.id) === String(quoteId)) || null;
+}
+
+function getBudgetAddendaForContract(contractId) {
+    return (budgetAddenda || [])
+        .filter(a => String(a.contractId) === String(contractId))
+        .sort((a, b) => {
+            const da = parseDateValue(a.date) || new Date(0);
+            const db = parseDateValue(b.date) || new Date(0);
+            return da.getTime() - db.getTime();
+        });
+}
+
+function getBudgetCommitmentsForContract(contractId) {
+    return (budgetCommitments || [])
+        .filter(e => String(e.contractId) === String(contractId))
+        .sort((a, b) => {
+            const da = parseDateValue(a.date) || new Date(0);
+            const db = parseDateValue(b.date) || new Date(0);
+            return da.getTime() - db.getTime();
+        });
+}
+
+function getBudgetMovementsForCommitment(commitmentId) {
+    return (budgetMovements || [])
+        .filter(m => String(m.commitmentId) === String(commitmentId))
+        .sort((a, b) => {
+            const da = parseDateValue(a.date) || new Date(0);
+            const db = parseDateValue(b.date) || new Date(0);
+            return da.getTime() - db.getTime();
+        });
+}
+
+function getBudgetMovementsForContract(contractId) {
+    const ids = new Set(getBudgetCommitmentsForContract(contractId).map(e => String(e.id)));
+    return (budgetMovements || []).filter(m => ids.has(String(m.commitmentId)));
+}
+
+function getBudgetContractAddendaValue(contractId) {
+    return getBudgetAddendaForContract(contractId).reduce((sum, a) => sum + Number(a.valueDelta || 0), 0);
+}
+
+function getBudgetContractCurrentValue(contractId) {
+    const contract = getBudgetContractById(contractId);
+    return Number(contract?.value || 0) + getBudgetContractAddendaValue(contractId);
+}
+
+function getBudgetContractCurrentEndDate(contractId) {
+    const contract = getBudgetContractById(contractId);
+    const dates = [contract?.endDate, ...getBudgetAddendaForContract(contractId).map(a => a.endDate)].filter(Boolean);
+    if (!dates.length) return '';
+    dates.sort((a, b) => {
+        const da = parseDateValue(a) || new Date(0);
+        const db = parseDateValue(b) || new Date(0);
+        return db.getTime() - da.getTime();
+    });
+    return dates[0];
+}
+
+function getBudgetQuoteTotal(q) {
+    return Number(q?.partsValue || 0) + Number(q?.serviceValue || 0);
+}
+
+function getBudgetQuoteStatus(q) {
+    if (!q) return 'EM ABERTO';
+    if (q.status === 'CANCELADO') return 'CANCELADO';
+
+    const total = getBudgetQuoteTotal(q);
+    const hasParts = Number(q.partsValue || 0) > 0;
+    const hasService = Number(q.serviceValue || 0) > 0;
+    const nfParts = !!String(q.nfParts || '').trim();
+    const nfService = !!String(q.nfService || '').trim();
+
+    if (total <= 0) return q.status || 'EM ABERTO';
+    if (hasParts && hasService) {
+        if (nfParts && nfService) return 'FATURADO';
+        if (nfParts || nfService) return 'FATURADO PARCIAL';
+        return q.status || 'APROVADO / RESERVADO';
+    }
+    if (hasParts && nfParts) return 'FATURADO';
+    if (hasService && nfService) return 'FATURADO';
+    return q.status || 'APROVADO / RESERVADO';
+}
+
+function getBudgetQuoteDisplayDocument(q) {
+    if (!q) return '—';
+    const status = getBudgetQuoteStatus(q);
+    const docs = [];
+    if (String(q.nfParts || '').trim()) docs.push(`NF PEÇAS ${q.nfParts}`);
+    if (String(q.nfService || '').trim()) docs.push(`NF SERVIÇO ${q.nfService}`);
+    if (docs.length) return `${docs.join(' / ')} ${status === 'FATURADO' ? '✅' : '⚠️'}`;
+    return q.number || 'ORÇAMENTO SEM Nº';
+}
+
+function getBudgetQuotesForCommitment(commitmentId, options = {}) {
+    return (budgetQuotes || [])
+        .filter(q => String(q.commitmentId) === String(commitmentId))
+        .filter(q => String(q.id) !== String(options.excludeQuoteId || ''))
+        .filter(q => getBudgetQuoteStatus(q) !== 'CANCELADO')
+        .sort((a, b) => {
+            const da = parseDateValue(a.date) || new Date(0);
+            const db = parseDateValue(b.date) || new Date(0);
+            return da.getTime() - db.getTime();
+        });
+}
+
+function getBudgetQuotesForContract(contractId, options = {}) {
+    return (budgetQuotes || [])
+        .filter(q => String(q.contractId) === String(contractId))
+        .filter(q => String(q.id) !== String(options.excludeQuoteId || ''));
+}
+
+function getBudgetQuoteDebitMovementsForCommitment(commitmentId, options = {}) {
+    return getBudgetQuotesForCommitment(commitmentId, options).map(q => ({
+        id: `QUOTE_MOV_${q.id}`,
+        commitmentId: q.commitmentId,
+        contractId: q.contractId,
+        type: getBudgetQuoteStatus(q) === 'FATURADO' ? 'ORÇAMENTO FATURADO' : 'ORÇAMENTO',
+        document: getBudgetQuoteDisplayDocument(q),
+        date: q.date,
+        value: getBudgetQuoteTotal(q),
+        favored: q.vehicle || '',
+        notes: q.description || '',
+        sourceQuoteId: q.id,
+        isQuoteDebit: true,
+        createdAt: q.updatedAt || q.createdAt || q.date || ''
+    }));
+}
+
+function getBudgetCommitmentTotals(commitmentId, options = {}) {
+    const commitment = getBudgetCommitmentById(commitmentId);
+    const baseValue = Number(commitment?.value || 0);
+    const movements = getBudgetMovementsForCommitment(commitmentId);
+    const reinforcements = movements
+        .filter(m => m.type === 'REFORÇO DE EMPENHO')
+        .reduce((sum, m) => sum + Number(m.value || 0), 0);
+    const paid = movements
+        .filter(m => m.type === 'PAGAMENTO DE NF')
+        .reduce((sum, m) => sum + Number(m.value || 0), 0);
+    const canceled = movements
+        .filter(m => m.type === 'ANULAÇÃO DE CRÉDITO')
+        .reduce((sum, m) => sum + Number(m.value || 0), 0);
+    const quotesReserved = getBudgetQuotesForCommitment(commitmentId, options)
+        .reduce((sum, q) => sum + getBudgetQuoteTotal(q), 0);
+    const credit = baseValue + reinforcements;
+    const out = paid + canceled + quotesReserved;
+    return { baseValue, reinforcements, value: credit, paid, canceled, quotesReserved, out, balance: credit - out };
+}
+
+function getBudgetContractTotals(contractId, options = {}) {
+    const contracted = getBudgetContractCurrentValue(contractId);
+    const commitments = getBudgetCommitmentsForContract(contractId);
+    const committed = commitments.reduce((sum, e) => sum + getBudgetCommitmentTotals(e.id, options).value, 0);
+    const paid = commitments.reduce((sum, e) => sum + getBudgetCommitmentTotals(e.id, options).paid, 0);
+    const canceled = commitments.reduce((sum, e) => sum + getBudgetCommitmentTotals(e.id, options).canceled, 0);
+    const quotesReserved = commitments.reduce((sum, e) => sum + getBudgetCommitmentTotals(e.id, options).quotesReserved, 0);
+    const toCommit = contracted - committed;
+    const balance = committed - paid - canceled - quotesReserved;
+    return { contracted, committed, toCommit, paid, canceled, quotesReserved, balance };
+}
+
+function getBudgetGlobalTotals() {
+    return (budgetContracts || []).reduce((acc, c) => {
+        const t = getBudgetContractTotals(c.id);
+        acc.contracted += t.contracted;
+        acc.committed += t.committed;
+        acc.toCommit += t.toCommit;
+        acc.paid += t.paid;
+        acc.canceled += t.canceled;
+        acc.quotesReserved += t.quotesReserved;
+        acc.balance += t.balance;
+        return acc;
+    }, { contracted: 0, committed: 0, toCommit: 0, paid: 0, canceled: 0, quotesReserved: 0, balance: 0 });
+}
+
+// Migração de segurança: versões anteriores poderiam ter salvo reforços como empenhos duplicados.
 function normalizeBudgetCommitmentsAsCheckingAccounts() {
     if (!Array.isArray(budgetCommitments) || !budgetCommitments.length) return;
 
@@ -4140,110 +4581,8 @@ function normalizeBudgetCommitmentsAsCheckingAccounts() {
     }
 }
 
-function budgetDateLabel(value) {
-    const d = parseDateValue(value);
-    return d ? d.toLocaleDateString('pt-BR') : '—';
-}
-
-function getBudgetContractById(contractId) {
-    return (budgetContracts || []).find(c => String(c.id) === String(contractId)) || null;
-}
-
-function getBudgetCommitmentById(commitmentId) {
-    return (budgetCommitments || []).find(e => String(e.id) === String(commitmentId)) || null;
-}
-
-function getBudgetCommitmentsForContract(contractId) {
-    return (budgetCommitments || [])
-        .filter(e => String(e.contractId) === String(contractId))
-        .sort((a, b) => {
-            const da = parseDateValue(a.date) || new Date(0);
-            const db = parseDateValue(b.date) || new Date(0);
-            return da.getTime() - db.getTime();
-        });
-}
-
-function getBudgetMovementsForCommitment(commitmentId) {
-    return (budgetMovements || [])
-        .filter(m => String(m.commitmentId) === String(commitmentId))
-        .sort((a, b) => {
-            const da = parseDateValue(a.date) || new Date(0);
-            const db = parseDateValue(b.date) || new Date(0);
-            return da.getTime() - db.getTime();
-        });
-}
-
-function getBudgetMovementsForContract(contractId) {
-    const ids = new Set(getBudgetCommitmentsForContract(contractId).map(e => String(e.id)));
-    return (budgetMovements || []).filter(m => ids.has(String(m.commitmentId)));
-}
-
-
-function getBudgetCommitmentTotals(commitmentId) {
-    const commitment = getBudgetCommitmentById(commitmentId);
-    const baseValue = Number(commitment?.value || 0);
-    const movements = getBudgetMovementsForCommitment(commitmentId);
-    const reinforcements = movements
-        .filter(m => m.type === 'REFORÇO DE EMPENHO')
-        .reduce((sum, m) => sum + Number(m.value || 0), 0);
-    const paid = movements
-        .filter(m => m.type === 'PAGAMENTO DE NF')
-        .reduce((sum, m) => sum + Number(m.value || 0), 0);
-    const canceled = movements
-        .filter(m => m.type === 'ANULAÇÃO DE CRÉDITO')
-        .reduce((sum, m) => sum + Number(m.value || 0), 0);
-    const credit = baseValue + reinforcements;
-    const out = paid + canceled;
-    return { baseValue, reinforcements, value: credit, paid, canceled, out, balance: credit - out };
-}
-
-
-function getBudgetContractTotals(contractId) {
-    const contract = getBudgetContractById(contractId);
-    const commitments = getBudgetCommitmentsForContract(contractId);
-    const committed = commitments
-        .reduce((sum, e) => sum + getBudgetCommitmentTotals(e.id).value, 0);
-    const movements = getBudgetMovementsForContract(contractId);
-    const paid = movements
-        .filter(m => m.type === 'PAGAMENTO DE NF')
-        .reduce((sum, m) => sum + Number(m.value || 0), 0);
-    const canceled = movements
-        .filter(m => m.type === 'ANULAÇÃO DE CRÉDITO')
-        .reduce((sum, m) => sum + Number(m.value || 0), 0);
-    const contracted = Number(contract?.value || 0);
-    const toCommit = contracted - committed;
-    const balance = committed - paid - canceled;
-    return {
-        contracted,
-        committed,
-        toCommit,
-        paid,
-        canceled,
-        balance
-    };
-}
-
-function getBudgetGlobalTotals() {
-    return (budgetContracts || []).reduce((acc, c) => {
-        const t = getBudgetContractTotals(c.id);
-        acc.contracted += t.contracted;
-        acc.committed += t.committed;
-        acc.toCommit += t.toCommit;
-        acc.paid += t.paid;
-        acc.canceled += t.canceled;
-        acc.balance += t.balance;
-        return acc;
-    }, { contracted: 0, committed: 0, toCommit: 0, paid: 0, canceled: 0, balance: 0 });
-}
-
-function saldoClass(value) {
-    const n = Number(value || 0);
-    if (n < 0) return 'saldo-danger';
-    if (n <= 1000 && n > 0) return 'saldo-warning';
-    return 'saldo-positive';
-}
-
 function renderBudgetModule() {
+    normalizeBudgetCommitmentsAsCheckingAccounts();
     renderBudgetSummaryCards();
     renderBudgetContractsTable();
     if (currentBudgetContractId) renderBudgetContractDetail();
@@ -4256,7 +4595,7 @@ function renderBudgetSummaryCards() {
     const totals = getBudgetGlobalTotals();
     el.innerHTML = `
         <div class="budget-kpi">
-            <div class="budget-kpi-label">Total Contratado</div>
+            <div class="budget-kpi-label">Total Contratado Atual</div>
             <div class="budget-kpi-value">${budgetMoney(totals.contracted)}</div>
         </div>
         <div class="budget-kpi">
@@ -4300,7 +4639,7 @@ function renderBudgetContractsTable() {
         const id = encodeURIComponent(c.id);
         return `
             <tr>
-                <td><strong>${escapeHTML(c.number || '—')}</strong></td>
+                <td><strong>${escapeHTML(c.number || '—')}</strong><br><small>Vig. atual: ${budgetDateLabel(getBudgetContractCurrentEndDate(c.id))}</small></td>
                 <td>${escapeHTML(c.company || '—')}</td>
                 <td>${escapeHTML(c.object || '—')}</td>
                 <td>${budgetMoney(t.contracted)}</td>
@@ -4310,8 +4649,8 @@ function renderBudgetContractsTable() {
                 <td><span class="badge ${getBudgetStatusBadge(c.status)}">${escapeHTML(c.status || 'N/A')}</span></td>
                 <td>
                     <div class="actions">
-                        <button class="btn-icon" onclick="openBudgetDetailModal(decodeURIComponent('${id}'))" title="Ver contrato, empenhos e movimentações">👁️</button>
-                        <button class="btn-icon" onclick="openBudgetDetailAndCommitment(decodeURIComponent('${id}'))" title="Novo empenho/reforço">➕</button>
+                        <button class="btn-icon" onclick="openBudgetDetailModal(decodeURIComponent('${id}'))" title="Ver contrato, aditivos, empenhos e extrato">👁️</button>
+                        <button class="btn-icon" onclick="openBudgetDetailAndCommitment(decodeURIComponent('${id}'))" title="Novo empenho inicial">➕</button>
                         <button class="btn-icon" onclick="editBudgetContract(decodeURIComponent('${id}'))" title="Editar contrato">✏️</button>
                         <button class="btn-icon" onclick="deleteBudgetContract(decodeURIComponent('${id}'))" title="Excluir contrato">🗑️</button>
                     </div>
@@ -4319,13 +4658,6 @@ function renderBudgetContractsTable() {
             </tr>
         `;
     }).join('');
-}
-
-function getBudgetStatusBadge(status) {
-    if (status === 'ATIVO') return 'badge-success';
-    if (status === 'SUSPENSO') return 'badge-warning';
-    if (status === 'RESCINDIDO') return 'badge-danger';
-    return 'badge-info';
 }
 
 function openBudgetContractForm(contractId = null) {
@@ -4359,6 +4691,7 @@ function saveBudgetContract(event) {
 
     const id = document.getElementById('budgetContractId').value || generateBudgetId('CTR');
     const existingIndex = budgetContracts.findIndex(c => String(c.id) === String(id));
+    const before = existingIndex >= 0 ? { ...budgetContracts[existingIndex] } : null;
     const contract = {
         id,
         number: document.getElementById('budgetContractNumber').value.trim(),
@@ -4374,18 +4707,32 @@ function saveBudgetContract(event) {
     };
 
     if (!contract.number || !contract.company || !contract.object) {
-        showAlert('Preencha número do contrato, empresa e objeto.', 'error');
+        showBudgetError('Preencha número do contrato, empresa e objeto.');
         return;
     }
 
     const duplicated = budgetContracts.some(c => String(c.id) !== String(id) && normalizeText(c.number) === normalizeText(contract.number));
     if (duplicated) {
-        showAlert('Já existe contrato cadastrado com este número.', 'error');
+        showBudgetError('Já existe contrato cadastrado com este número.');
+        return;
+    }
+
+    const addendaValue = getBudgetContractAddendaValue(id);
+    const committed = getBudgetCommitmentsForContract(id).reduce((sum, e) => sum + getBudgetCommitmentTotals(e.id).value, 0);
+    if ((contract.value + addendaValue) < committed) {
+        showBudgetError(`Alteração bloqueada: o valor atual do contrato ficaria em ${budgetMoney(contract.value + addendaValue)}, inferior ao total empenhado ${budgetMoney(committed)}.`);
         return;
     }
 
     if (existingIndex >= 0) budgetContracts[existingIndex] = contract;
     else budgetContracts.push(contract);
+
+    const identity = existingIndex >= 0 ? askBudgetChangeIdentity('editando o contrato') : null;
+    if (existingIndex >= 0 && !identity) {
+        if (before) budgetContracts[existingIndex] = before;
+        return;
+    }
+    if (identity) recordBudgetHistory('CONTRATOS', id, existingIndex >= 0 ? 'EDIÇÃO' : 'CADASTRO', before, contract, identity);
 
     saveBudgetStorage();
     renderBudgetModule();
@@ -4402,20 +4749,28 @@ function deleteBudgetContract(contractId) {
     if (!c) return;
 
     const hasCommitments = getBudgetCommitmentsForContract(contractId).length > 0;
-    const msg = hasCommitments
-        ? `O contrato ${c.number} possui empenhos e movimentações vinculadas. Excluir apagará todos esses registros. Confirma?`
+    const hasQuotes = getBudgetQuotesForContract(contractId).length > 0;
+    const msg = (hasCommitments || hasQuotes)
+        ? `O contrato ${c.number} possui empenhos, orçamentos ou movimentações vinculadas. Excluir apagará todos esses registros. Confirma?`
         : `Confirma a exclusão do contrato ${c.number}?`;
 
     if (!confirm(msg)) return;
 
+    const identity = askBudgetChangeIdentity('excluindo o contrato');
+    if (!identity) return;
+
     const commitmentIds = new Set(getBudgetCommitmentsForContract(contractId).map(e => String(e.id)));
     budgetContracts = budgetContracts.filter(x => String(x.id) !== String(contractId));
+    budgetAddenda = budgetAddenda.filter(a => String(a.contractId) !== String(contractId));
     budgetCommitments = budgetCommitments.filter(e => String(e.contractId) !== String(contractId));
     budgetMovements = budgetMovements.filter(m => !commitmentIds.has(String(m.commitmentId)));
+    budgetQuotes = budgetQuotes.filter(q => String(q.contractId) !== String(contractId));
+    recordBudgetHistory('CONTRATOS', contractId, 'EXCLUSÃO', c, null, identity);
 
     if (String(currentBudgetContractId) === String(contractId)) closeBudgetDetailModal();
     saveBudgetStorage();
     renderBudgetModule();
+    renderBudgetQuotesModule();
     showAlert('Contrato excluído.');
 }
 
@@ -4429,6 +4784,7 @@ function openBudgetDetailModal(contractId) {
     document.getElementById('budgetDetailContractNumber').textContent = contract ? contract.number : 'N/D';
     hideBudgetCommitmentForm();
     hideBudgetMovementForm();
+    hideBudgetAddendumForm();
     renderBudgetContractDetail();
     modal.classList.add('active');
 }
@@ -4445,6 +4801,7 @@ function closeBudgetDetailModal() {
     currentBudgetCommitmentId = null;
     hideBudgetCommitmentForm();
     hideBudgetMovementForm();
+    hideBudgetAddendumForm();
     renderBudgetModule();
 }
 
@@ -4461,40 +4818,191 @@ function renderBudgetContractDetail() {
     }
 
     const t = getBudgetContractTotals(contract.id);
+    const addenda = getBudgetAddendaForContract(contract.id);
     detail.innerHTML = `
         <div class="budget-contract-title">
             <div>
                 <h3>${escapeHTML(contract.number || '—')} • ${escapeHTML(contract.company || '—')}</h3>
                 <div class="budget-note"><strong>Objeto:</strong> ${escapeHTML(contract.object || '—')}</div>
-                <div class="budget-note"><strong>Vigência:</strong> ${budgetDateLabel(contract.startDate)} a ${budgetDateLabel(contract.endDate)} • <strong>CNPJ:</strong> ${escapeHTML(contract.cnpj || '—')}</div>
+                <div class="budget-note"><strong>Vigência original:</strong> ${budgetDateLabel(contract.startDate)} a ${budgetDateLabel(contract.endDate)} • <strong>Vigência atual:</strong> ${budgetDateLabel(getBudgetContractCurrentEndDate(contract.id))} • <strong>CNPJ:</strong> ${escapeHTML(contract.cnpj || '—')}</div>
             </div>
             <span class="badge ${getBudgetStatusBadge(contract.status)}">${escapeHTML(contract.status || 'N/A')}</span>
         </div>
         <div class="budget-kpi-grid">
-            <div class="budget-kpi"><div class="budget-kpi-label">Valor Contratado</div><div class="budget-kpi-value">${budgetMoney(t.contracted)}</div></div>
-            <div class="budget-kpi"><div class="budget-kpi-label">Total Empenhado</div><div class="budget-kpi-value">${budgetMoney(t.committed)}</div></div>
+            <div class="budget-kpi"><div class="budget-kpi-label">Valor Original</div><div class="budget-kpi-value">${budgetMoney(Number(contract.value || 0))}</div></div>
+            <div class="budget-kpi"><div class="budget-kpi-label">Aditivos/Supressões</div><div class="budget-kpi-value ${saldoClass(getBudgetContractAddendaValue(contract.id))}">${budgetMoney(getBudgetContractAddendaValue(contract.id))}</div></div>
+            <div class="budget-kpi"><div class="budget-kpi-label">Valor Atual</div><div class="budget-kpi-value">${budgetMoney(t.contracted)}</div></div>
             <div class="budget-kpi"><div class="budget-kpi-label">Saldo a Empenhar</div><div class="budget-kpi-value ${saldoClass(t.toCommit)}">${budgetMoney(t.toCommit)}</div></div>
-            <div class="budget-kpi"><div class="budget-kpi-label">Saldo Disponível do Contrato</div><div class="budget-kpi-value ${saldoClass(t.balance)}">${budgetMoney(t.balance)}</div></div>
+            <div class="budget-kpi"><div class="budget-kpi-label">Reservado em Orçamentos</div><div class="budget-kpi-value">${budgetMoney(t.quotesReserved)}</div></div>
+            <div class="budget-kpi"><div class="budget-kpi-label">Saldo Disponível</div><div class="budget-kpi-value ${saldoClass(t.balance)}">${budgetMoney(t.balance)}</div></div>
+        </div>
+        <div class="chart-card" style="margin-top:1rem;">
+            <div class="chart-title">📄 Aditivos e Prorrogações</div>
+            ${addenda.length ? `
+                <table class="report-table">
+                    <thead><tr><th>Tipo</th><th>Documento</th><th>Data</th><th>Valor</th><th>Nova Vigência</th><th>Responsável</th><th>Ações</th></tr></thead>
+                    <tbody>
+                        ${addenda.map(a => {
+                            const aid = encodeURIComponent(a.id);
+                            return `<tr>
+                                <td>${escapeHTML(a.type || '—')}</td>
+                                <td>${escapeHTML(a.document || '—')}</td>
+                                <td>${budgetDateLabel(a.date)}</td>
+                                <td><strong class="${saldoClass(a.valueDelta)}">${budgetMoney(a.valueDelta)}</strong></td>
+                                <td>${budgetDateLabel(a.endDate)}</td>
+                                <td>${escapeHTML(a.responsible || '—')}</td>
+                                <td><button class="btn-icon" onclick="deleteBudgetAddendum(decodeURIComponent('${aid}'))" title="Excluir aditivo">🗑️</button></td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            ` : '<div class="empty-state" style="padding:1rem;">Nenhum aditivo/prorrogação cadastrado para este contrato.</div>'}
         </div>
     `;
 
     renderBudgetCommitmentsList();
 }
 
+function showBudgetAddendumForm(addendumId = null) {
+    if (!currentBudgetContractId) {
+        showBudgetError('Abra um contrato antes de lançar aditivo ou prorrogação.');
+        return;
+    }
+    hideBudgetCommitmentForm();
+    hideBudgetMovementForm();
+    const box = document.getElementById('budgetAddendumFormBox');
+    if (!box) return;
+    const a = addendumId ? (budgetAddenda || []).find(x => String(x.id) === String(addendumId)) : null;
+    document.getElementById('budgetAddendumId').value = a?.id || '';
+    document.getElementById('budgetAddendumType').value = a?.type || 'PRAZO';
+    document.getElementById('budgetAddendumDocument').value = a?.document || '';
+    document.getElementById('budgetAddendumDate').value = a?.date || new Date().toISOString().slice(0, 10);
+    document.getElementById('budgetAddendumValue').value = a ? Math.abs(Number(a.valueDelta || 0)) : '';
+    document.getElementById('budgetAddendumEndDate').value = a?.endDate || '';
+    document.getElementById('budgetAddendumResponsible').value = a?.responsible || '';
+    document.getElementById('budgetAddendumNotes').value = a?.notes || '';
+    updateBudgetAddendumLabels();
+    box.classList.add('active');
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideBudgetAddendumForm() {
+    const box = document.getElementById('budgetAddendumFormBox');
+    if (box) box.classList.remove('active');
+}
+
+function updateBudgetAddendumLabels() {
+    const type = document.getElementById('budgetAddendumType')?.value || '';
+    const label = document.getElementById('budgetAddendumValueLabel');
+    if (!label) return;
+    label.textContent = type === 'SUPRESSÃO DE VALOR' ? 'Valor suprimido (R$)' : 'Valor acrescido (R$)';
+}
+
+function saveBudgetAddendum(event) {
+    event.preventDefault();
+    const contract = getBudgetContractById(currentBudgetContractId);
+    if (!contract) {
+        showBudgetError('Contrato não localizado para lançamento do aditivo.');
+        return;
+    }
+
+    const id = document.getElementById('budgetAddendumId').value || generateBudgetId('ADT');
+    const existingIndex = budgetAddenda.findIndex(a => String(a.id) === String(id));
+    const before = existingIndex >= 0 ? { ...budgetAddenda[existingIndex] } : null;
+    const type = document.getElementById('budgetAddendumType').value;
+    let rawValue = parseFloat(document.getElementById('budgetAddendumValue').value) || 0;
+    const valueDelta = type === 'SUPRESSÃO DE VALOR' ? -Math.abs(rawValue) : Math.abs(rawValue);
+    const endDate = document.getElementById('budgetAddendumEndDate').value;
+
+    if (!document.getElementById('budgetAddendumDocument').value.trim() || !document.getElementById('budgetAddendumDate').value) {
+        showBudgetError('Preencha documento e data do aditivo/prorrogação.');
+        return;
+    }
+    if ((type === 'PRAZO' || type === 'PRAZO E VALOR') && !endDate) {
+        showBudgetError('Prorrogação bloqueada: informe a nova vigência final.');
+        return;
+    }
+    if ((type === 'VALOR' || type === 'PRAZO E VALOR' || type === 'SUPRESSÃO DE VALOR') && rawValue <= 0) {
+        showBudgetError('Aditivo de valor bloqueado: informe valor maior que zero.');
+        return;
+    }
+
+    const oldDelta = existingIndex >= 0 ? Number(budgetAddenda[existingIndex].valueDelta || 0) : 0;
+    const currentValueWithoutThis = getBudgetContractCurrentValue(contract.id) - oldDelta;
+    const newCurrentValue = currentValueWithoutThis + valueDelta;
+    const committed = getBudgetCommitmentsForContract(contract.id).reduce((sum, e) => sum + getBudgetCommitmentTotals(e.id).value, 0);
+    if (newCurrentValue < committed) {
+        showBudgetError(`Aditivo bloqueado: o valor atual do contrato ficaria em ${budgetMoney(newCurrentValue)}, inferior ao total empenhado ${budgetMoney(committed)}.`);
+        return;
+    }
+
+    const addendum = {
+        id,
+        contractId: contract.id,
+        type,
+        document: document.getElementById('budgetAddendumDocument').value.trim(),
+        date: document.getElementById('budgetAddendumDate').value,
+        valueDelta,
+        endDate,
+        responsible: document.getElementById('budgetAddendumResponsible').value.trim(),
+        notes: document.getElementById('budgetAddendumNotes').value.trim(),
+        updatedAt: new Date().toISOString()
+    };
+
+    if (!addendum.responsible) {
+        showBudgetError('Informe o responsável pelo lançamento do aditivo/prorrogação.');
+        return;
+    }
+
+    const identity = askBudgetChangeIdentity(existingIndex >= 0 ? 'editando o aditivo/prorrogação' : 'lançando o aditivo/prorrogação');
+    if (!identity) return;
+
+    if (existingIndex >= 0) budgetAddenda[existingIndex] = addendum;
+    else budgetAddenda.push(addendum);
+    recordBudgetHistory('ADITIVOS_CONTRATO', id, existingIndex >= 0 ? 'EDIÇÃO' : 'CADASTRO', before, addendum, identity);
+
+    saveBudgetStorage();
+    hideBudgetAddendumForm();
+    renderBudgetModule();
+    showAlert('Aditivo/prorrogação salvo com sucesso!');
+}
+
+function deleteBudgetAddendum(addendumId) {
+    const a = (budgetAddenda || []).find(x => String(x.id) === String(addendumId));
+    if (!a) return;
+    if (!confirm(`Confirma a exclusão do aditivo/prorrogação ${a.document || ''}?`)) return;
+    const identity = askBudgetChangeIdentity('excluindo o aditivo/prorrogação');
+    if (!identity) return;
+
+    const currentValueWithoutThis = getBudgetContractCurrentValue(a.contractId) - Number(a.valueDelta || 0);
+    const committed = getBudgetCommitmentsForContract(a.contractId).reduce((sum, e) => sum + getBudgetCommitmentTotals(e.id).value, 0);
+    if (currentValueWithoutThis < committed) {
+        showBudgetError(`Exclusão bloqueada: sem este aditivo, o valor atual do contrato ficaria em ${budgetMoney(currentValueWithoutThis)}, inferior ao total empenhado ${budgetMoney(committed)}.`);
+        return;
+    }
+
+    budgetAddenda = budgetAddenda.filter(x => String(x.id) !== String(addendumId));
+    recordBudgetHistory('ADITIVOS_CONTRATO', addendumId, 'EXCLUSÃO', a, null, identity);
+    saveBudgetStorage();
+    renderBudgetModule();
+    showAlert('Aditivo/prorrogação excluído.');
+}
+
 function showBudgetCommitmentForm(commitmentId = null) {
     if (!currentBudgetContractId) {
-        showAlert('Abra um contrato antes de lançar empenho.', 'error');
+        showBudgetError('Abra um contrato antes de lançar empenho.');
         return;
     }
 
     hideBudgetMovementForm();
+    hideBudgetAddendumForm();
     const box = document.getElementById('budgetCommitmentFormBox');
     if (!box) return;
 
     const e = commitmentId ? getBudgetCommitmentById(commitmentId) : null;
     document.getElementById('budgetCommitmentId').value = e?.id || '';
     document.getElementById('budgetCommitmentNumber').value = e?.number || '';
-    document.getElementById('budgetCommitmentType').value = e?.type || 'EMPENHO INICIAL';
+    document.getElementById('budgetCommitmentType').value = 'EMPENHO INICIAL';
     document.getElementById('budgetCommitmentDate').value = e?.date || new Date().toISOString().slice(0, 10);
     document.getElementById('budgetCommitmentValue').value = e?.value ?? '';
     document.getElementById('budgetCommitmentSource').value = e?.source || '';
@@ -4509,7 +5017,6 @@ function hideBudgetCommitmentForm() {
     if (box) box.classList.remove('active');
 }
 
-
 function saveBudgetCommitment(event) {
     event.preventDefault();
 
@@ -4522,6 +5029,7 @@ function saveBudgetCommitment(event) {
     const id = document.getElementById('budgetCommitmentId').value || generateBudgetId('EMP');
     const existingIndex = budgetCommitments.findIndex(e => String(e.id) === String(id));
     const oldValue = existingIndex >= 0 ? Number(budgetCommitments[existingIndex].value || 0) : 0;
+    const before = existingIndex >= 0 ? { ...budgetCommitments[existingIndex] } : null;
     const commitment = {
         id,
         contractId: contract.id,
@@ -4560,6 +5068,15 @@ function saveBudgetCommitment(event) {
     if (existingIndex >= 0) budgetCommitments[existingIndex] = commitment;
     else budgetCommitments.push(commitment);
 
+    if (existingIndex >= 0) {
+        const identity = askBudgetChangeIdentity('editando o empenho inicial');
+        if (!identity) {
+            budgetCommitments[existingIndex] = before;
+            return;
+        }
+        recordBudgetHistory('EMPENHOS', id, 'EDIÇÃO', before, commitment, identity);
+    }
+
     saveBudgetStorage();
     hideBudgetCommitmentForm();
     renderBudgetModule();
@@ -4574,18 +5091,23 @@ function deleteBudgetCommitment(commitmentId) {
     const e = getBudgetCommitmentById(commitmentId);
     if (!e) return;
     const hasMovements = getBudgetMovementsForCommitment(commitmentId).length > 0;
-    const msg = hasMovements
-        ? `O empenho ${e.number} possui movimentações. Excluir apagará pagamentos/anulações vinculados. Confirma?`
+    const hasQuotes = getBudgetQuotesForCommitment(commitmentId).length > 0;
+    const msg = (hasMovements || hasQuotes)
+        ? `O empenho ${e.number} possui movimentações ou orçamentos. Excluir apagará pagamentos/anulações/orçamentos vinculados. Confirma?`
         : `Confirma a exclusão do empenho ${e.number}?`;
     if (!confirm(msg)) return;
+    const identity = askBudgetChangeIdentity('excluindo o empenho');
+    if (!identity) return;
 
     budgetCommitments = budgetCommitments.filter(x => String(x.id) !== String(commitmentId));
     budgetMovements = budgetMovements.filter(m => String(m.commitmentId) !== String(commitmentId));
+    budgetQuotes = budgetQuotes.filter(q => String(q.commitmentId) !== String(commitmentId));
+    recordBudgetHistory('EMPENHOS', commitmentId, 'EXCLUSÃO', e, null, identity);
     saveBudgetStorage();
     renderBudgetModule();
+    renderBudgetQuotesModule();
     showAlert('Empenho excluído.');
 }
-
 
 function showBudgetMovementForm(commitmentId, type = 'PAGAMENTO DE NF') {
     const e = getBudgetCommitmentById(commitmentId);
@@ -4595,6 +5117,7 @@ function showBudgetMovementForm(commitmentId, type = 'PAGAMENTO DE NF') {
     }
 
     hideBudgetCommitmentForm();
+    hideBudgetAddendumForm();
     currentBudgetCommitmentId = commitmentId;
     const box = document.getElementById('budgetMovementFormBox');
     if (!box) return;
@@ -4619,7 +5142,6 @@ function hideBudgetMovementForm() {
     currentBudgetCommitmentId = null;
 }
 
-
 function updateBudgetMovementLabels() {
     const type = document.getElementById('budgetMovementType')?.value || '';
     const label = document.getElementById('budgetMovementDocumentLabel');
@@ -4641,7 +5163,6 @@ function updateBudgetMovementLabels() {
         if (favored) favored.placeholder = 'Empresa ou favorecido';
     }
 }
-
 
 function saveBudgetMovement(event) {
     event.preventDefault();
@@ -4692,7 +5213,11 @@ function saveBudgetMovement(event) {
         return;
     }
 
+    const identity = askBudgetChangeIdentity(isReinforcement ? 'lançando reforço de empenho' : 'lançando movimentação do empenho');
+    if (!identity) return;
+
     budgetMovements.push(movement);
+    recordBudgetHistory('EXTRATO_ORCAMENTARIO', movement.id, 'CADASTRO', null, movement, identity);
     saveBudgetStorage();
     hideBudgetMovementForm();
     renderBudgetModule();
@@ -4703,13 +5228,75 @@ function deleteBudgetMovement(movementId) {
     const m = (budgetMovements || []).find(x => String(x.id) === String(movementId));
     if (!m) return;
     if (!confirm(`Confirma a exclusão da movimentação ${m.document || ''}?`)) return;
+    const identity = askBudgetChangeIdentity('excluindo movimentação do empenho');
+    if (!identity) return;
 
     budgetMovements = budgetMovements.filter(x => String(x.id) !== String(movementId));
+    recordBudgetHistory('EXTRATO_ORCAMENTARIO', movementId, 'EXCLUSÃO', m, null, identity);
     saveBudgetStorage();
     renderBudgetModule();
     showAlert('Movimentação excluída.');
 }
 
+function buildBudgetCheckingStatement(commitmentId) {
+    const e = getBudgetCommitmentById(commitmentId);
+    if (!e) return [];
+    const rows = [];
+    rows.push({
+        id: `INIT_${e.id}`,
+        type: 'EMPENHO INICIAL',
+        document: e.number || 'Empenho inicial',
+        date: e.date,
+        entrada: Number(e.value || 0),
+        saida: 0,
+        notes: e.notes || '',
+        sourceType: 'COMMITMENT'
+    });
+    getBudgetMovementsForCommitment(commitmentId).forEach(m => {
+        const credit = isBudgetCreditMovement(m.type) ? Number(m.value || 0) : 0;
+        const debit = isBudgetCreditMovement(m.type) ? 0 : Number(m.value || 0);
+        rows.push({
+            id: m.id,
+            type: m.type,
+            document: m.document || '—',
+            date: m.date,
+            entrada: credit,
+            saida: debit,
+            favored: m.favored || '',
+            notes: m.notes || '',
+            sourceType: 'MOVEMENT'
+        });
+    });
+    getBudgetQuoteDebitMovementsForCommitment(commitmentId).forEach(m => {
+        rows.push({
+            id: m.id,
+            type: m.type,
+            document: m.document || '—',
+            date: m.date,
+            entrada: 0,
+            saida: Number(m.value || 0),
+            favored: m.favored || '',
+            notes: m.notes || '',
+            sourceType: 'QUOTE',
+            sourceQuoteId: m.sourceQuoteId
+        });
+    });
+    rows.sort((a, b) => {
+        const da = parseDateValue(a.date) || new Date(0);
+        const db = parseDateValue(b.date) || new Date(0);
+        const diff = da.getTime() - db.getTime();
+        if (diff !== 0) return diff;
+        if (a.type === 'EMPENHO INICIAL') return -1;
+        if (b.type === 'EMPENHO INICIAL') return 1;
+        return String(a.id).localeCompare(String(b.id), 'pt-BR');
+    });
+    let saldo = 0;
+    rows.forEach(r => {
+        saldo += Number(r.entrada || 0) - Number(r.saida || 0);
+        r.saldo = saldo;
+    });
+    return rows;
+}
 
 function renderBudgetCommitmentsList() {
     const container = document.getElementById('budgetCommitmentsContainer');
@@ -4728,7 +5315,7 @@ function renderBudgetCommitmentsList() {
 
     container.innerHTML = commitments.map(e => {
         const totals = getBudgetCommitmentTotals(e.id);
-        const movements = getBudgetMovementsForCommitment(e.id);
+        const statement = buildBudgetCheckingStatement(e.id);
         const id = encodeURIComponent(e.id);
         return `
             <div class="commitment-card">
@@ -4738,9 +5325,10 @@ function renderBudgetCommitmentsList() {
                         <div class="commitment-meta">EMPENHO • ${budgetDateLabel(e.date)} • Fonte: ${escapeHTML(e.source || '—')} • ND: ${escapeHTML(e.nature || '—')}</div>
                     </div>
                     <div class="actions">
-                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'PAGAMENTO DE NF')" title="Pagamento de nota fiscal">🧾</button>
+                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'PAGAMENTO DE NF')" title="Pagamento de nota fiscal avulso">🧾</button>
                         <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'ANULAÇÃO DE CRÉDITO')" title="Anulação de crédito">➖</button>
                         <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'REFORÇO DE EMPENHO')" title="Reforço de empenho">➕</button>
+                        <button class="btn-icon" onclick="openBudgetQuoteForm(null, decodeURIComponent('${id}'))" title="Novo orçamento neste empenho">📋</button>
                         <button class="btn-icon" onclick="editBudgetCommitment(decodeURIComponent('${id}'))" title="Editar empenho inicial">✏️</button>
                         <button class="btn-icon" onclick="deleteBudgetCommitment(decodeURIComponent('${id}'))" title="Excluir empenho">🗑️</button>
                     </div>
@@ -4750,43 +5338,281 @@ function renderBudgetCommitmentsList() {
                     <div class="commitment-summary-item"><span>Empenho Inicial</span><strong>${budgetMoney(totals.baseValue)}</strong></div>
                     <div class="commitment-summary-item"><span>Reforços</span><strong>${budgetMoney(totals.reinforcements)}</strong></div>
                     <div class="commitment-summary-item"><span>Crédito Total</span><strong>${budgetMoney(totals.value)}</strong></div>
-                    <div class="commitment-summary-item"><span>Pago</span><strong>${budgetMoney(totals.paid)}</strong></div>
-                    <div class="commitment-summary-item"><span>Anulado</span><strong>${budgetMoney(totals.canceled)}</strong></div>
+                    <div class="commitment-summary-item"><span>Orçamentos Reservados</span><strong>${budgetMoney(totals.quotesReserved)}</strong></div>
+                    <div class="commitment-summary-item"><span>Pago/Anulado Avulso</span><strong>${budgetMoney(totals.paid + totals.canceled)}</strong></div>
                     <div class="commitment-summary-item"><span>Saldo</span><strong class="${saldoClass(totals.balance)}">${budgetMoney(totals.balance)}</strong></div>
                 </div>
 
                 ${e.notes ? `<div class="budget-note" style="margin-bottom:.75rem;"><strong>Observação:</strong> ${escapeHTML(e.notes)}</div>` : ''}
 
-                <table class="report-table">
-                    <thead>
-                        <tr>
-                            <th>Tipo</th>
-                            <th>NF / Documento</th>
-                            <th>Data</th>
-                            <th>Valor</th>
-                            <th>Favorecido / Origem</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${movements.length ? movements.map(m => {
-                            const mid = encodeURIComponent(m.id);
-                            return `
-                                <tr>
-                                    <td><span class="badge ${getBudgetMovementBadge(m.type)}">${escapeHTML(m.type)}</span></td>
-                                    <td>${escapeHTML(m.document || '—')}</td>
-                                    <td>${budgetDateLabel(m.date)}</td>
-                                    <td><strong>${getBudgetMovementSign(m.type)} ${budgetMoney(m.value)}</strong></td>
-                                    <td>${escapeHTML(m.favored || '—')}</td>
-                                    <td><button class="btn-icon" onclick="deleteBudgetMovement(decodeURIComponent('${mid}'))" title="Excluir movimentação">🗑️</button></td>
-                                </tr>
-                            `;
-                        }).join('') : `<tr><td colspan="6" class="loading">Nenhuma movimentação neste empenho.</td></tr>`}
-                    </tbody>
-                </table>
+                <div class="chart-card" style="margin-top:.75rem;">
+                    <div class="chart-title">🏦 Extrato do Empenho</div>
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Documento</th>
+                                <th>Entrada</th>
+                                <th>Saída</th>
+                                <th>Saldo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${statement.length ? statement.map(r => {
+                                const rid = encodeURIComponent(r.id);
+                                const qid = encodeURIComponent(r.sourceQuoteId || '');
+                                const action = r.sourceType === 'MOVEMENT'
+                                    ? `<button class="btn-icon" onclick="deleteBudgetMovement(decodeURIComponent('${rid}'))" title="Excluir movimentação">🗑️</button>`
+                                    : (r.sourceType === 'QUOTE'
+                                        ? `<button class="btn-icon" onclick="openBudgetQuoteForm(decodeURIComponent('${qid}'))" title="Editar orçamento / lançar NF">✏️</button>`
+                                        : '—');
+                                return `<tr>
+                                    <td>${budgetDateLabel(r.date)}</td>
+                                    <td><span class="badge ${getBudgetMovementBadge(r.type)}">${escapeHTML(r.type)}</span></td>
+                                    <td>${escapeHTML(r.document || '—')}</td>
+                                    <td>${r.entrada ? `<strong class="saldo-positive">${budgetMoney(r.entrada)}</strong>` : '—'}</td>
+                                    <td>${r.saida ? `<strong class="saldo-danger">${budgetMoney(r.saida)}</strong>` : '—'}</td>
+                                    <td><strong class="${saldoClass(r.saldo)}">${budgetMoney(r.saldo)}</strong></td>
+                                    <td>${action}</td>
+                                </tr>`;
+                            }).join('') : `<tr><td colspan="7" class="loading">Nenhum lançamento no extrato.</td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         `;
     }).join('');
+}
+
+// =========================
+// ORÇAMENTOS
+// =========================
+function renderBudgetQuotesModule() {
+    renderBudgetQuoteSummaryCards();
+    renderBudgetQuotesTable();
+}
+
+function getBudgetQuoteGlobalTotals() {
+    return (budgetQuotes || []).reduce((acc, q) => {
+        const st = getBudgetQuoteStatus(q);
+        const total = getBudgetQuoteTotal(q);
+        if (st !== 'CANCELADO') acc.totalReserved += total;
+        if (st === 'FATURADO') acc.totalBilled += total;
+        if (st === 'FATURADO PARCIAL') acc.partial += total;
+        if (st === 'EM ABERTO' || st === 'APROVADO / RESERVADO') acc.open += total;
+        acc.count += 1;
+        return acc;
+    }, { count: 0, totalReserved: 0, totalBilled: 0, partial: 0, open: 0 });
+}
+
+function renderBudgetQuoteSummaryCards() {
+    const el = document.getElementById('budgetQuoteSummaryCards');
+    if (!el) return;
+    const t = getBudgetQuoteGlobalTotals();
+    el.innerHTML = `
+        <div class="budget-kpi"><div class="budget-kpi-label">Orçamentos Cadastrados</div><div class="budget-kpi-value">${t.count}</div></div>
+        <div class="budget-kpi"><div class="budget-kpi-label">Reservado em Orçamentos</div><div class="budget-kpi-value">${budgetMoney(t.totalReserved)}</div></div>
+        <div class="budget-kpi"><div class="budget-kpi-label">Faturado</div><div class="budget-kpi-value saldo-positive">${budgetMoney(t.totalBilled)}</div></div>
+        <div class="budget-kpi"><div class="budget-kpi-label">Aberto/Parcial</div><div class="budget-kpi-value saldo-warning">${budgetMoney(t.open + t.partial)}</div></div>
+    `;
+}
+
+function renderBudgetQuotesTable() {
+    const tbody = document.getElementById('budgetQuotesBody');
+    if (!tbody) return;
+    const search = normalizeText(document.getElementById('budgetQuoteSearchInput')?.value || '');
+    const statusFilter = document.getElementById('budgetQuoteStatusFilter')?.value || '';
+
+    let rows = [...(budgetQuotes || [])].filter(q => {
+        const c = getBudgetContractById(q.contractId);
+        const e = getBudgetCommitmentById(q.commitmentId);
+        const st = getBudgetQuoteStatus(q);
+        const blob = normalizeText(`${q.number || ''} ${getBudgetQuoteDisplayDocument(q)} ${c?.number || ''} ${e?.number || ''} ${q.vehicle || ''} ${q.description || ''} ${q.nfParts || ''} ${q.nfService || ''}`);
+        const matchSearch = !search || blob.includes(search);
+        const matchStatus = !statusFilter || st === statusFilter;
+        return matchSearch && matchStatus;
+    });
+    rows.sort((a, b) => {
+        const da = parseDateValue(a.date) || new Date(0);
+        const db = parseDateValue(b.date) || new Date(0);
+        return db.getTime() - da.getTime();
+    });
+
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="10" class="loading">Nenhum orçamento cadastrado.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(q => {
+        const c = getBudgetContractById(q.contractId);
+        const e = getBudgetCommitmentById(q.commitmentId);
+        const st = getBudgetQuoteStatus(q);
+        const id = encodeURIComponent(q.id);
+        return `<tr>
+            <td><strong>${escapeHTML(q.number || '—')}</strong><br><small>${escapeHTML(getBudgetQuoteDisplayDocument(q))}</small></td>
+            <td>${escapeHTML(c?.number || '—')}</td>
+            <td>${escapeHTML(e?.number || '—')}</td>
+            <td>${escapeHTML(q.vehicle || '—')}</td>
+            <td>${escapeHTML(q.description || '—')}</td>
+            <td>${budgetMoney(q.partsValue)}</td>
+            <td>${budgetMoney(q.serviceValue)}</td>
+            <td><strong>${budgetMoney(getBudgetQuoteTotal(q))}</strong></td>
+            <td><span class="badge ${getBudgetQuoteStatusBadge(st)}">${escapeHTML(st)}${st === 'FATURADO' ? ' ✅' : ''}</span></td>
+            <td>
+                <div class="actions">
+                    <button class="btn-icon" onclick="openBudgetQuoteForm(decodeURIComponent('${id}'))" title="Editar orçamento / lançar NF">✏️</button>
+                    <button class="btn-icon" onclick="deleteBudgetQuote(decodeURIComponent('${id}'))" title="Excluir orçamento">🗑️</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function populateBudgetQuoteContracts(selectedContractId = '') {
+    const select = document.getElementById('budgetQuoteContractId');
+    if (!select) return;
+    const active = [...(budgetContracts || [])].sort((a, b) => String(a.number || '').localeCompare(String(b.number || ''), 'pt-BR'));
+    select.innerHTML = '<option value="">Selecione...</option>' + active.map(c => `<option value="${escapeHTML(c.id)}">${escapeHTML(c.number || '—')} - ${escapeHTML(c.company || '—')}</option>`).join('');
+    if (selectedContractId) select.value = selectedContractId;
+}
+
+function populateBudgetQuoteCommitments(selectedCommitmentId = '') {
+    const contractId = document.getElementById('budgetQuoteContractId')?.value || '';
+    const select = document.getElementById('budgetQuoteCommitmentId');
+    if (!select) return;
+    const commitments = getBudgetCommitmentsForContract(contractId);
+    select.innerHTML = '<option value="">Selecione...</option>' + commitments.map(e => `<option value="${escapeHTML(e.id)}">${escapeHTML(e.number || '—')} - saldo ${budgetMoney(getBudgetCommitmentTotals(e.id, { excludeQuoteId: document.getElementById('budgetQuoteId')?.value || '' }).balance)}</option>`).join('');
+    if (selectedCommitmentId) select.value = selectedCommitmentId;
+}
+
+function openBudgetQuoteForm(quoteId = null, commitmentId = null) {
+    const modal = document.getElementById('budgetQuoteModal');
+    if (!modal) return;
+    const q = quoteId ? getBudgetQuoteById(quoteId) : null;
+    const e = commitmentId ? getBudgetCommitmentById(commitmentId) : (q ? getBudgetCommitmentById(q.commitmentId) : null);
+    const contractId = q?.contractId || e?.contractId || currentBudgetContractId || '';
+    const finalCommitmentId = q?.commitmentId || commitmentId || '';
+
+    document.getElementById('budgetQuoteFormTitle').textContent = q ? '🧾 Editar Orçamento / Lançar NF' : '🧾 Novo Orçamento';
+    document.getElementById('budgetQuoteId').value = q?.id || '';
+    document.getElementById('budgetQuoteNumber').value = q?.number || '';
+    document.getElementById('budgetQuoteDate').value = q?.date || new Date().toISOString().slice(0, 10);
+    populateBudgetQuoteContracts(contractId);
+    populateBudgetQuoteCommitments(finalCommitmentId);
+    document.getElementById('budgetQuoteVehicle').value = q?.vehicle || '';
+    document.getElementById('budgetQuoteManualStatus').value = q?.status || 'APROVADO / RESERVADO';
+    document.getElementById('budgetQuoteDescription').value = q?.description || '';
+    document.getElementById('budgetQuotePartsValue').value = q?.partsValue ?? '';
+    document.getElementById('budgetQuoteServiceValue').value = q?.serviceValue ?? '';
+    document.getElementById('budgetQuoteNfParts').value = q?.nfParts || '';
+    document.getElementById('budgetQuoteNfService').value = q?.nfService || '';
+    document.getElementById('budgetQuoteNotes').value = q?.notes || '';
+    modal.classList.add('active');
+}
+
+function closeBudgetQuoteForm() {
+    const modal = document.getElementById('budgetQuoteModal');
+    if (modal) modal.classList.remove('active');
+}
+
+function saveBudgetQuote(event) {
+    event.preventDefault();
+    const id = document.getElementById('budgetQuoteId').value || generateBudgetId('ORC');
+    const existingIndex = budgetQuotes.findIndex(q => String(q.id) === String(id));
+    const before = existingIndex >= 0 ? { ...budgetQuotes[existingIndex] } : null;
+    const contractId = document.getElementById('budgetQuoteContractId').value;
+    const commitmentId = document.getElementById('budgetQuoteCommitmentId').value;
+    const quote = {
+        id,
+        number: document.getElementById('budgetQuoteNumber').value.trim(),
+        contractId,
+        commitmentId,
+        date: document.getElementById('budgetQuoteDate').value,
+        vehicle: document.getElementById('budgetQuoteVehicle').value.trim(),
+        description: document.getElementById('budgetQuoteDescription').value.trim(),
+        partsValue: parseFloat(document.getElementById('budgetQuotePartsValue').value) || 0,
+        serviceValue: parseFloat(document.getElementById('budgetQuoteServiceValue').value) || 0,
+        nfParts: document.getElementById('budgetQuoteNfParts').value.trim(),
+        nfService: document.getElementById('budgetQuoteNfService').value.trim(),
+        status: document.getElementById('budgetQuoteManualStatus').value,
+        notes: document.getElementById('budgetQuoteNotes').value.trim(),
+        createdAt: before?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+
+    if (!quote.number || !quote.contractId || !quote.commitmentId || !quote.date || !quote.description) {
+        showBudgetError('Orçamento bloqueado: preencha número, contrato, empenho, data e descrição.');
+        return;
+    }
+    if ((quote.partsValue + quote.serviceValue) <= 0 && quote.status !== 'CANCELADO') {
+        showBudgetError('Orçamento bloqueado: informe valor de peças, valor de serviço ou cancele o orçamento.');
+        return;
+    }
+    if (quote.partsValue <= 0 && quote.nfParts) {
+        showBudgetError('Incompatibilidade: há NF de peças informada, mas o orçamento não possui valor de peças.');
+        return;
+    }
+    if (quote.serviceValue <= 0 && quote.nfService) {
+        showBudgetError('Incompatibilidade: há NF de serviço informada, mas o orçamento não possui valor de serviço.');
+        return;
+    }
+
+    const commitment = getBudgetCommitmentById(quote.commitmentId);
+    if (!commitment) {
+        showBudgetError('Orçamento bloqueado: empenho não localizado.');
+        return;
+    }
+    if (String(commitment.contractId) !== String(quote.contractId)) {
+        showBudgetError('Orçamento bloqueado: o empenho selecionado não pertence ao contrato informado.');
+        return;
+    }
+
+    const status = getBudgetQuoteStatus(quote);
+    if (status !== 'CANCELADO') {
+        const available = getBudgetCommitmentTotals(quote.commitmentId, { excludeQuoteId: id }).balance;
+        const total = getBudgetQuoteTotal(quote);
+        if (total > available) {
+            showBudgetError(`Orçamento bloqueado: o valor total (${budgetMoney(total)}) é superior ao saldo disponível do empenho (${budgetMoney(available)}).`);
+            return;
+        }
+    }
+
+    const duplicate = budgetQuotes.some(q => String(q.id) !== String(id) && normalizeText(q.number) === normalizeText(quote.number));
+    if (duplicate) {
+        showBudgetError('Já existe orçamento cadastrado com este número.');
+        return;
+    }
+
+    const identity = askBudgetChangeIdentity(existingIndex >= 0 ? 'editando o orçamento / lançando nota fiscal' : 'lançando o orçamento');
+    if (!identity) return;
+    quote.lastChangedBy = identity.name;
+    quote.lastChangedMatricula = identity.matricula;
+
+    if (existingIndex >= 0) budgetQuotes[existingIndex] = quote;
+    else budgetQuotes.push(quote);
+    recordBudgetHistory('ORCAMENTOS', id, existingIndex >= 0 ? 'EDIÇÃO' : 'CADASTRO', before, quote, identity);
+
+    saveBudgetStorage();
+    closeBudgetQuoteForm();
+    renderBudgetQuotesModule();
+    renderBudgetModule();
+    showAlert(status === 'FATURADO' ? 'Orçamento salvo e marcado como faturado.' : 'Orçamento salvo com sucesso!');
+}
+
+function deleteBudgetQuote(quoteId) {
+    const q = getBudgetQuoteById(quoteId);
+    if (!q) return;
+    if (!confirm(`Confirma a exclusão do orçamento ${q.number || ''}?`)) return;
+    const identity = askBudgetChangeIdentity('excluindo o orçamento');
+    if (!identity) return;
+    budgetQuotes = budgetQuotes.filter(x => String(x.id) !== String(quoteId));
+    recordBudgetHistory('ORCAMENTOS', quoteId, 'EXCLUSÃO', q, null, identity);
+    saveBudgetStorage();
+    renderBudgetQuotesModule();
+    renderBudgetModule();
+    showAlert('Orçamento excluído.');
 }
 
 initializeData();

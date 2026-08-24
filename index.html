@@ -1501,6 +1501,7 @@ table{
                             <select id="budgetMovementType" required onchange="updateBudgetMovementLabels()">
                                 <option value="PAGAMENTO DE NF">Pagamento de NF</option>
                                 <option value="ANULAÇÃO DE CRÉDITO">Anulação de crédito</option>
+                                <option value="CANCELAMENTO DE RESTOS A PAGAR">Cancelamento de restos a pagar</option>
                                 <option value="REFORÇO DE EMPENHO">Reforço de empenho</option>
                             </select>
                         </div>
@@ -1549,8 +1550,16 @@ table{
                 <input type="hidden" id="budgetQuoteId">
                 <div class="budget-form-grid">
                     <div class="form-group">
-                        <label>Número do Orçamento *</label>
-                        <input type="text" id="budgetQuoteNumber" required placeholder="Ex: ORÇ 145/2026">
+                        <label>Número da Nota Branca / Orçamento Inicial *</label>
+                        <input type="text" id="budgetQuoteNumber" required placeholder="Ex: NOTA BRANCA 145/2026">
+                    </div>
+                    <div class="form-group">
+                        <label>Orçamento Oficial de Peças</label>
+                        <input type="text" id="budgetQuoteOfficialParts" placeholder="Ex: ORÇ PEÇAS 123/2026">
+                    </div>
+                    <div class="form-group">
+                        <label>Orçamento Oficial de Mão de Obra</label>
+                        <input type="text" id="budgetQuoteOfficialService" placeholder="Ex: ORÇ SERVIÇO 456/2026">
                     </div>
                     <div class="form-group">
                         <label>Data do Orçamento *</label>
@@ -1602,7 +1611,7 @@ table{
                     </div>
                 </div>
                 <div class="budget-note" style="margin-top: .5rem;">
-                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O orçamento debita o saldo do empenho; a inclusão posterior de NF apenas altera o documento exibido no extrato.
+                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O lançamento debita uma única vez o saldo do empenho: primeiro como nota branca, depois como orçamento oficial de peças/mão de obra e, por fim, como NF, sem duplicidade no extrato.
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">💾 Salvar Orçamento</button>
@@ -1720,6 +1729,7 @@ let budgetQuotes = [];
 let budgetHistory = [];
 let currentBudgetContractId = null;
 let currentBudgetCommitmentId = null;
+let expandedBudgetStatements = {};
         // Expor para depuração / console
         window.vehicles = vehicles;
         window.maintenances = maintenances;
@@ -4309,12 +4319,13 @@ function isBudgetCreditMovement(type) {
 }
 
 function isBudgetDebitMovement(type) {
-    return ['PAGAMENTO DE NF', 'ANULAÇÃO DE CRÉDITO'].includes(String(type || '').toUpperCase());
+    return ['PAGAMENTO DE NF', 'ANULAÇÃO DE CRÉDITO', 'CANCELAMENTO DE RESTOS A PAGAR'].includes(String(type || '').toUpperCase());
 }
 
 function getBudgetMovementBadge(type) {
     if (type === 'PAGAMENTO DE NF') return 'badge-success';
     if (type === 'ANULAÇÃO DE CRÉDITO') return 'badge-warning';
+    if (type === 'CANCELAMENTO DE RESTOS A PAGAR') return 'badge-danger';
     if (type === 'REFORÇO DE EMPENHO') return 'badge-info';
     if (type === 'ORÇAMENTO') return 'badge-warning';
     if (type === 'ORÇAMENTO FATURADO') return 'badge-success';
@@ -4443,11 +4454,18 @@ function getBudgetQuoteStatus(q) {
 function getBudgetQuoteDisplayDocument(q) {
     if (!q) return '—';
     const status = getBudgetQuoteStatus(q);
-    const docs = [];
-    if (String(q.nfParts || '').trim()) docs.push(`NF PEÇAS ${q.nfParts}`);
-    if (String(q.nfService || '').trim()) docs.push(`NF SERVIÇO ${q.nfService}`);
-    if (docs.length) return `${docs.join(' / ')} ${status === 'FATURADO' ? '✅' : '⚠️'}`;
-    return q.number || 'ORÇAMENTO SEM Nº';
+
+    const nfDocs = [];
+    if (String(q.nfParts || '').trim()) nfDocs.push(`NF PEÇAS ${q.nfParts}`);
+    if (String(q.nfService || '').trim()) nfDocs.push(`NF SERVIÇO ${q.nfService}`);
+    if (nfDocs.length) return `${nfDocs.join(' / ')} ${status === 'FATURADO' ? '✅' : '⚠️'}`;
+
+    const officialDocs = [];
+    if (String(q.officialPartsQuote || '').trim()) officialDocs.push(`ORÇ PEÇAS ${q.officialPartsQuote}`);
+    if (String(q.officialServiceQuote || '').trim()) officialDocs.push(`ORÇ MÃO DE OBRA ${q.officialServiceQuote}`);
+    if (officialDocs.length) return officialDocs.join(' / ');
+
+    return q.number ? `NOTA BRANCA ${q.number}` : 'ORÇAMENTO SEM Nº';
 }
 
 function getBudgetQuotesForCommitment(commitmentId, options = {}) {
@@ -4496,7 +4514,7 @@ function getBudgetCommitmentTotals(commitmentId, options = {}) {
         .filter(m => m.type === 'PAGAMENTO DE NF')
         .reduce((sum, m) => sum + Number(m.value || 0), 0);
     const canceled = movements
-        .filter(m => m.type === 'ANULAÇÃO DE CRÉDITO')
+        .filter(m => ['ANULAÇÃO DE CRÉDITO', 'CANCELAMENTO DE RESTOS A PAGAR'].includes(m.type))
         .reduce((sum, m) => sum + Number(m.value || 0), 0);
     const quotesReserved = getBudgetQuotesForCommitment(commitmentId, options)
         .reduce((sum, q) => sum + getBudgetQuoteTotal(q), 0);
@@ -5153,6 +5171,10 @@ function updateBudgetMovementLabels() {
         label.textContent = 'Número do Documento de Anulação *';
         input.placeholder = 'Ex: Anulação 001/2026';
         if (favored) favored.placeholder = 'Opcional';
+    } else if (type === 'CANCELAMENTO DE RESTOS A PAGAR') {
+        label.textContent = 'Número do Documento de Cancelamento de Restos a Pagar *';
+        input.placeholder = 'Ex: CRP 001/2026, documento SEI ou ato de cancelamento';
+        if (favored) favored.placeholder = 'Opcional';
     } else if (type === 'REFORÇO DE EMPENHO') {
         label.textContent = 'Número do Documento de Reforço *';
         input.placeholder = 'Ex: Reforço 001/2026, apostila, termo ou documento SEI';
@@ -5191,7 +5213,8 @@ function saveBudgetMovement(event) {
             return;
         }
     } else if (value > totals.balance) {
-        showBudgetError(`Movimentação bloqueada: o valor informado (${budgetMoney(value)}) é superior ao saldo disponível do empenho (${budgetMoney(totals.balance)}).`);
+        const movementName = movementType === 'CANCELAMENTO DE RESTOS A PAGAR' ? 'Cancelamento de restos a pagar' : 'Movimentação';
+        showBudgetError(`${movementName} bloqueado: o valor informado (${budgetMoney(value)}) é superior ao saldo disponível do empenho (${budgetMoney(totals.balance)}).`);
         return;
     }
 
@@ -5213,7 +5236,10 @@ function saveBudgetMovement(event) {
         return;
     }
 
-    const identity = askBudgetChangeIdentity(isReinforcement ? 'lançando reforço de empenho' : 'lançando movimentação do empenho');
+    const actionLabel = isReinforcement
+        ? 'lançando reforço de empenho'
+        : (movementType === 'CANCELAMENTO DE RESTOS A PAGAR' ? 'lançando cancelamento de restos a pagar' : 'lançando movimentação do empenho');
+    const identity = askBudgetChangeIdentity(actionLabel);
     if (!identity) return;
 
     budgetMovements.push(movement);
@@ -5221,7 +5247,7 @@ function saveBudgetMovement(event) {
     saveBudgetStorage();
     hideBudgetMovementForm();
     renderBudgetModule();
-    showAlert(isReinforcement ? 'Reforço de empenho lançado com sucesso!' : 'Movimentação lançada com sucesso!');
+    showAlert(isReinforcement ? 'Reforço de empenho lançado com sucesso!' : (movementType === 'CANCELAMENTO DE RESTOS A PAGAR' ? 'Cancelamento de restos a pagar lançado com sucesso!' : 'Movimentação lançada com sucesso!'));
 }
 
 function deleteBudgetMovement(movementId) {
@@ -5298,6 +5324,14 @@ function buildBudgetCheckingStatement(commitmentId) {
     return rows;
 }
 
+
+function toggleBudgetStatement(commitmentId) {
+    const key = String(commitmentId || '');
+    if (!key) return;
+    expandedBudgetStatements[key] = !expandedBudgetStatements[key];
+    renderBudgetCommitmentsList();
+}
+
 function renderBudgetCommitmentsList() {
     const container = document.getElementById('budgetCommitmentsContainer');
     if (!container) return;
@@ -5317,70 +5351,73 @@ function renderBudgetCommitmentsList() {
         const totals = getBudgetCommitmentTotals(e.id);
         const statement = buildBudgetCheckingStatement(e.id);
         const id = encodeURIComponent(e.id);
+        const isExpanded = !!expandedBudgetStatements[String(e.id)];
+        const statementHtml = `
+            <div class="chart-card" style="margin-top:.75rem; ${isExpanded ? '' : 'display:none;'}">
+                <div class="chart-title">🏦 Extrato do Empenho</div>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Documento</th>
+                            <th>Entrada</th>
+                            <th>Saída</th>
+                            <th>Saldo</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${statement.length ? statement.map(r => {
+                            const rid = encodeURIComponent(r.id);
+                            const qid = encodeURIComponent(r.sourceQuoteId || '');
+                            const action = r.sourceType === 'MOVEMENT'
+                                ? `<button class="btn-icon" onclick="event.stopPropagation(); deleteBudgetMovement(decodeURIComponent('${rid}'))" title="Excluir movimentação">🗑️</button>`
+                                : (r.sourceType === 'QUOTE'
+                                    ? `<button class="btn-icon" onclick="event.stopPropagation(); openBudgetQuoteForm(decodeURIComponent('${qid}'))" title="Editar orçamento / lançar NF">✏️</button>`
+                                    : '—');
+                            return `<tr>
+                                <td>${budgetDateLabel(r.date)}</td>
+                                <td><span class="badge ${getBudgetMovementBadge(r.type)}">${escapeHTML(r.type)}</span></td>
+                                <td>${escapeHTML(r.document || '—')}</td>
+                                <td>${r.entrada ? `<strong class="saldo-positive">${budgetMoney(r.entrada)}</strong>` : '—'}</td>
+                                <td>${r.saida ? `<strong class="saldo-danger">${budgetMoney(r.saida)}</strong>` : '—'}</td>
+                                <td><strong class="${saldoClass(r.saldo)}">${budgetMoney(r.saldo)}</strong></td>
+                                <td>${action}</td>
+                            </tr>`;
+                        }).join('') : `<tr><td colspan="7" class="loading">Nenhum lançamento no extrato.</td></tr>`}
+                    </tbody>
+                </table>
+            </div>`;
+
         return `
             <div class="commitment-card">
-                <div class="commitment-header">
+                <div class="commitment-header" onclick="toggleBudgetStatement(decodeURIComponent('${id}'))" style="cursor:pointer;">
                     <div>
-                        <div class="commitment-number">${escapeHTML(e.number || '—')}</div>
+                        <div class="commitment-number">${isExpanded ? '▼' : '▶'} ${escapeHTML(e.number || '—')}</div>
                         <div class="commitment-meta">EMPENHO • ${budgetDateLabel(e.date)} • Fonte: ${escapeHTML(e.source || '—')} • ND: ${escapeHTML(e.nature || '—')}</div>
                     </div>
                     <div class="actions">
-                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'PAGAMENTO DE NF')" title="Pagamento de nota fiscal avulso">🧾</button>
-                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'ANULAÇÃO DE CRÉDITO')" title="Anulação de crédito">➖</button>
-                        <button class="btn-icon" onclick="showBudgetMovementForm(decodeURIComponent('${id}'), 'REFORÇO DE EMPENHO')" title="Reforço de empenho">➕</button>
-                        <button class="btn-icon" onclick="openBudgetQuoteForm(null, decodeURIComponent('${id}'))" title="Novo orçamento neste empenho">📋</button>
-                        <button class="btn-icon" onclick="editBudgetCommitment(decodeURIComponent('${id}'))" title="Editar empenho inicial">✏️</button>
-                        <button class="btn-icon" onclick="deleteBudgetCommitment(decodeURIComponent('${id}'))" title="Excluir empenho">🗑️</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); showBudgetMovementForm(decodeURIComponent('${id}'), 'PAGAMENTO DE NF')" title="Pagamento de nota fiscal avulso">🧾</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); showBudgetMovementForm(decodeURIComponent('${id}'), 'ANULAÇÃO DE CRÉDITO')" title="Anulação de crédito">➖</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); showBudgetMovementForm(decodeURIComponent('${id}'), 'CANCELAMENTO DE RESTOS A PAGAR')" title="Cancelamento de restos a pagar">🚫</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); showBudgetMovementForm(decodeURIComponent('${id}'), 'REFORÇO DE EMPENHO')" title="Reforço de empenho">➕</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); openBudgetQuoteForm(null, decodeURIComponent('${id}'))" title="Novo orçamento neste empenho">📋</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); editBudgetCommitment(decodeURIComponent('${id}'))" title="Editar empenho inicial">✏️</button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); deleteBudgetCommitment(decodeURIComponent('${id}'))" title="Excluir empenho">🗑️</button>
                     </div>
                 </div>
 
                 <div class="commitment-summary">
-                    <div class="commitment-summary-item"><span>Empenho Inicial</span><strong>${budgetMoney(totals.baseValue)}</strong></div>
+                    <div class="commitment-summary-item"><span>Valor Empenhado</span><strong>${budgetMoney(totals.value)}</strong></div>
+                    <div class="commitment-summary-item"><span>Valor Reservado em Orçamento</span><strong>${budgetMoney(totals.quotesReserved)}</strong></div>
+                    <div class="commitment-summary-item"><span>Saldo do Empenho</span><strong class="${saldoClass(totals.balance)}">${budgetMoney(totals.balance)}</strong></div>
                     <div class="commitment-summary-item"><span>Reforços</span><strong>${budgetMoney(totals.reinforcements)}</strong></div>
-                    <div class="commitment-summary-item"><span>Crédito Total</span><strong>${budgetMoney(totals.value)}</strong></div>
-                    <div class="commitment-summary-item"><span>Orçamentos Reservados</span><strong>${budgetMoney(totals.quotesReserved)}</strong></div>
-                    <div class="commitment-summary-item"><span>Pago/Anulado Avulso</span><strong>${budgetMoney(totals.paid + totals.canceled)}</strong></div>
-                    <div class="commitment-summary-item"><span>Saldo</span><strong class="${saldoClass(totals.balance)}">${budgetMoney(totals.balance)}</strong></div>
+                    <div class="commitment-summary-item"><span>Saídas Avulsas</span><strong>${budgetMoney(totals.paid + totals.canceled)}</strong></div>
                 </div>
 
                 ${e.notes ? `<div class="budget-note" style="margin-bottom:.75rem;"><strong>Observação:</strong> ${escapeHTML(e.notes)}</div>` : ''}
-
-                <div class="chart-card" style="margin-top:.75rem;">
-                    <div class="chart-title">🏦 Extrato do Empenho</div>
-                    <table class="report-table">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Tipo</th>
-                                <th>Documento</th>
-                                <th>Entrada</th>
-                                <th>Saída</th>
-                                <th>Saldo</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${statement.length ? statement.map(r => {
-                                const rid = encodeURIComponent(r.id);
-                                const qid = encodeURIComponent(r.sourceQuoteId || '');
-                                const action = r.sourceType === 'MOVEMENT'
-                                    ? `<button class="btn-icon" onclick="deleteBudgetMovement(decodeURIComponent('${rid}'))" title="Excluir movimentação">🗑️</button>`
-                                    : (r.sourceType === 'QUOTE'
-                                        ? `<button class="btn-icon" onclick="openBudgetQuoteForm(decodeURIComponent('${qid}'))" title="Editar orçamento / lançar NF">✏️</button>`
-                                        : '—');
-                                return `<tr>
-                                    <td>${budgetDateLabel(r.date)}</td>
-                                    <td><span class="badge ${getBudgetMovementBadge(r.type)}">${escapeHTML(r.type)}</span></td>
-                                    <td>${escapeHTML(r.document || '—')}</td>
-                                    <td>${r.entrada ? `<strong class="saldo-positive">${budgetMoney(r.entrada)}</strong>` : '—'}</td>
-                                    <td>${r.saida ? `<strong class="saldo-danger">${budgetMoney(r.saida)}</strong>` : '—'}</td>
-                                    <td><strong class="${saldoClass(r.saldo)}">${budgetMoney(r.saldo)}</strong></td>
-                                    <td>${action}</td>
-                                </tr>`;
-                            }).join('') : `<tr><td colspan="7" class="loading">Nenhum lançamento no extrato.</td></tr>`}
-                        </tbody>
-                    </table>
-                </div>
+                ${statementHtml}
             </div>
         `;
     }).join('');
@@ -5429,7 +5466,7 @@ function renderBudgetQuotesTable() {
         const c = getBudgetContractById(q.contractId);
         const e = getBudgetCommitmentById(q.commitmentId);
         const st = getBudgetQuoteStatus(q);
-        const blob = normalizeText(`${q.number || ''} ${getBudgetQuoteDisplayDocument(q)} ${c?.number || ''} ${e?.number || ''} ${q.vehicle || ''} ${q.description || ''} ${q.nfParts || ''} ${q.nfService || ''}`);
+        const blob = normalizeText(`${q.number || ''} ${getBudgetQuoteDisplayDocument(q)} ${c?.number || ''} ${e?.number || ''} ${q.vehicle || ''} ${q.description || ''} ${q.officialPartsQuote || ''} ${q.officialServiceQuote || ''} ${q.nfParts || ''} ${q.nfService || ''}`);
         const matchSearch = !search || blob.includes(search);
         const matchStatus = !statusFilter || st === statusFilter;
         return matchSearch && matchStatus;
@@ -5506,6 +5543,8 @@ function openBudgetQuoteForm(quoteId = null, commitmentId = null) {
     document.getElementById('budgetQuoteDescription').value = q?.description || '';
     document.getElementById('budgetQuotePartsValue').value = q?.partsValue ?? '';
     document.getElementById('budgetQuoteServiceValue').value = q?.serviceValue ?? '';
+    document.getElementById('budgetQuoteOfficialParts').value = q?.officialPartsQuote || '';
+    document.getElementById('budgetQuoteOfficialService').value = q?.officialServiceQuote || '';
     document.getElementById('budgetQuoteNfParts').value = q?.nfParts || '';
     document.getElementById('budgetQuoteNfService').value = q?.nfService || '';
     document.getElementById('budgetQuoteNotes').value = q?.notes || '';
@@ -5527,6 +5566,8 @@ function saveBudgetQuote(event) {
     const quote = {
         id,
         number: document.getElementById('budgetQuoteNumber').value.trim(),
+        officialPartsQuote: document.getElementById('budgetQuoteOfficialParts').value.trim(),
+        officialServiceQuote: document.getElementById('budgetQuoteOfficialService').value.trim(),
         contractId,
         commitmentId,
         date: document.getElementById('budgetQuoteDate').value,
@@ -5543,19 +5584,27 @@ function saveBudgetQuote(event) {
     };
 
     if (!quote.number || !quote.contractId || !quote.commitmentId || !quote.date || !quote.description) {
-        showBudgetError('Orçamento bloqueado: preencha número, contrato, empenho, data e descrição.');
+        showBudgetError('Orçamento bloqueado: preencha número da nota branca/orçamento inicial, contrato, empenho, data e descrição.');
         return;
     }
     if ((quote.partsValue + quote.serviceValue) <= 0 && quote.status !== 'CANCELADO') {
         showBudgetError('Orçamento bloqueado: informe valor de peças, valor de serviço ou cancele o orçamento.');
         return;
     }
-    if (quote.partsValue <= 0 && quote.nfParts) {
-        showBudgetError('Incompatibilidade: há NF de peças informada, mas o orçamento não possui valor de peças.');
+    if (quote.partsValue <= 0 && (quote.officialPartsQuote || quote.nfParts)) {
+        showBudgetError('Incompatibilidade: há orçamento oficial/NF de peças informado, mas o lançamento não possui valor de peças.');
         return;
     }
-    if (quote.serviceValue <= 0 && quote.nfService) {
-        showBudgetError('Incompatibilidade: há NF de serviço informada, mas o orçamento não possui valor de serviço.');
+    if (quote.serviceValue <= 0 && (quote.officialServiceQuote || quote.nfService)) {
+        showBudgetError('Incompatibilidade: há orçamento oficial/NF de mão de obra informado, mas o lançamento não possui valor de serviço.');
+        return;
+    }
+    if (quote.nfParts && !quote.officialPartsQuote) {
+        showBudgetError('Incompatibilidade: antes de lançar a NF de peças, informe o orçamento oficial de peças.');
+        return;
+    }
+    if (quote.nfService && !quote.officialServiceQuote) {
+        showBudgetError('Incompatibilidade: antes de lançar a NF de serviço, informe o orçamento oficial de mão de obra.');
         return;
     }
 
@@ -5581,7 +5630,7 @@ function saveBudgetQuote(event) {
 
     const duplicate = budgetQuotes.some(q => String(q.id) !== String(id) && normalizeText(q.number) === normalizeText(quote.number));
     if (duplicate) {
-        showBudgetError('Já existe orçamento cadastrado com este número.');
+        showBudgetError('Já existe orçamento/nota branca cadastrado com este número. Edite o lançamento existente para transformá-lo em orçamento oficial ou nota fiscal.');
         return;
     }
 

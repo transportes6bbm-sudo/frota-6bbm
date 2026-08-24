@@ -797,7 +797,7 @@ table{
 
 
 /* ===============================
-   Módulo Orçamentário
+   Módulo Contratos
    =============================== */
 .budget-toolbar {
     display: flex;
@@ -1124,7 +1124,7 @@ table{
 
         
 
-<!-- Tab Orçamentário -->
+<!-- Tab Contratos -->
 <div id="orcamentario" class="tab-content">
     <div class="report-section">
         <div class="report-header">
@@ -1175,7 +1175,7 @@ table{
         </div>
     </div>
 </div>
-<!-- Fim Tab Orçamentário -->
+<!-- Fim Tab Contratos -->
 
 
 <!-- Tab Orçamentos -->
@@ -1325,7 +1325,7 @@ table{
 
 
 
-    <!-- Modal Orçamentário: Contrato -->
+    <!-- Modal Contratos: Contrato -->
     <div class="modal" id="budgetContractModal">
         <div class="modal-content" style="max-width: 920px;">
             <div class="modal-header">
@@ -1385,7 +1385,7 @@ table{
         </div>
     </div>
 
-    <!-- Modal Orçamentário: Detalhe do Contrato -->
+    <!-- Modal Contratos: Detalhe do Contrato -->
     <div class="modal" id="budgetDetailModal">
         <div class="modal-content" style="max-width: 1100px;">
             <div class="modal-header">
@@ -1539,7 +1539,7 @@ table{
 
 
 
-    <!-- Modal Orçamentário: Orçamento -->
+    <!-- Modal Contratos: Orçamento/Manutenção -->
     <div class="modal" id="budgetQuoteModal">
         <div class="modal-content" style="max-width: 1100px;">
             <div class="modal-header">
@@ -1563,7 +1563,11 @@ table{
                     </div>
                     <div class="form-group">
                         <label>Data do Orçamento *</label>
-                        <input type="date" id="budgetQuoteDate" required>
+                        <input type="date" id="budgetQuoteDate" required onchange="syncBudgetQuoteMaintenanceDate()">
+                    </div>
+                    <div class="form-group">
+                        <label>Data da Manutenção *</label>
+                        <input type="date" id="budgetQuoteMaintenanceDate" required>
                     </div>
                     <div class="form-group">
                         <label>Contrato *</label>
@@ -1574,8 +1578,8 @@ table{
                         <select id="budgetQuoteCommitmentId" required></select>
                     </div>
                     <div class="form-group">
-                        <label>Viatura</label>
-                        <input type="text" id="budgetQuoteVehicle" placeholder="Prefixo, placa ou identificação">
+                        <label>Viatura *</label>
+                        <select id="budgetQuoteVehicle" required onchange="handleBudgetQuoteVehicleChange()"></select>
                     </div>
                     <div class="form-group">
                         <label>Status</label>
@@ -1586,8 +1590,8 @@ table{
                         </select>
                     </div>
                     <div class="form-group full-row">
-                        <label>Descrição Prévia dos Serviços *</label>
-                        <textarea id="budgetQuoteDescription" required placeholder="Descreva os serviços, peças, viatura e observações iniciais"></textarea>
+                        <label>Descrição do Serviço / Manutenção *</label>
+                        <textarea id="budgetQuoteDescription" required placeholder="Descreva os serviços, peças, manutenção, revisão, freios, viatura e observações iniciais"></textarea>
                     </div>
                     <div class="form-group">
                         <label>Valor de Peças (R$)</label>
@@ -1609,6 +1613,15 @@ table{
                         </label>
                         <small id="budgetQuoteEngineOilHint" style="display:none; color: var(--secondary); margin-top: 0.6rem; line-height: 1.35;">
                             Marque somente quando o orçamento/manutenção envolver troca do óleo lubrificante do motor. Este marcador alimenta a coluna Óleo e não se mistura com óleo de freio, hidráulico, câmbio ou diferencial.
+                        </small>
+                    </div>
+                    <div class="form-group full-row" style="background: rgba(255,160,0,0.10); border: 1px solid rgba(255,160,0,0.45); border-radius: 8px; padding: 0.85rem;">
+                        <label style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0; cursor:pointer; color: var(--text);">
+                            <input type="checkbox" id="budgetQuoteBrakeCheck" style="width:auto; transform: scale(1.15);">
+                            Manutenção de freios: pastilhas, lonas, disco, tambor ou sistema de freio
+                        </label>
+                        <small style="display:block; color: var(--secondary); margin-top: 0.6rem; line-height: 1.35;">
+                            Marque quando o orçamento/manutenção envolver freios. Também é reconhecido automaticamente quando a descrição contiver termos como freio, pastilha, lona, disco ou tambor.
                         </small>
                     </div>
                     <div class="form-group">
@@ -1654,7 +1667,7 @@ table{
                     </div>
                 </div>
                 <div class="budget-note" style="margin-top: .5rem;">
-                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O mesmo lançamento alimenta a manutenção da viatura e o controle orçamentário: debita uma única vez o saldo do empenho, primeiro como nota branca, depois como orçamento oficial e, por fim, como NF, sem duplicidade no extrato.
+                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O mesmo lançamento alimenta a manutenção da viatura e o controle de contratos: debita uma única vez o saldo do empenho, primeiro como nota branca, depois como orçamento oficial e, por fim, como NF, sem duplicidade no extrato.
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">💾 Salvar Orçamento/Manutenção</button>
@@ -2382,6 +2395,7 @@ const OIL_WARN_DAYS = 30;      // alerta quando faltar <= 30 dias
 // Categoria técnica usada para separar óleo do motor de outras manutenções com a palavra "óleo".
 const ENGINE_OIL_SYSTEM_CATEGORY = 'OLEO_MOTOR';
 const ENGINE_OIL_STANDARD_DESCRIPTION = 'Troca de óleo do motor';
+const BRAKE_SYSTEM_CATEGORY = 'FREIOS';
 
 function normalizeText(str) {
     return (str ?? '')
@@ -2492,13 +2506,15 @@ function budgetQuoteToMaintenanceRecord(q) {
         placa: vehicle?.placa || '',
         prefixo: vehicle?.prefixo || '',
         viatura: q.vehicle || '',
-        data: q.date || '',
-        date: q.date || '',
-        dataManutencao: q.date || '',
+        data: q.maintenanceDate || q.date || '',
+        date: q.maintenanceDate || q.date || '',
+        dataManutencao: q.maintenanceDate || q.date || '',
         tipo: q.maintenanceType || 'PREVENTIVA',
         type: q.maintenanceType || 'PREVENTIVA',
         categoriaSistema: q.maintenanceSystemCategory || '',
         systemCategory: q.maintenanceSystemCategory || '',
+        manutencaoFreios: q.maintenanceBrake === true,
+        brakeSystemCategory: q.maintenanceBrake === true ? BRAKE_SYSTEM_CATEGORY : '',
         descricao: q.description || displayDoc,
         description: q.description || displayDoc,
         km: Number(q.maintenanceKm || 0) || 0,
@@ -2780,11 +2796,17 @@ const BRAKE_WARN_KM = 5000;    // alerta quando faltar <= 5.000 km
 const BRAKE_WARN_DAYS = 60;    // alerta quando faltar <= 60 dias
 
 function isBrakeMaintenance(m) {
+    if (m && (m.manutencaoFreios === true || m.maintenanceBrake === true)) return true;
+    const cat = normalizeText((m && (m.brakeSystemCategory || m.categoriaFreios || m.categoriaSistema || m.systemCategory)) || '');
+    if (cat.includes('freio') || cat.includes('freios')) return true;
+
     const desc = normalizeText((m && (m.descricao || m.description)) || '');
+    const notes = normalizeText((m && (m.observacoes || m.notes)) || '');
+    const text = `${desc} ${notes}`;
     // palavras-chave principais
     const keys = ['freio', 'pastilha', 'lona', 'disco', 'tambor'];
     for (const k of keys) {
-        if (desc.includes(k)) return true;
+        if (text.includes(k)) return true;
     }
     return false;
 }
@@ -3156,7 +3178,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
 
             openBudgetQuoteForm(null, null);
 
-            if (vehicleLabel) document.getElementById('budgetQuoteVehicle').value = vehicleLabel;
+            populateBudgetQuoteVehicles(vehicle ? (vehicle.placa || vehicle.id || vehicle.prefixo || '') : vehicleLabel);
             if (vehicle && vehicle.hodometro) document.getElementById('budgetQuoteMaintenanceKm').value = vehicle.hodometro;
             const desc = document.getElementById('budgetQuoteDescription');
             if (desc && !desc.value.trim() && vehicleLabel) desc.value = `Manutenção da viatura ${vehicleLabel}`;
@@ -5676,6 +5698,57 @@ function renderBudgetQuotesTable() {
     }).join('');
 }
 
+
+function populateBudgetQuoteVehicles(selectedVehicle = '') {
+    const select = document.getElementById('budgetQuoteVehicle');
+    if (!select) return;
+
+    const list = (window.vehicles || vehicles || []).slice().sort((a, b) => {
+        const la = `${a.prefixo || ''} ${a.placa || ''}`;
+        const lb = `${b.prefixo || ''} ${b.placa || ''}`;
+        return la.localeCompare(lb, 'pt-BR');
+    });
+
+    const currentNorm = normalizeKey(selectedVehicle || '');
+    let options = '<option value="">Selecione a viatura...</option>';
+    options += list.map(v => {
+        const value = escapeHTML(v.placa || v.id || v.prefixo || '');
+        const label = escapeHTML(`${v.prefixo || 'S/PREFIXO'} / ${v.placa || 'S/PLACA'} - ${v.cidade || v.unidade || ''}`.trim());
+        return `<option value="${value}">${label}</option>`;
+    }).join('');
+
+    // Se estiver editando um orçamento antigo com texto livre, preserva o valor como opção legada.
+    if (selectedVehicle && !list.some(v => getVehicleKeyCandidates(v).some(k => k && (k === currentNorm || currentNorm.includes(k) || k.includes(currentNorm))))) {
+        options += `<option value="${escapeHTML(selectedVehicle)}">${escapeHTML(selectedVehicle)} (registro anterior)</option>`;
+    }
+
+    select.innerHTML = options;
+
+    if (selectedVehicle) {
+        const found = findVehicleByFreeText(selectedVehicle);
+        select.value = found ? (found.placa || found.id || found.prefixo || selectedVehicle) : selectedVehicle;
+    }
+}
+
+function syncBudgetQuoteMaintenanceDate() {
+    const quoteDate = document.getElementById('budgetQuoteDate');
+    const maintDate = document.getElementById('budgetQuoteMaintenanceDate');
+    if (!quoteDate || !maintDate) return;
+    if (!maintDate.value) maintDate.value = quoteDate.value || new Date().toISOString().slice(0, 10);
+}
+
+function handleBudgetQuoteVehicleChange() {
+    const selected = document.getElementById('budgetQuoteVehicle')?.value || '';
+    const vehicle = findVehicleByFreeText(selected);
+    const kmInput = document.getElementById('budgetQuoteMaintenanceKm');
+    const desc = document.getElementById('budgetQuoteDescription');
+    if (vehicle && kmInput && !kmInput.value && vehicle.hodometro) kmInput.value = vehicle.hodometro;
+    if (vehicle && desc && !desc.value.trim()) {
+        const label = [vehicle.prefixo, vehicle.placa].filter(Boolean).join(' / ');
+        desc.value = `Manutenção da viatura ${label}`;
+    }
+}
+
 function populateBudgetQuoteContracts(selectedContractId = '') {
     const select = document.getElementById('budgetQuoteContractId');
     if (!select) return;
@@ -5705,9 +5778,10 @@ function openBudgetQuoteForm(quoteId = null, commitmentId = null) {
     document.getElementById('budgetQuoteId').value = q?.id || '';
     document.getElementById('budgetQuoteNumber').value = q?.number || '';
     document.getElementById('budgetQuoteDate').value = q?.date || new Date().toISOString().slice(0, 10);
+    document.getElementById('budgetQuoteMaintenanceDate').value = q?.maintenanceDate || q?.date || new Date().toISOString().slice(0, 10);
     populateBudgetQuoteContracts(contractId);
     populateBudgetQuoteCommitments(finalCommitmentId);
-    document.getElementById('budgetQuoteVehicle').value = q?.vehicle || '';
+    populateBudgetQuoteVehicles(q?.vehicle || '');
     document.getElementById('budgetQuoteManualStatus').value = q?.status || 'APROVADO / RESERVADO';
     document.getElementById('budgetQuoteDescription').value = q?.description || '';
     document.getElementById('budgetQuotePartsValue').value = q?.partsValue ?? '';
@@ -5720,6 +5794,8 @@ function openBudgetQuoteForm(quoteId = null, commitmentId = null) {
 
     const engineOilCheck = document.getElementById('budgetQuoteEngineOilCheck');
     if (engineOilCheck) engineOilCheck.checked = (q?.maintenanceSystemCategory === ENGINE_OIL_SYSTEM_CATEGORY);
+    const brakeCheck = document.getElementById('budgetQuoteBrakeCheck');
+    if (brakeCheck) brakeCheck.checked = !!q?.maintenanceBrake;
     document.getElementById('budgetQuoteMaintenanceType').value = q?.maintenanceType || 'PREVENTIVA';
     document.getElementById('budgetQuoteMaintenanceKm').value = q?.maintenanceKm ?? '';
     const maintenanceCostInput = document.getElementById('budgetQuoteMaintenanceCost');
@@ -5753,6 +5829,7 @@ function saveBudgetQuote(event) {
         contractId,
         commitmentId,
         date: document.getElementById('budgetQuoteDate').value,
+        maintenanceDate: document.getElementById('budgetQuoteMaintenanceDate').value || document.getElementById('budgetQuoteDate').value,
         vehicle: document.getElementById('budgetQuoteVehicle').value.trim(),
         description: document.getElementById('budgetQuoteDescription').value.trim(),
         partsValue: parseFloat(document.getElementById('budgetQuotePartsValue').value) || 0,
@@ -5763,6 +5840,7 @@ function saveBudgetQuote(event) {
         notes: document.getElementById('budgetQuoteNotes').value.trim(),
         maintenanceType: document.getElementById('budgetQuoteEngineOilCheck')?.checked ? 'REVISÃO' : (document.getElementById('budgetQuoteMaintenanceType').value || 'PREVENTIVA'),
         maintenanceSystemCategory: document.getElementById('budgetQuoteEngineOilCheck')?.checked ? ENGINE_OIL_SYSTEM_CATEGORY : '',
+        maintenanceBrake: document.getElementById('budgetQuoteBrakeCheck')?.checked === true,
         maintenanceKm: parseInt(document.getElementById('budgetQuoteMaintenanceKm').value) || 0,
         maintenanceCost: parseFloat(document.getElementById('budgetQuoteMaintenanceCost').value) || 0,
         maintenanceResponsible: document.getElementById('budgetQuoteMaintenanceResponsible').value.trim(),
@@ -5779,8 +5857,12 @@ function saveBudgetQuote(event) {
 ${marker}` : marker;
     }
 
-    if (!quote.number || !quote.contractId || !quote.commitmentId || !quote.date || !quote.description) {
-        showBudgetError('Orçamento bloqueado: preencha número da nota branca/orçamento inicial, contrato, empenho, data e descrição.');
+    if (!quote.number || !quote.contractId || !quote.commitmentId || !quote.date || !quote.maintenanceDate || !quote.vehicle || !quote.description || !quote.maintenanceType) {
+        showBudgetError('Orçamento/manutenção bloqueado: preencha número da nota branca/orçamento inicial, contrato, empenho, data do orçamento, data da manutenção, viatura, tipo de manutenção e descrição do serviço.');
+        return;
+    }
+    if (!quote.maintenanceKm || quote.maintenanceKm <= 0) {
+        showBudgetError('Orçamento/manutenção bloqueado: informe o hodômetro do serviço/manutenção.');
         return;
     }
     if ((quote.partsValue + quote.serviceValue) <= 0 && quote.status !== 'CANCELADO') {

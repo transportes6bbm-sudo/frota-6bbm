@@ -1001,7 +1001,7 @@ table{
             <button class="tab active" onclick="switchTab('frota', this)">🚒 Frota</button>
 <button class="tab" onclick="switchTab('graficos', this)">🚒 Tipos de Viatura</button>
 <button class="tab" onclick="switchTab('gestao', this)">📌 Gestão</button>
-<button class="tab" onclick="switchTab('orcamentario', this)">💳 Orçamentário</button>
+<button class="tab" onclick="switchTab('orcamentario', this)">📑 Contratos</button>
 <button class="tab" onclick="switchTab('orcamentos', this)">🧾 Orçamentos</button>
             <button class="tab" onclick="switchTab('relatorios', this)">📈 Relatórios</button>
 <button class="tab" id="configTab" onclick="switchTab('config', this)" style="display: none;">⚙️ Configurações</button>
@@ -1129,7 +1129,7 @@ table{
     <div class="report-section">
         <div class="report-header">
             <div>
-                <div class="report-title">💳 Gestão Orçamentária</div>
+                <div class="report-title">📑 Contratos</div>
                 <div class="budget-note">Controle por contrato, com empenhos como entrada de crédito e movimentações lançadas dentro de cada empenho.</div>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -1183,12 +1183,12 @@ table{
     <div class="report-section">
         <div class="report-header">
             <div>
-                <div class="report-title">🧾 Orçamentos</div>
+                <div class="report-title">🧾 Orçamentos / Manutenções</div>
                 <div class="budget-note">Controle de orçamentos vinculados a contrato e empenho. O orçamento reserva/debita o saldo do empenho; a nota fiscal apenas atualiza o documento exibido, evitando duplicidade.</div>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="btn btn-secondary" onclick="renderBudgetQuotesModule()">🔄 Atualizar</button>
-                <button class="btn btn-primary" onclick="openBudgetQuoteForm()">➕ Novo Orçamento</button>
+                <button class="btn btn-primary" onclick="openBudgetQuoteForm()">➕ Novo Orçamento/Manutenção</button>
             </div>
         </div>
 
@@ -1541,9 +1541,9 @@ table{
 
     <!-- Modal Orçamentário: Orçamento -->
     <div class="modal" id="budgetQuoteModal">
-        <div class="modal-content" style="max-width: 980px;">
+        <div class="modal-content" style="max-width: 1100px;">
             <div class="modal-header">
-                <h2 id="budgetQuoteFormTitle">🧾 Novo Orçamento</h2>
+                <h2 id="budgetQuoteFormTitle">🧾 Novo Orçamento/Manutenção</h2>
                 <button class="close-modal" onclick="closeBudgetQuoteForm()">✕</button>
             </div>
             <form onsubmit="saveBudgetQuote(event)">
@@ -1591,11 +1591,54 @@ table{
                     </div>
                     <div class="form-group">
                         <label>Valor de Peças (R$)</label>
-                        <input type="number" id="budgetQuotePartsValue" step="0.01" min="0" placeholder="0.00">
+                        <input type="number" id="budgetQuotePartsValue" step="0.01" min="0" placeholder="0.00" oninput="syncBudgetQuoteMaintenanceCost()">
                     </div>
                     <div class="form-group">
                         <label>Valor de Serviços (R$)</label>
-                        <input type="number" id="budgetQuoteServiceValue" step="0.01" min="0" placeholder="0.00">
+                        <input type="number" id="budgetQuoteServiceValue" step="0.01" min="0" placeholder="0.00" oninput="syncBudgetQuoteMaintenanceCost()">
+                    </div>
+
+                    <div class="form-group full-row" style="background: rgba(25,118,210,0.12); border: 1px solid rgba(25,118,210,0.45); border-radius: 10px; padding: 1rem; margin-top: .25rem;">
+                        <div style="font-weight:700; color: var(--secondary); text-transform: uppercase; letter-spacing:.5px; margin-bottom:.4rem;">Dados da Manutenção Gerada</div>
+                        <div class="budget-note">Este orçamento também será exibido como manutenção da viatura na página inicial, evitando lançamento duplicado.</div>
+                    </div>
+                    <div class="form-group full-row" style="background: rgba(25,118,210,0.12); border: 1px solid rgba(25,118,210,0.45); border-radius: 8px; padding: 0.85rem;">
+                        <label style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0; cursor:pointer; color: var(--text);">
+                            <input type="checkbox" id="budgetQuoteEngineOilCheck" onchange="toggleBudgetQuoteEngineOilRevision(this.checked)" style="width:auto; transform: scale(1.15);">
+                            Revisão: foi realizada troca de óleo do motor
+                        </label>
+                        <small id="budgetQuoteEngineOilHint" style="display:none; color: var(--secondary); margin-top: 0.6rem; line-height: 1.35;">
+                            Marque somente quando o orçamento/manutenção envolver troca do óleo lubrificante do motor. Este marcador alimenta a coluna Óleo e não se mistura com óleo de freio, hidráulico, câmbio ou diferencial.
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Manutenção *</label>
+                        <select id="budgetQuoteMaintenanceType" required>
+                            <option value="PREVENTIVA">Preventiva</option>
+                            <option value="CORRETIVA">Corretiva</option>
+                            <option value="PREDITIVA">Preditiva</option>
+                            <option value="REVISÃO">Revisão</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Hodômetro no Momento (km)</label>
+                        <input type="number" id="budgetQuoteMaintenanceKm" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Custo da Manutenção (R$)</label>
+                        <input type="number" id="budgetQuoteMaintenanceCost" step="0.01" min="0" placeholder="Será preenchido pelo total do orçamento se ficar em branco" oninput="this.dataset.manual='true'">
+                    </div>
+                    <div class="form-group">
+                        <label>Responsável pela Manutenção</label>
+                        <input type="text" id="budgetQuoteMaintenanceResponsible" placeholder="Nome do responsável">
+                    </div>
+                    <div class="form-group">
+                        <label>Matrícula do Bombeiro autorizada</label>
+                        <input type="text" id="budgetQuoteMaintenanceMatricula" placeholder="000.000-0" maxlength="9" oninput="formatMatricula(this)">
+                    </div>
+                    <div class="form-group full-row">
+                        <label>Observações da Manutenção</label>
+                        <textarea id="budgetQuoteMaintenanceNotes" placeholder="Observações técnicas da manutenção, revisão, pendências ou conferência"></textarea>
                     </div>
                     <div class="form-group">
                         <label>NF de Peças</label>
@@ -1611,10 +1654,10 @@ table{
                     </div>
                 </div>
                 <div class="budget-note" style="margin-top: .5rem;">
-                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O lançamento debita uma única vez o saldo do empenho: primeiro como nota branca, depois como orçamento oficial de peças/mão de obra e, por fim, como NF, sem duplicidade no extrato.
+                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O mesmo lançamento alimenta a manutenção da viatura e o controle orçamentário: debita uma única vez o saldo do empenho, primeiro como nota branca, depois como orçamento oficial e, por fim, como NF, sem duplicidade no extrato.
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">💾 Salvar Orçamento</button>
+                    <button type="submit" class="btn btn-primary">💾 Salvar Orçamento/Manutenção</button>
                     <button type="button" class="btn btn-secondary" onclick="closeBudgetQuoteForm()">Cancelar</button>
                 </div>
             </form>
@@ -1630,7 +1673,7 @@ table{
             </div>
             
             <div style="margin-bottom: 2rem;">
-                <button class="btn btn-primary" onclick="showAddMaintenance()">➕ Adicionar Manutenção</button>
+                <button class="btn btn-primary" onclick="openBudgetQuoteFromMaintenance()">➕ Novo Orçamento/Manutenção</button>
             </div>
 
             <!-- Formulário de nova manutenção -->
@@ -2422,6 +2465,72 @@ function getVehicleKeyCandidates(v) {
     return [v.id, v.placa, v.prefixo].map(x => normalizeKey(x)).filter(Boolean);
 }
 
+function findVehicleByFreeText(text) {
+    const norm = normalizeKey(text);
+    if (!norm) return null;
+    return (window.vehicles || vehicles || []).find(v => {
+        return getVehicleKeyCandidates(v).some(k => k && (norm.includes(k) || k.includes(norm)));
+    }) || null;
+}
+
+function budgetQuoteToMaintenanceRecord(q) {
+    if (!q || (typeof getBudgetQuoteStatus === 'function' && getBudgetQuoteStatus(q) === 'CANCELADO')) return null;
+    const vehicle = findVehicleByFreeText(q.vehicle || '');
+    const total = (typeof getBudgetQuoteTotal === 'function') ? getBudgetQuoteTotal(q) : (Number(q.partsValue || 0) + Number(q.serviceValue || 0));
+    const displayDoc = (typeof getBudgetQuoteDisplayDocument === 'function') ? getBudgetQuoteDisplayDocument(q) : (q.number || 'ORÇAMENTO');
+    const notes = [
+        q.maintenanceNotes || '',
+        `Origem: orçamento/manutenção ${q.number || 'sem número'}.`,
+        `Documento atual: ${displayDoc}.`,
+        q.notes ? `Observações do orçamento: ${q.notes}` : ''
+    ].filter(Boolean).join('\n');
+
+    return {
+        id: `ORC_MAINT_${q.id}`,
+        sourceQuoteId: q.id,
+        source: 'ORCAMENTO',
+        placa: vehicle?.placa || '',
+        prefixo: vehicle?.prefixo || '',
+        viatura: q.vehicle || '',
+        data: q.date || '',
+        date: q.date || '',
+        dataManutencao: q.date || '',
+        tipo: q.maintenanceType || 'PREVENTIVA',
+        type: q.maintenanceType || 'PREVENTIVA',
+        categoriaSistema: q.maintenanceSystemCategory || '',
+        systemCategory: q.maintenanceSystemCategory || '',
+        descricao: q.description || displayDoc,
+        description: q.description || displayDoc,
+        km: Number(q.maintenanceKm || 0) || 0,
+        hodometro: Number(q.maintenanceKm || 0) || 0,
+        custo: Number(q.maintenanceCost || total || 0) || 0,
+        cost: Number(q.maintenanceCost || total || 0) || 0,
+        responsavel: q.maintenanceResponsible || q.lastChangedBy || '',
+        responsible: q.maintenanceResponsible || q.lastChangedBy || '',
+        matricula: q.maintenanceMatricula || q.lastChangedMatricula || '',
+        observacoes: notes,
+        notes,
+        timestamp: `ORC_${q.id}`
+    };
+}
+
+function getBudgetQuoteMaintenanceRecords() {
+    if (!Array.isArray(budgetQuotes)) return [];
+    return budgetQuotes.map(budgetQuoteToMaintenanceRecord).filter(Boolean);
+}
+
+function getBudgetQuoteMaintenanceRecordsForVehicle(vOrId) {
+    if (!vOrId) return [];
+    const keys = typeof vOrId === 'string'
+        ? [normalizeKey(vOrId)]
+        : getVehicleKeyCandidates(vOrId);
+    if (!keys.length) return [];
+    return getBudgetQuoteMaintenanceRecords().filter(item => {
+        const itemKeys = getMaintenanceKeyCandidates(item);
+        return itemKeys.some(k => keys.some(vk => k === vk || k.includes(vk) || vk.includes(k)));
+    });
+}
+
 // Retorna lista de manutenções para uma viatura, tentando por placa e por prefixo
 function getMaintenancesForVehicle(vOrId) {
     const store = window.maintenances || maintenances || {};
@@ -2446,6 +2555,13 @@ function getMaintenancesForVehicle(vOrId) {
             seen.add(unique);
             out.push(item);
         });
+    });
+
+    getBudgetQuoteMaintenanceRecordsForVehicle(vOrId).forEach(item => {
+        const unique = maintenanceUniqueKey(item);
+        if (seen.has(unique)) return;
+        seen.add(unique);
+        out.push(item);
     });
 
     return out;
@@ -3031,6 +3147,50 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${ve
             }
         }
 
+        function openBudgetQuoteFromMaintenance() {
+            const vehicle = currentMaintenanceVehicle || vehicles.find(v => String(v.id) === String(currentMaintenanceVehicleId)) || null;
+            const vehicleLabel = vehicle ? [vehicle.prefixo, vehicle.placa].filter(Boolean).join(' / ') : '';
+
+            const maintenanceModal = document.getElementById('maintenanceModal');
+            if (maintenanceModal) maintenanceModal.classList.remove('active');
+
+            openBudgetQuoteForm(null, null);
+
+            if (vehicleLabel) document.getElementById('budgetQuoteVehicle').value = vehicleLabel;
+            if (vehicle && vehicle.hodometro) document.getElementById('budgetQuoteMaintenanceKm').value = vehicle.hodometro;
+            const desc = document.getElementById('budgetQuoteDescription');
+            if (desc && !desc.value.trim() && vehicleLabel) desc.value = `Manutenção da viatura ${vehicleLabel}`;
+        }
+
+        function syncBudgetQuoteMaintenanceCost() {
+            const costInput = document.getElementById('budgetQuoteMaintenanceCost');
+            if (!costInput) return;
+            if (costInput.dataset.manual === 'true' && String(costInput.value || '').trim()) return;
+            const parts = parseFloat(document.getElementById('budgetQuotePartsValue')?.value || '0') || 0;
+            const service = parseFloat(document.getElementById('budgetQuoteServiceValue')?.value || '0') || 0;
+            const total = parts + service;
+            if (total > 0) costInput.value = total.toFixed(2);
+        }
+
+        function toggleBudgetQuoteEngineOilRevision(checked) {
+            const typeInput = document.getElementById('budgetQuoteMaintenanceType');
+            const descInput = document.getElementById('budgetQuoteDescription');
+            const notesInput = document.getElementById('budgetQuoteMaintenanceNotes');
+            const hint = document.getElementById('budgetQuoteEngineOilHint');
+            if (hint) hint.style.display = checked ? 'block' : 'none';
+            if (checked) {
+                if (typeInput) typeInput.value = 'REVISÃO';
+                if (descInput && !normalizeText(descInput.value).includes('oleo do motor')) {
+                    descInput.value = descInput.value.trim()
+                        ? `${descInput.value.trim()} - troca de óleo do motor`
+                        : 'Revisão - troca de óleo do motor';
+                }
+                if (notesInput && !notesInput.value.trim()) {
+                    notesInput.value = 'Revisão com troca de óleo do motor. Não utilizar este marcador para óleo de freio, óleo hidráulico, câmbio, diferencial ou outras áreas.';
+                }
+            }
+        }
+
         async function saveMaintenanceRecord(event) {
   event.preventDefault();
 
@@ -3142,6 +3302,7 @@ ${marker}` : marker;
                         </div>
                         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
                             <span class="badge ${getMaintenanceTypeBadge(tipo)}">${tipoSafe}</span>
+                            ${item.sourceQuoteId ? '<span class="badge badge-info">ORÇAMENTO</span>' : ''}
                             ${isOilChangeMaintenance(item) ? '<span class="badge badge-info">ÓLEO MOTOR</span>' : ''}
                             <span style="color: var(--text-muted);">📅 ${dataStrSafe}</span>
                             ${km > 0 ? `<span style="color: var(--text-muted);">🛣️ ${km.toLocaleString('pt-BR')} km</span>` : ''}
@@ -3862,6 +4023,8 @@ function getMaintenanceDateObj(m) {
 }
 
 function maintenanceUniqueKey(m) {
+    const quoteId = (m && (m.sourceQuoteId || m.quoteId)) ? String(m.sourceQuoteId || m.quoteId).trim() : '';
+    if (quoteId) return `quote:${quoteId}`;
     const ts = (m && (m.timestamp || m.Timestamp)) ? String(m.timestamp || m.Timestamp).trim() : '';
     if (ts) return `ts:${ts}`;
 
@@ -3886,6 +4049,12 @@ function getAllMaintenancesDedup() {
             seen.add(k);
             out.push(m);
         });
+    });
+    getBudgetQuoteMaintenanceRecords().forEach(m => {
+        const k = maintenanceUniqueKey(m);
+        if (seen.has(k)) return;
+        seen.add(k);
+        out.push(m);
     });
     return out;
 }
@@ -5532,7 +5701,7 @@ function openBudgetQuoteForm(quoteId = null, commitmentId = null) {
     const contractId = q?.contractId || e?.contractId || currentBudgetContractId || '';
     const finalCommitmentId = q?.commitmentId || commitmentId || '';
 
-    document.getElementById('budgetQuoteFormTitle').textContent = q ? '🧾 Editar Orçamento / Lançar NF' : '🧾 Novo Orçamento';
+    document.getElementById('budgetQuoteFormTitle').textContent = q ? '🧾 Editar Orçamento/Manutenção / Lançar NF' : '🧾 Novo Orçamento/Manutenção';
     document.getElementById('budgetQuoteId').value = q?.id || '';
     document.getElementById('budgetQuoteNumber').value = q?.number || '';
     document.getElementById('budgetQuoteDate').value = q?.date || new Date().toISOString().slice(0, 10);
@@ -5548,6 +5717,19 @@ function openBudgetQuoteForm(quoteId = null, commitmentId = null) {
     document.getElementById('budgetQuoteNfParts').value = q?.nfParts || '';
     document.getElementById('budgetQuoteNfService').value = q?.nfService || '';
     document.getElementById('budgetQuoteNotes').value = q?.notes || '';
+
+    const engineOilCheck = document.getElementById('budgetQuoteEngineOilCheck');
+    if (engineOilCheck) engineOilCheck.checked = (q?.maintenanceSystemCategory === ENGINE_OIL_SYSTEM_CATEGORY);
+    document.getElementById('budgetQuoteMaintenanceType').value = q?.maintenanceType || 'PREVENTIVA';
+    document.getElementById('budgetQuoteMaintenanceKm').value = q?.maintenanceKm ?? '';
+    const maintenanceCostInput = document.getElementById('budgetQuoteMaintenanceCost');
+    maintenanceCostInput.value = q?.maintenanceCost ?? (q ? getBudgetQuoteTotal(q).toFixed(2) : '');
+    maintenanceCostInput.dataset.manual = q?.maintenanceCost ? 'true' : 'false';
+    document.getElementById('budgetQuoteMaintenanceResponsible').value = q?.maintenanceResponsible || '';
+    document.getElementById('budgetQuoteMaintenanceMatricula').value = q?.maintenanceMatricula || '';
+    document.getElementById('budgetQuoteMaintenanceNotes').value = q?.maintenanceNotes || '';
+    toggleBudgetQuoteEngineOilRevision(engineOilCheck?.checked === true);
+    syncBudgetQuoteMaintenanceCost();
     modal.classList.add('active');
 }
 
@@ -5579,9 +5761,23 @@ function saveBudgetQuote(event) {
         nfService: document.getElementById('budgetQuoteNfService').value.trim(),
         status: document.getElementById('budgetQuoteManualStatus').value,
         notes: document.getElementById('budgetQuoteNotes').value.trim(),
+        maintenanceType: document.getElementById('budgetQuoteEngineOilCheck')?.checked ? 'REVISÃO' : (document.getElementById('budgetQuoteMaintenanceType').value || 'PREVENTIVA'),
+        maintenanceSystemCategory: document.getElementById('budgetQuoteEngineOilCheck')?.checked ? ENGINE_OIL_SYSTEM_CATEGORY : '',
+        maintenanceKm: parseInt(document.getElementById('budgetQuoteMaintenanceKm').value) || 0,
+        maintenanceCost: parseFloat(document.getElementById('budgetQuoteMaintenanceCost').value) || 0,
+        maintenanceResponsible: document.getElementById('budgetQuoteMaintenanceResponsible').value.trim(),
+        maintenanceMatricula: document.getElementById('budgetQuoteMaintenanceMatricula').value.trim(),
+        maintenanceNotes: document.getElementById('budgetQuoteMaintenanceNotes').value.trim(),
         createdAt: before?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
+
+    if (!quote.maintenanceCost) quote.maintenanceCost = getBudgetQuoteTotal(quote);
+    if (quote.maintenanceSystemCategory === ENGINE_OIL_SYSTEM_CATEGORY) {
+        const marker = 'Marcador técnico: revisão com troca de óleo do motor.';
+        if (!quote.maintenanceNotes.includes(marker)) quote.maintenanceNotes = quote.maintenanceNotes ? `${quote.maintenanceNotes}
+${marker}` : marker;
+    }
 
     if (!quote.number || !quote.contractId || !quote.commitmentId || !quote.date || !quote.description) {
         showBudgetError('Orçamento bloqueado: preencha número da nota branca/orçamento inicial, contrato, empenho, data e descrição.');
@@ -5647,7 +5843,11 @@ function saveBudgetQuote(event) {
     closeBudgetQuoteForm();
     renderBudgetQuotesModule();
     renderBudgetModule();
-    showAlert(status === 'FATURADO' ? 'Orçamento salvo e marcado como faturado.' : 'Orçamento salvo com sucesso!');
+    renderVehicles();
+    if (currentMaintenanceVehicleId) {
+        try { renderMaintenanceList(); } catch (e) { console.warn(e); }
+    }
+    showAlert(status === 'FATURADO' ? 'Orçamento/manutenção salvo e marcado como faturado.' : 'Orçamento/manutenção salvo com sucesso!');
 }
 
 function deleteBudgetQuote(quoteId) {
@@ -5661,7 +5861,11 @@ function deleteBudgetQuote(quoteId) {
     saveBudgetStorage();
     renderBudgetQuotesModule();
     renderBudgetModule();
-    showAlert('Orçamento excluído.');
+    renderVehicles();
+    if (currentMaintenanceVehicleId) {
+        try { renderMaintenanceList(); } catch (e) { console.warn(e); }
+    }
+    showAlert('Orçamento/manutenção excluído.');
 }
 
 initializeData();

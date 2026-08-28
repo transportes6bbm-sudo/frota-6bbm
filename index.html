@@ -964,6 +964,61 @@ table{
 .saldo-warning { color: var(--warning); }
 .saldo-danger { color: var(--danger); }
 
+
+.budget-vehicle-search-box {
+    position: relative;
+}
+
+.budget-vehicle-results {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    background: #071026;
+    border: 1px solid rgba(25,118,210,.65);
+    border-radius: 10px;
+    box-shadow: 0 14px 35px rgba(0,0,0,.45);
+    z-index: 5000;
+}
+
+.budget-vehicle-result {
+    width: 100%;
+    display: block;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    color: var(--text);
+    padding: .7rem .8rem;
+    font-family: 'Rajdhani', sans-serif;
+    cursor: pointer;
+}
+
+.budget-vehicle-result:hover,
+.budget-vehicle-result.active {
+    background: rgba(25,118,210,.22);
+}
+
+.budget-vehicle-result strong {
+    display: block;
+    color: var(--white);
+    font-size: 1rem;
+}
+
+.budget-vehicle-result small {
+    display: block;
+    margin-top: .15rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+}
+
+.budget-vehicle-result.external strong {
+    color: var(--warning);
+}
+
 @media (max-width: 768px) {
     .budget-kpi-value { font-size: 1.1rem; }
     .commitment-header { align-items: stretch; }
@@ -1579,7 +1634,10 @@ table{
                     </div>
                     <div class="form-group">
                         <label>Viatura *</label>
-                        <input type="text" id="budgetQuoteVehicle" list="budgetQuoteVehicleOptions" required placeholder="Digite a placa ou prefixo da viatura" oninput="handleBudgetQuoteVehicleInput()" onchange="handleBudgetQuoteVehicleChange()">
+                        <div class="budget-vehicle-search-box">
+                            <input type="text" id="budgetQuoteVehicle" required autocomplete="off" placeholder="Digite a placa ou prefixo da viatura" onfocus="showBudgetQuoteVehicleResults()" oninput="handleBudgetQuoteVehicleInput()" onkeydown="handleBudgetQuoteVehicleKeydown(event)" onchange="handleBudgetQuoteVehicleChange()">
+                            <div id="budgetQuoteVehicleResults" class="budget-vehicle-results"></div>
+                        </div>
                         <datalist id="budgetQuoteVehicleOptions"></datalist>
                         <small id="budgetQuoteVehicleHint" class="budget-note" style="display:block; margin-top:.45rem;">Digite a placa ou prefixo. O sistema aceita viatura cadastrada ou viatura externa/não pertencente à unidade.</small>
                     </div>
@@ -1788,6 +1846,8 @@ let budgetHistory = [];
 let currentBudgetContractId = null;
 let currentBudgetCommitmentId = null;
 let expandedBudgetStatements = {};
+let budgetQuoteVehicleSearchCache = [];
+let budgetQuoteVehicleHighlightedIndex = -1;
         // Expor para depuração / console
         window.vehicles = vehicles;
         window.maintenances = maintenances;
@@ -5760,6 +5820,7 @@ function getBudgetQuoteVehicleDisplayValue(vehicle) {
     return placa || prefixo;
 }
 
+
 function populateBudgetQuoteVehicles(selectedVehicle = '') {
     const input = document.getElementById('budgetQuoteVehicle');
     const datalist = document.getElementById('budgetQuoteVehicleOptions');
@@ -5787,7 +5848,129 @@ function populateBudgetQuoteVehicles(selectedVehicle = '') {
         input.value = '';
         updateBudgetQuoteVehicleHint(null, '');
     }
+    hideBudgetQuoteVehicleResults();
 }
+
+function getBudgetQuoteVehicleSearchMatches(query = '', limit = 15) {
+    const list = (window.vehicles || vehicles || []).slice().sort((a, b) => {
+        const la = `${a.placa || ''} ${a.prefixo || ''}`;
+        const lb = `${b.placa || ''} ${b.prefixo || ''}`;
+        return la.localeCompare(lb, 'pt-BR');
+    });
+    const norm = normalizeKey(query);
+    if (!norm) return list.slice(0, limit);
+    return list.filter(v => {
+        const haystack = [
+            v.id, v.placa, v.prefixo, v.subclasse, v.cidade, v.unidade, v.lotacao, v.situacao
+        ].map(x => normalizeKey(x)).join(' ');
+        return haystack.includes(norm) || getVehicleKeyCandidates(v).some(k => k && (k.includes(norm) || norm.includes(k)));
+    }).slice(0, limit);
+}
+
+function showBudgetQuoteVehicleResults() {
+    renderBudgetQuoteVehicleResults(true);
+}
+
+function hideBudgetQuoteVehicleResults() {
+    const results = document.getElementById('budgetQuoteVehicleResults');
+    if (results) results.style.display = 'none';
+    budgetQuoteVehicleHighlightedIndex = -1;
+}
+
+function renderBudgetQuoteVehicleResults(force = false) {
+    const input = document.getElementById('budgetQuoteVehicle');
+    const results = document.getElementById('budgetQuoteVehicleResults');
+    if (!input || !results) return;
+
+    const typed = String(input.value || '').trim().toUpperCase();
+    if (!force && document.activeElement !== input) return;
+
+    const matches = getBudgetQuoteVehicleSearchMatches(typed, 12);
+    budgetQuoteVehicleSearchCache = matches;
+    budgetQuoteVehicleHighlightedIndex = -1;
+
+    const exact = typed && matches.some(v => getVehicleKeyCandidates(v).some(k => k === normalizeKey(typed)));
+    let html = '';
+
+    if (matches.length) {
+        html += matches.map((v, idx) => {
+            const placa = escapeHTML(String(v.placa || v.id || '').trim() || 'S/PLACA');
+            const prefixo = escapeHTML(String(v.prefixo || '').trim() || 'S/PREFIXO');
+            const extra = escapeHTML([v.subclasse, v.cidade || v.unidade || v.lotacao, v.situacao].filter(Boolean).join(' • '));
+            const km = v.hodometro ? ` • KM ${Number(v.hodometro).toLocaleString('pt-BR')}` : '';
+            return `<button type="button" class="budget-vehicle-result" onmousedown="selectBudgetQuoteVehicleCandidate(${idx}); return false;">
+                <strong>${placa} — ${prefixo}</strong>
+                <small>${extra}${escapeHTML(km)}</small>
+            </button>`;
+        }).join('');
+    } else if (typed) {
+        html += `<button type="button" class="budget-vehicle-result external" onmousedown="selectBudgetQuoteExternalVehicle(); return false;">
+            <strong>Usar como viatura externa: ${escapeHTML(typed)}</strong>
+            <small>Esta placa/prefixo não consta na lista da unidade. O lançamento será permitido e o hodômetro deverá ser informado manualmente.</small>
+        </button>`;
+    } else {
+        html += `<button type="button" class="budget-vehicle-result" disabled>
+            <strong>Digite a placa ou o prefixo</strong>
+            <small>Exemplo: digite parte da placa para localizar a viatura cadastrada. Também é permitido usar viatura externa.</small>
+        </button>`;
+    }
+
+    if (typed && !exact) {
+        html += `<button type="button" class="budget-vehicle-result external" onmousedown="selectBudgetQuoteExternalVehicle(); return false;">
+            <strong>Usar texto digitado como viatura externa: ${escapeHTML(typed)}</strong>
+            <small>Utilize esta opção quando a manutenção for de viatura não pertencente à unidade.</small>
+        </button>`;
+    }
+
+    results.innerHTML = html;
+    results.style.display = 'block';
+}
+
+function selectBudgetQuoteVehicleCandidate(index) {
+    const vehicle = budgetQuoteVehicleSearchCache[index];
+    const input = document.getElementById('budgetQuoteVehicle');
+    if (!vehicle || !input) return;
+    input.value = vehicle.placa || vehicle.id || vehicle.prefixo || '';
+    handleBudgetQuoteVehicleChange(true);
+    hideBudgetQuoteVehicleResults();
+}
+
+function selectBudgetQuoteExternalVehicle() {
+    const input = document.getElementById('budgetQuoteVehicle');
+    if (!input) return;
+    input.value = String(input.value || '').trim().toUpperCase();
+    updateBudgetQuoteVehicleHint(null, input.value);
+    hideBudgetQuoteVehicleResults();
+    input.focus();
+}
+
+function handleBudgetQuoteVehicleKeydown(event) {
+    const results = document.getElementById('budgetQuoteVehicleResults');
+    if (!results || results.style.display === 'none') return;
+    const buttons = Array.from(results.querySelectorAll('.budget-vehicle-result:not([disabled])'));
+    if (!buttons.length) return;
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        budgetQuoteVehicleHighlightedIndex = Math.min(budgetQuoteVehicleHighlightedIndex + 1, buttons.length - 1);
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        budgetQuoteVehicleHighlightedIndex = Math.max(budgetQuoteVehicleHighlightedIndex - 1, 0);
+    } else if (event.key === 'Enter' && budgetQuoteVehicleHighlightedIndex >= 0) {
+        event.preventDefault();
+        buttons[budgetQuoteVehicleHighlightedIndex].dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        return;
+    } else if (event.key === 'Escape') {
+        hideBudgetQuoteVehicleResults();
+        return;
+    } else {
+        return;
+    }
+
+    buttons.forEach((btn, idx) => btn.classList.toggle('active', idx === budgetQuoteVehicleHighlightedIndex));
+    buttons[budgetQuoteVehicleHighlightedIndex]?.scrollIntoView({ block: 'nearest' });
+}
+
 
 function updateBudgetQuoteVehicleHint(vehicle, typedValue = '') {
     const hint = document.getElementById('budgetQuoteVehicleHint');
@@ -5815,6 +5998,7 @@ function handleBudgetQuoteVehicleInput() {
     if (original !== upper) input.value = upper;
     const vehicle = findVehicleByFreeText(input.value || '');
     updateBudgetQuoteVehicleHint(vehicle, input.value || '');
+    renderBudgetQuoteVehicleResults(true);
     if (vehicle) handleBudgetQuoteVehicleChange(false);
 }
 
@@ -5833,6 +6017,8 @@ function handleBudgetQuoteVehicleChange(normalizeValue = true) {
 
     if (vehicle && input && normalizeValue) {
         input.value = vehicle.placa || vehicle.id || vehicle.prefixo || selected.toUpperCase();
+    } else if (!vehicle && input) {
+        input.value = String(selected || '').trim().toUpperCase();
     }
 
     const kmInput = document.getElementById('budgetQuoteMaintenanceKm');
@@ -6053,6 +6239,13 @@ function deleteBudgetQuote(quoteId) {
 
 initializeData();
         bootSyncPlanilhaVerdade();
+
+// Fecha a lista de pesquisa de viatura ao clicar fora do campo.
+document.addEventListener('click', function(event) {
+    const box = event.target?.closest ? event.target.closest('.budget-vehicle-search-box') : null;
+    if (!box) hideBudgetQuoteVehicleResults();
+});
+
     </script>
 </body>
 </html>

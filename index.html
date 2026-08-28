@@ -1715,11 +1715,18 @@ table{
                     </div>
                     <div class="form-group">
                         <label>NF de Peças</label>
-                        <input type="text" id="budgetQuoteNfParts" placeholder="Preencher quando houver fornecimento de peças">
+                        <input type="text" id="budgetQuoteNfParts" placeholder="Preencher quando houver fornecimento de peças" oninput="toggleBudgetQuoteSeiDocument()" onchange="toggleBudgetQuoteSeiDocument()">
                     </div>
                     <div class="form-group">
                         <label>NF de Serviços</label>
-                        <input type="text" id="budgetQuoteNfService" placeholder="Preencher quando faturado serviço">
+                        <input type="text" id="budgetQuoteNfService" placeholder="Preencher quando faturado serviço" oninput="toggleBudgetQuoteSeiDocument()" onchange="toggleBudgetQuoteSeiDocument()">
+                    </div>
+                    <div class="form-group full-row" id="budgetQuoteSeiDocumentGroup" style="display:none; background: rgba(25,118,210,0.10); border: 1px solid rgba(25,118,210,0.35); border-radius: 8px; padding: 0.85rem;">
+                        <label>Número do Documento SEI do Lançamento da NF *</label>
+                        <input type="text" id="budgetQuoteSeiDocument" placeholder="Ex: 147123456 ou SEI nº 147123456">
+                        <small style="display:block; color: var(--secondary); margin-top: 0.45rem; line-height: 1.35;">
+                            Este campo é exigido quando houver lançamento de NF de peças ou NF de serviços. O número fica vinculado ao mesmo orçamento, sem criar novo débito no extrato.
+                        </small>
                     </div>
                     <div class="form-group full-row">
                         <label>Observações</label>
@@ -1727,7 +1734,7 @@ table{
                     </div>
                 </div>
                 <div class="budget-note" style="margin-top: .5rem;">
-                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O mesmo lançamento alimenta a manutenção da viatura e o controle de contratos: debita uma única vez o saldo do empenho, primeiro como nota branca, depois como orçamento oficial e, por fim, como NF, sem duplicidade no extrato.
+                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O mesmo lançamento alimenta a manutenção da viatura e o controle de contratos: debita uma única vez o saldo do empenho, primeiro como nota branca, depois como orçamento oficial e, por fim, como NF vinculada ao documento SEI do lançamento, sem duplicidade no extrato.
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">💾 Salvar Orçamento/Manutenção</button>
@@ -3326,6 +3333,17 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? [vehi
             }
         }
 
+        function toggleBudgetQuoteSeiDocument() {
+            const group = document.getElementById('budgetQuoteSeiDocumentGroup');
+            const input = document.getElementById('budgetQuoteSeiDocument');
+            const hasNfParts = String(document.getElementById('budgetQuoteNfParts')?.value || '').trim().length > 0;
+            const hasNfService = String(document.getElementById('budgetQuoteNfService')?.value || '').trim().length > 0;
+            const shouldShow = hasNfParts || hasNfService;
+            if (group) group.style.display = shouldShow ? 'block' : 'none';
+            if (input) input.required = shouldShow;
+            if (!shouldShow && input) input.value = '';
+        }
+
         async function saveMaintenanceRecord(event) {
   event.preventDefault();
 
@@ -4762,7 +4780,11 @@ function getBudgetQuoteDisplayDocument(q) {
     const nfDocs = [];
     if (String(q.nfParts || '').trim()) nfDocs.push(`NF PEÇAS ${q.nfParts}`);
     if (String(q.nfService || '').trim()) nfDocs.push(`NF SERVIÇO ${q.nfService}`);
-    if (nfDocs.length) return `${nfDocs.join(' / ')} ${status === 'FATURADO' ? '✅' : '⚠️'}`;
+    if (nfDocs.length) {
+        const sei = String(q.seiDocument || '').trim();
+        const seiLabel = sei ? ` • SEI ${sei}` : '';
+        return `${nfDocs.join(' / ')}${seiLabel} ${status === 'FATURADO' ? '✅' : '⚠️'}`;
+    }
 
     const officialDocs = [];
     if (String(q.officialPartsQuote || '').trim()) officialDocs.push(`ORÇ PEÇAS ${q.officialPartsQuote}`);
@@ -5717,7 +5739,7 @@ function renderBudgetCommitmentsList() {
                     <div class="commitment-summary-item"><span>Valor Reservado em Orçamento</span><strong>${budgetMoney(totals.quotesReserved)}</strong></div>
                     <div class="commitment-summary-item"><span>Saldo do Empenho</span><strong class="${saldoClass(totals.balance)}">${budgetMoney(totals.balance)}</strong></div>
                     <div class="commitment-summary-item"><span>Reforços</span><strong>${budgetMoney(totals.reinforcements)}</strong></div>
-                    <div class="commitment-summary-item"><span>Saídas Avulsas</span><strong>${budgetMoney(totals.paid + totals.canceled)}</strong></div>
+                    <div class="commitment-summary-item"><span>Recolhimento de Crédito</span><strong>${budgetMoney(totals.paid + totals.canceled)}</strong></div>
                 </div>
 
                 ${e.notes ? `<div class="budget-note" style="margin-bottom:.75rem;"><strong>Observação:</strong> ${escapeHTML(e.notes)}</div>` : ''}
@@ -5770,7 +5792,7 @@ function renderBudgetQuotesTable() {
         const c = getBudgetContractById(q.contractId);
         const e = getBudgetCommitmentById(q.commitmentId);
         const st = getBudgetQuoteStatus(q);
-        const blob = normalizeText(`${q.number || ''} ${getBudgetQuoteDisplayDocument(q)} ${c?.number || ''} ${e?.number || ''} ${q.vehicle || ''} ${q.description || ''} ${q.officialPartsQuote || ''} ${q.officialServiceQuote || ''} ${q.nfParts || ''} ${q.nfService || ''}`);
+        const blob = normalizeText(`${q.number || ''} ${getBudgetQuoteDisplayDocument(q)} ${c?.number || ''} ${e?.number || ''} ${q.vehicle || ''} ${q.description || ''} ${q.officialPartsQuote || ''} ${q.officialServiceQuote || ''} ${q.nfParts || ''} ${q.nfService || ''} ${q.seiDocument || ''}`);
         const matchSearch = !search || blob.includes(search);
         const matchStatus = !statusFilter || st === statusFilter;
         return matchSearch && matchStatus;
@@ -5800,7 +5822,7 @@ function renderBudgetQuotesTable() {
             <td>${budgetMoney(q.partsValue)}</td>
             <td>${budgetMoney(q.serviceValue)}</td>
             <td><strong>${budgetMoney(getBudgetQuoteTotal(q))}</strong></td>
-            <td><span class="badge ${getBudgetQuoteStatusBadge(st)}">${escapeHTML(st)}${st === 'FATURADO' ? ' ✅' : ''}</span></td>
+            <td><span class="badge ${getBudgetQuoteStatusBadge(st)}">${escapeHTML(st)}${st === 'FATURADO' ? ' ✅' : ''}</span>${q.seiDocument ? `<br><small>SEI ${escapeHTML(q.seiDocument)}</small>` : ''}</td>
             <td>
                 <div class="actions">
                     <button class="btn-icon" onclick="openBudgetQuoteForm(decodeURIComponent('${id}'))" title="Editar orçamento / lançar NF">✏️</button>
@@ -6071,6 +6093,8 @@ function openBudgetQuoteForm(quoteId = null, commitmentId = null) {
     document.getElementById('budgetQuoteOfficialService').value = q?.officialServiceQuote || '';
     document.getElementById('budgetQuoteNfParts').value = q?.nfParts || '';
     document.getElementById('budgetQuoteNfService').value = q?.nfService || '';
+    document.getElementById('budgetQuoteSeiDocument').value = q?.seiDocument || '';
+    toggleBudgetQuoteSeiDocument();
     document.getElementById('budgetQuoteNotes').value = q?.notes || '';
 
     const engineOilCheck = document.getElementById('budgetQuoteEngineOilCheck');
@@ -6117,6 +6141,7 @@ function saveBudgetQuote(event) {
         serviceValue: parseFloat(document.getElementById('budgetQuoteServiceValue').value) || 0,
         nfParts: document.getElementById('budgetQuoteNfParts').value.trim(),
         nfService: document.getElementById('budgetQuoteNfService').value.trim(),
+        seiDocument: document.getElementById('budgetQuoteSeiDocument').value.trim(),
         status: document.getElementById('budgetQuoteManualStatus').value,
         notes: document.getElementById('budgetQuoteNotes').value.trim(),
         maintenanceType: document.getElementById('budgetQuoteEngineOilCheck')?.checked ? 'REVISÃO' : (document.getElementById('budgetQuoteMaintenanceType').value || 'PREVENTIVA'),
@@ -6170,6 +6195,10 @@ ${marker}` : marker;
     }
     if (quote.nfService && !quote.officialServiceQuote) {
         showBudgetError('Incompatibilidade: antes de lançar a NF de serviço, informe o orçamento oficial de mão de obra.');
+        return;
+    }
+    if ((quote.nfParts || quote.nfService) && !quote.seiDocument) {
+        showBudgetError('Lançamento de NF bloqueado: informe o número do documento SEI do lançamento.');
         return;
     }
 

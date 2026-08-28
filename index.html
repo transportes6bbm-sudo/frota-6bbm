@@ -1579,7 +1579,9 @@ table{
                     </div>
                     <div class="form-group">
                         <label>Viatura *</label>
-                        <select id="budgetQuoteVehicle" required onchange="handleBudgetQuoteVehicleChange()"></select>
+                        <input type="text" id="budgetQuoteVehicle" list="budgetQuoteVehicleOptions" required placeholder="Digite a placa ou prefixo da viatura" oninput="handleBudgetQuoteVehicleInput()" onchange="handleBudgetQuoteVehicleChange()">
+                        <datalist id="budgetQuoteVehicleOptions"></datalist>
+                        <small id="budgetQuoteVehicleHint" class="budget-note" style="display:block; margin-top:.45rem;">Digite a placa ou prefixo. O sistema aceita viatura cadastrada ou viatura externa/não pertencente à unidade.</small>
                     </div>
                     <div class="form-group">
                         <label>Status</label>
@@ -2490,10 +2492,12 @@ function findVehicleByFreeText(text) {
 function budgetQuoteToMaintenanceRecord(q) {
     if (!q || (typeof getBudgetQuoteStatus === 'function' && getBudgetQuoteStatus(q) === 'CANCELADO')) return null;
     const vehicle = findVehicleByFreeText(q.vehicle || '');
+    const freeVehicleText = String(q.vehicle || '').trim().toUpperCase();
     const total = (typeof getBudgetQuoteTotal === 'function') ? getBudgetQuoteTotal(q) : (Number(q.partsValue || 0) + Number(q.serviceValue || 0));
     const displayDoc = (typeof getBudgetQuoteDisplayDocument === 'function') ? getBudgetQuoteDisplayDocument(q) : (q.number || 'ORÇAMENTO');
     const notes = [
         q.maintenanceNotes || '',
+        vehicle ? '' : 'Viatura externa/não cadastrada na frota da unidade.',
         `Origem: orçamento/manutenção ${q.number || 'sem número'}.`,
         `Documento atual: ${displayDoc}.`,
         q.notes ? `Observações do orçamento: ${q.notes}` : ''
@@ -2503,9 +2507,9 @@ function budgetQuoteToMaintenanceRecord(q) {
         id: `ORC_MAINT_${q.id}`,
         sourceQuoteId: q.id,
         source: 'ORCAMENTO',
-        placa: vehicle?.placa || '',
+        placa: vehicle?.placa || freeVehicleText,
         prefixo: vehicle?.prefixo || '',
-        viatura: q.vehicle || '',
+        viatura: vehicle ? getBudgetQuoteVehicleDisplayValue(vehicle) : freeVehicleText,
         data: q.maintenanceDate || q.date || '',
         date: q.maintenanceDate || q.date || '',
         dataManutencao: q.maintenanceDate || q.date || '',
@@ -2876,6 +2880,55 @@ function renderBrakeBadge(v) {
     const safeTitle = String(st.title || '').replace(/"/g, '&quot;');
     return `<span class="badge ${cls}" title="${safeTitle}">${st.label}</span>`;
 }
+
+function getExternalBudgetQuoteVehicles() {
+    if (!Array.isArray(budgetQuotes)) return [];
+    const groups = new Map();
+
+    getBudgetQuoteMaintenanceRecords().forEach(item => {
+        const raw = String(item.viatura || item.placa || '').trim().toUpperCase();
+        if (!raw) return;
+        if (findVehicleByFreeText(raw)) return;
+        const key = normalizeKey(raw);
+        if (!key) return;
+
+        const current = groups.get(key) || {
+            id: `EXTERNAL_${key}`,
+            placa: raw,
+            prefixo: '',
+            subclasse: 'VIATURA EXTERNA / NÃO PERTENCENTE À UNIDADE',
+            unidade: 'VIATURA EXTERNA',
+            cidade: 'MANUTENÇÃO EXTERNA',
+            situacao: 'EXTERNA',
+            hodometro: 0,
+            dataUltimaMovimentacao: '',
+            modeloAno: '',
+            valorVenal: '',
+            tempoParada: 0,
+            dataUltimaSituacao: '',
+            anoFabricacao: '',
+            marcaModelo: '',
+            combustivel: '',
+            comando: '',
+            unidadePrincipal: '',
+            isExternalBudgetVehicle: true
+        };
+
+        const km = Number(item.km || item.hodometro || 0) || 0;
+        if (km > current.hodometro) current.hodometro = km;
+        const date = item.dataManutencao || item.data || item.date || '';
+        if (date) current.dataUltimaMovimentacao = date;
+        groups.set(key, current);
+    });
+
+    return Array.from(groups.values()).sort((a, b) => String(a.placa || '').localeCompare(String(b.placa || ''), 'pt-BR'));
+}
+
+function getFleetDisplayVehicles() {
+    const base = Array.isArray(vehicles) ? vehicles : [];
+    return [...base, ...getExternalBudgetQuoteVehicles()];
+}
+
         function renderVehicles() {
             const tbody = document.getElementById('vehicleTableBody');
             const search = document.getElementById('searchInput').value.toLowerCase();
@@ -2884,7 +2937,7 @@ function renderBrakeBadge(v) {
             const filterCmp = document.getElementById('filterCompany') ? document.getElementById('filterCompany').value : '';
             const groupCmp = document.getElementById('groupByCompany') ? document.getElementById('groupByCompany').checked : false;
 
-            let filtered = vehicles.filter(v => {
+            let filtered = getFleetDisplayVehicles().filter(v => {
                 const matchSearch = !search || 
                     v.placa.toLowerCase().includes(search) ||
                     v.prefixo.toLowerCase().includes(search) ||
@@ -3051,7 +3104,7 @@ function situacaoRank(s) {
 
         // Popular filtro de cidades/unidades
         function populateCityFilter() {
-            const cidades = [...new Set(vehicles.map(v => v.cidade).filter(c => c && c !== 'N/D'))].sort();
+            const cidades = [...new Set(getFleetDisplayVehicles().map(v => v.cidade).filter(c => c && c !== 'N/D'))].sort();
             const select = document.getElementById('filterCity');
             select.innerHTML = '<option value="">Todas Cidades</option>' + 
                 cidades.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
@@ -3084,10 +3137,10 @@ function situacaoRank(s) {
         
         function openMaintenanceModal(vehicleId) {
             currentMaintenanceVehicleId = vehicleId;
-            const vehicle = vehicles.find(v => v.id === vehicleId);
+            const vehicle = getFleetDisplayVehicles().find(v => String(v.id) === String(vehicleId)) || vehicles.find(v => v.id === vehicleId);
             
                         currentMaintenanceVehicle = vehicle || null;
-document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? `${vehicle.placa} - ${vehicle.prefixo}` : 'Viatura não encontrada';
+document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? [vehicle.placa, vehicle.prefixo].filter(Boolean).join(' - ') : 'Viatura não encontrada';
             document.getElementById('maintenanceModal').classList.add('active');
             document.getElementById('addMaintenanceForm').style.display = 'none';
             
@@ -5699,35 +5752,70 @@ function renderBudgetQuotesTable() {
 }
 
 
+function getBudgetQuoteVehicleDisplayValue(vehicle) {
+    if (!vehicle) return '';
+    const prefixo = String(vehicle.prefixo || '').trim();
+    const placa = String(vehicle.placa || vehicle.id || '').trim();
+    if (prefixo && placa) return `${prefixo} / ${placa}`;
+    return placa || prefixo;
+}
+
 function populateBudgetQuoteVehicles(selectedVehicle = '') {
-    const select = document.getElementById('budgetQuoteVehicle');
-    if (!select) return;
+    const input = document.getElementById('budgetQuoteVehicle');
+    const datalist = document.getElementById('budgetQuoteVehicleOptions');
+    if (!input || !datalist) return;
 
     const list = (window.vehicles || vehicles || []).slice().sort((a, b) => {
-        const la = `${a.prefixo || ''} ${a.placa || ''}`;
-        const lb = `${b.prefixo || ''} ${b.placa || ''}`;
+        const la = `${a.placa || ''} ${a.prefixo || ''}`;
+        const lb = `${b.placa || ''} ${b.prefixo || ''}`;
         return la.localeCompare(lb, 'pt-BR');
     });
 
-    const currentNorm = normalizeKey(selectedVehicle || '');
-    let options = '<option value="">Selecione a viatura...</option>';
-    options += list.map(v => {
-        const value = escapeHTML(v.placa || v.id || v.prefixo || '');
-        const label = escapeHTML(`${v.prefixo || 'S/PREFIXO'} / ${v.placa || 'S/PLACA'} - ${v.cidade || v.unidade || ''}`.trim());
-        return `<option value="${value}">${label}</option>`;
+    datalist.innerHTML = list.map(v => {
+        const placa = String(v.placa || v.id || '').trim();
+        const prefixo = String(v.prefixo || '').trim();
+        const value = escapeHTML(placa || prefixo);
+        const label = escapeHTML(`${prefixo || 'S/PREFIXO'} / ${placa || 'S/PLACA'} - ${v.cidade || v.unidade || ''}`.trim());
+        return `<option value="${value}" label="${label}"></option>`;
     }).join('');
-
-    // Se estiver editando um orçamento antigo com texto livre, preserva o valor como opção legada.
-    if (selectedVehicle && !list.some(v => getVehicleKeyCandidates(v).some(k => k && (k === currentNorm || currentNorm.includes(k) || k.includes(currentNorm))))) {
-        options += `<option value="${escapeHTML(selectedVehicle)}">${escapeHTML(selectedVehicle)} (registro anterior)</option>`;
-    }
-
-    select.innerHTML = options;
 
     if (selectedVehicle) {
         const found = findVehicleByFreeText(selectedVehicle);
-        select.value = found ? (found.placa || found.id || found.prefixo || selectedVehicle) : selectedVehicle;
+        input.value = found ? (found.placa || found.id || found.prefixo || selectedVehicle) : selectedVehicle;
+        updateBudgetQuoteVehicleHint(found, selectedVehicle);
+    } else {
+        input.value = '';
+        updateBudgetQuoteVehicleHint(null, '');
     }
+}
+
+function updateBudgetQuoteVehicleHint(vehicle, typedValue = '') {
+    const hint = document.getElementById('budgetQuoteVehicleHint');
+    if (!hint) return;
+    const typed = String(typedValue || '').trim().toUpperCase();
+    if (vehicle) {
+        const label = getBudgetQuoteVehicleDisplayValue(vehicle);
+        const km = vehicle.hodometro ? ` • Hodômetro: ${Number(vehicle.hodometro).toLocaleString('pt-BR')} km` : '';
+        hint.textContent = `Viatura localizada: ${label}${km}`;
+        hint.style.color = 'var(--success)';
+    } else if (typed) {
+        hint.textContent = `Viatura não cadastrada na frota da unidade: ${typed}. O lançamento será permitido como viatura externa; informe o hodômetro manualmente.`;
+        hint.style.color = 'var(--warning)';
+    } else {
+        hint.textContent = 'Digite a placa ou prefixo. O sistema aceita viatura cadastrada ou viatura externa/não pertencente à unidade.';
+        hint.style.color = '';
+    }
+}
+
+function handleBudgetQuoteVehicleInput() {
+    const input = document.getElementById('budgetQuoteVehicle');
+    if (!input) return;
+    const original = input.value || '';
+    const upper = original.toUpperCase();
+    if (original !== upper) input.value = upper;
+    const vehicle = findVehicleByFreeText(input.value || '');
+    updateBudgetQuoteVehicleHint(vehicle, input.value || '');
+    if (vehicle) handleBudgetQuoteVehicleChange(false);
 }
 
 function syncBudgetQuoteMaintenanceDate() {
@@ -5737,9 +5825,16 @@ function syncBudgetQuoteMaintenanceDate() {
     if (!maintDate.value) maintDate.value = quoteDate.value || new Date().toISOString().slice(0, 10);
 }
 
-function handleBudgetQuoteVehicleChange() {
-    const selected = document.getElementById('budgetQuoteVehicle')?.value || '';
+function handleBudgetQuoteVehicleChange(normalizeValue = true) {
+    const input = document.getElementById('budgetQuoteVehicle');
+    const selected = input?.value || '';
     const vehicle = findVehicleByFreeText(selected);
+    updateBudgetQuoteVehicleHint(vehicle, selected);
+
+    if (vehicle && input && normalizeValue) {
+        input.value = vehicle.placa || vehicle.id || vehicle.prefixo || selected.toUpperCase();
+    }
+
     const kmInput = document.getElementById('budgetQuoteMaintenanceKm');
     const desc = document.getElementById('budgetQuoteDescription');
     if (vehicle && kmInput && !kmInput.value && vehicle.hodometro) kmInput.value = vehicle.hodometro;
@@ -5861,6 +5956,12 @@ ${marker}` : marker;
         showBudgetError('Orçamento/manutenção bloqueado: preencha número da nota branca/orçamento inicial, contrato, empenho, data do orçamento, data da manutenção, viatura, tipo de manutenção e descrição do serviço.');
         return;
     }
+
+    const matchedBudgetQuoteVehicle = findVehicleByFreeText(quote.vehicle);
+    quote.vehicle = matchedBudgetQuoteVehicle
+        ? getBudgetQuoteVehicleDisplayValue(matchedBudgetQuoteVehicle)
+        : String(quote.vehicle || '').trim().toUpperCase();
+
     if (!quote.maintenanceKm || quote.maintenanceKm <= 0) {
         showBudgetError('Orçamento/manutenção bloqueado: informe o hodômetro do serviço/manutenção.');
         return;

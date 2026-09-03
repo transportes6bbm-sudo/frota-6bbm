@@ -512,7 +512,87 @@
             border: 1px solid var(--success);
         }
 
-        @media (max-width: 768px) {
+        
+
+/* Login e perfis de usuário */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.user-badge {
+    padding: 0.55rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(7, 16, 38, 0.55);
+    border: 1px solid rgba(255,255,255,0.28);
+    color: var(--white);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.20);
+    white-space: nowrap;
+}
+
+.user-badge:hover {
+    background: rgba(7, 16, 38, 0.78);
+}
+
+.login-header-btn {
+    padding: 0.52rem 0.85rem;
+    font-size: 0.86rem;
+}
+
+.login-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.login-info-box {
+    background: rgba(25,118,210,0.12);
+    border: 1px solid rgba(25,118,210,0.35);
+    border-radius: 10px;
+    padding: 0.95rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+.login-profile-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.login-status-line {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.86rem;
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+}
+
+.login-status-online { color: var(--success); font-weight: 700; }
+.login-status-offline { color: var(--warning); font-weight: 700; }
+.login-status-blocked { color: var(--danger); font-weight: 700; }
+
+.login-actions {
+    display: flex;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+
+.login-small-note {
+    display: block;
+    color: var(--text-muted);
+    margin-top: 0.45rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 768px) {
             .dashboard {
                 grid-template-columns: 1fr;
             }
@@ -1046,7 +1126,10 @@ table{
                     <div class="subtitle">6º Batalhão de Bombeiros Militar - Minas Gerais</div>
                 </div>
             </div>
-            <div class="user-badge" id="userBadge">👤 Visitante</div>
+            <div class="header-actions">
+                <div class="user-badge" id="userBadge" onclick="openLoginModal()" title="Clique para entrar ou trocar usuário">👤 Visitante</div>
+                <button class="btn btn-secondary login-header-btn" id="loginHeaderButton" onclick="openLoginModal()">Entrar</button>
+            </div>
         </div>
     </header>
 
@@ -1359,14 +1442,37 @@ table{
                     </div>
                 </div>
 
+
+
+                <div class="google-sheets-config" style="margin-top: 1.5rem;">
+                    <h3>🔐 Banco Online e Login de Usuários</h3>
+                    <p style="color: var(--text-muted); margin: 1rem 0;">
+                        Use este campo para conectar o sistema ao Apps Script publicado. O login validará o usuário na aba USUARIOS e aplicará os perfis GESTOR, OPERADOR ou VISITANTE.
+                    </p>
+                    <div class="form-group">
+                        <label>URL do Web App / Apps Script</label>
+                        <input type="text" id="onlineDatabaseWebAppUrlConfig" placeholder="https://script.google.com/macros/s/.../exec" oninput="syncOnlineConfigMirror('config')">
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex; gap:.6rem; align-items:center; color: var(--text); cursor:pointer;">
+                            <input type="checkbox" id="onlineDatabaseEnabledConfig" style="width:auto; transform: scale(1.15);" onchange="syncOnlineConfigMirror('config')">
+                            Ativar banco online nesta máquina
+                        </label>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveOnlineDatabaseSettingsFromConfig()">💾 Salvar Banco Online</button>
+                    <button class="btn btn-secondary" onclick="openLoginModal()">🔐 Abrir Login</button>
+                    <button class="btn btn-secondary" onclick="openOnlineDatabaseSheet()">📄 Abrir Planilha do Banco</button>
+                </div>
+
                 <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--secondary);">
                     <h4 style="margin-bottom: 1rem;">📋 Instruções de Configuração:</h4>
                     <ol style="line-height: 1.8; color: var(--text-muted);">
                         <li>Crie uma planilha no Google Sheets</li>
                         <li>Acesse Extensões → Apps Script</li>
                         <li>Cole o código fornecido</li>
-                        <li>Implante como Web App com acesso "Qualquer pessoa"</li>
-                        <li>Cole a URL do Web App no campo acima</li>
+                        <li>Implante como Web App e copie a URL terminada em /exec</li>
+                        <li>Cole a URL no campo Banco Online e Login de Usuários</li>
+                        <li>Cadastre os usuários na aba USUARIOS com perfil GESTOR, OPERADOR ou VISITANTE</li>
                     </ol>
                 </div>
             </div>
@@ -1375,6 +1481,66 @@ table{
 
     </div>
     <!-- Fim Container -->
+
+
+    <!-- Modal Login / Perfis de Usuário -->
+    <div class="modal" id="systemLoginModal">
+        <div class="modal-content" style="max-width: 920px;">
+            <div class="modal-header">
+                <h2>🔐 Login do Sistema</h2>
+                <button class="close-modal" onclick="closeLoginModal()">✕</button>
+            </div>
+
+            <div class="login-info-box">
+                O login identifica automaticamente quem inclui ou altera lançamentos. Com o banco online ativo, o perfil será consultado na aba <strong>USUARIOS</strong> da planilha. Sem a URL do Apps Script publicada, o sistema opera em modo local/teste.
+                <div class="login-status-line" id="loginConnectionInfo">Banco online: não configurado.</div>
+            </div>
+
+            <div class="login-profile-card">
+                <div class="login-grid">
+                    <div class="form-group">
+                        <label>E-mail do usuário *</label>
+                        <input type="email" id="systemLoginEmail" placeholder="usuario@dominio.com" autocomplete="username">
+                        <small class="login-small-note">Deve estar cadastrado na aba USUARIOS quando o banco online estiver ativo.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Perfil local/teste</label>
+                        <select id="systemLoginLocalProfile" onchange="updateLoginProfileHint()">
+                            <option value="GESTOR">GESTOR</option>
+                            <option value="OPERADOR">OPERADOR</option>
+                            <option value="VISITANTE">VISITANTE</option>
+                        </select>
+                        <small class="login-small-note" id="loginProfileHint">GESTOR: inclui, altera, cancela e gerencia usuários.</small>
+                    </div>
+                </div>
+                <div class="login-actions">
+                    <button type="button" class="btn btn-primary" onclick="doSystemLogin()">Entrar</button>
+                    <button type="button" class="btn btn-secondary" onclick="doSystemLogout()">Sair</button>
+                    <button type="button" class="btn btn-secondary" onclick="loginAsVisitor()">Entrar como Visitante</button>
+                </div>
+            </div>
+
+            <div class="login-profile-card">
+                <h3 style="margin-bottom: 1rem; color: var(--secondary);">🌐 Banco online</h3>
+                <div class="form-group">
+                    <label>URL do Web App / Apps Script</label>
+                    <input type="text" id="onlineDatabaseWebAppUrl" placeholder="https://script.google.com/macros/s/.../exec">
+                    <small class="login-small-note">Depois de publicar o Apps Script como Aplicativo da Web, cole aqui o endereço terminado em /exec.</small>
+                </div>
+                <div class="form-group">
+                    <label style="display:flex; gap:.6rem; align-items:center; color: var(--text); cursor:pointer;">
+                        <input type="checkbox" id="onlineDatabaseEnabled" style="width:auto; transform: scale(1.15);">
+                        Ativar banco online nesta máquina
+                    </label>
+                </div>
+                <div class="login-actions">
+                    <button type="button" class="btn btn-primary" onclick="saveOnlineDatabaseSettings()">Salvar configuração online</button>
+                    <button type="button" class="btn btn-secondary" onclick="testOnlineDatabaseLogin()">Testar login online</button>
+                    <button type="button" class="btn btn-secondary" onclick="openOnlineDatabaseSheet()">Abrir planilha do banco</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal de Adicionar/Editar viatura removido: frota em modo somente leitura pela planilha verdade. -->
 
@@ -1866,17 +2032,270 @@ const ONLINE_DATABASE_CONFIG = {
 };
 
 let currentSystemUser = {
-    email: 'transportes6bbm@gmail.com',
-    nome: 'Transportes 6oBBM',
-    perfil: 'GESTOR',
+    email: '',
+    nome: 'Visitante',
+    perfil: 'VISITANTE',
     status: 'LOCAL'
 };
+
+const SYSTEM_USER_STORAGE_KEY = 'system-current-user-6bbm';
+const ONLINE_DATABASE_STORAGE_KEY = 'online-database-config-6bbm';
+const DEFAULT_GESTOR_EMAIL = 'transportes6bbm@gmail.com';
 
 const USER_PROFILE_RULES = {
     GESTOR: { level: 3, visualizar: true, incluir: true, alterar: true, excluir_cancelar: true, gerenciar_usuarios: true },
     OPERADOR: { level: 2, visualizar: true, incluir: true, alterar: false, excluir_cancelar: false, gerenciar_usuarios: false },
     VISITANTE: { level: 1, visualizar: true, incluir: false, alterar: false, excluir_cancelar: false, gerenciar_usuarios: false }
 };
+
+function normalizeSystemProfile(profile) {
+    const p = String(profile || 'VISITANTE').toUpperCase().trim();
+    return USER_PROFILE_RULES[p] ? p : 'VISITANTE';
+}
+
+function getProfileHint(profile) {
+    const p = normalizeSystemProfile(profile);
+    if (p === 'GESTOR') return 'GESTOR: visualiza, inclui, altera, cancela/exclui e gerencia usuários.';
+    if (p === 'OPERADOR') return 'OPERADOR: visualiza e inclui novos lançamentos, mas não altera registros já salvos.';
+    return 'VISITANTE: somente visualiza os lançamentos.';
+}
+
+function loadOnlineDatabaseSettings() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(ONLINE_DATABASE_STORAGE_KEY) || '{}');
+        if (saved && typeof saved === 'object') {
+            if (saved.webAppUrl !== undefined) ONLINE_DATABASE_CONFIG.webAppUrl = String(saved.webAppUrl || '').trim();
+            if (saved.enabled !== undefined) ONLINE_DATABASE_CONFIG.enabled = saved.enabled === true || saved.enabled === 'true';
+        }
+    } catch (e) {
+        console.warn('Não foi possível carregar configuração online:', e);
+    }
+    return ONLINE_DATABASE_CONFIG;
+}
+
+function persistOnlineDatabaseSettings() {
+    localStorage.setItem(ONLINE_DATABASE_STORAGE_KEY, JSON.stringify({
+        spreadsheetId: ONLINE_DATABASE_CONFIG.spreadsheetId,
+        spreadsheetUrl: ONLINE_DATABASE_CONFIG.spreadsheetUrl,
+        webAppUrl: ONLINE_DATABASE_CONFIG.webAppUrl || '',
+        enabled: ONLINE_DATABASE_CONFIG.enabled === true
+    }));
+}
+
+function saveOnlineDatabaseSettings() {
+    const urlInput = document.getElementById('onlineDatabaseWebAppUrl');
+    const enabledInput = document.getElementById('onlineDatabaseEnabled');
+    ONLINE_DATABASE_CONFIG.webAppUrl = String(urlInput?.value || '').trim();
+    ONLINE_DATABASE_CONFIG.enabled = enabledInput?.checked === true;
+
+    if (ONLINE_DATABASE_CONFIG.enabled && !ONLINE_DATABASE_CONFIG.webAppUrl) {
+        ONLINE_DATABASE_CONFIG.enabled = false;
+        if (enabledInput) enabledInput.checked = false;
+        showBudgetError('Banco online não ativado: cole a URL do Web App / Apps Script antes de ativar.');
+        return;
+    }
+    persistOnlineDatabaseSettings();
+    updateLoginConnectionInfo();
+    showAlert('Configuração online salva nesta máquina.');
+}
+
+function isOnlineDatabaseReady() {
+    return ONLINE_DATABASE_CONFIG.enabled === true && !!ONLINE_DATABASE_CONFIG.webAppUrl;
+}
+
+function loadSystemUserSession() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(SYSTEM_USER_STORAGE_KEY) || 'null');
+        if (saved && saved.perfil) {
+            applyOnlineUser(saved);
+        }
+    } catch (e) {
+        console.warn('Não foi possível carregar sessão de usuário:', e);
+    }
+}
+
+function saveSystemUserSession(user) {
+    if (!user) return;
+    localStorage.setItem(SYSTEM_USER_STORAGE_KEY, JSON.stringify(user));
+}
+
+function clearSystemUserSession() {
+    localStorage.removeItem(SYSTEM_USER_STORAGE_KEY);
+}
+
+function updateSystemUserInterface() {
+    const user = getCurrentSystemUser();
+    const profile = normalizeSystemProfile(user.perfil);
+    const badge = document.getElementById('userBadge');
+    const loginBtn = document.getElementById('loginHeaderButton');
+    const configTab = document.getElementById('configTab');
+    const name = user.nome || user.email || 'Visitante';
+
+    if (badge) {
+        const icon = profile === 'GESTOR' ? '👨‍💼' : (profile === 'OPERADOR' ? '🧑‍🔧' : '👤');
+        badge.textContent = `${icon} ${name} · ${profile}`;
+        badge.title = getProfileHint(profile) + ' Clique para entrar ou trocar usuário.';
+    }
+    if (loginBtn) loginBtn.textContent = user.email ? 'Trocar usuário' : 'Entrar';
+    if (configTab) configTab.style.display = hasBudgetPermission('gerenciar_usuarios') ? 'block' : 'none';
+
+    isManager = profile === 'GESTOR';
+    updateLoginConnectionInfo();
+}
+
+function updateLoginConnectionInfo() {
+    const info = document.getElementById('loginConnectionInfo');
+    const urlInput = document.getElementById('onlineDatabaseWebAppUrl');
+    const enabledInput = document.getElementById('onlineDatabaseEnabled');
+    const configUrl = document.getElementById('onlineDatabaseWebAppUrlConfig');
+    const configEnabled = document.getElementById('onlineDatabaseEnabledConfig');
+    if (urlInput) urlInput.value = ONLINE_DATABASE_CONFIG.webAppUrl || '';
+    if (enabledInput) enabledInput.checked = ONLINE_DATABASE_CONFIG.enabled === true;
+    if (configUrl) configUrl.value = ONLINE_DATABASE_CONFIG.webAppUrl || '';
+    if (configEnabled) configEnabled.checked = ONLINE_DATABASE_CONFIG.enabled === true;
+    if (!info) return;
+    if (isOnlineDatabaseReady()) {
+        info.innerHTML = '<span class="login-status-online">Banco online ativo</span> — login será validado na planilha USUARIOS.';
+    } else if (ONLINE_DATABASE_CONFIG.webAppUrl) {
+        info.innerHTML = '<span class="login-status-offline">Banco online configurado, mas desativado nesta máquina</span>.';
+    } else {
+        info.innerHTML = '<span class="login-status-offline">Banco online não configurado</span> — login local apenas para teste.';
+    }
+}
+
+
+function syncOnlineConfigMirror(origin) {
+    const modalUrl = document.getElementById('onlineDatabaseWebAppUrl');
+    const modalEnabled = document.getElementById('onlineDatabaseEnabled');
+    const configUrl = document.getElementById('onlineDatabaseWebAppUrlConfig');
+    const configEnabled = document.getElementById('onlineDatabaseEnabledConfig');
+    if (origin === 'config') {
+        if (modalUrl && configUrl) modalUrl.value = configUrl.value;
+        if (modalEnabled && configEnabled) modalEnabled.checked = configEnabled.checked;
+    } else {
+        if (configUrl && modalUrl) configUrl.value = modalUrl.value;
+        if (configEnabled && modalEnabled) configEnabled.checked = modalEnabled.checked;
+    }
+}
+
+function saveOnlineDatabaseSettingsFromConfig() {
+    const configUrl = document.getElementById('onlineDatabaseWebAppUrlConfig');
+    const configEnabled = document.getElementById('onlineDatabaseEnabledConfig');
+    ONLINE_DATABASE_CONFIG.webAppUrl = String(configUrl?.value || '').trim();
+    ONLINE_DATABASE_CONFIG.enabled = configEnabled?.checked === true;
+    if (ONLINE_DATABASE_CONFIG.enabled && !ONLINE_DATABASE_CONFIG.webAppUrl) {
+        ONLINE_DATABASE_CONFIG.enabled = false;
+        if (configEnabled) configEnabled.checked = false;
+        showBudgetError('Banco online não ativado: cole a URL do Web App / Apps Script antes de ativar.');
+        return;
+    }
+    persistOnlineDatabaseSettings();
+    updateLoginConnectionInfo();
+    syncOnlineConfigMirror('login');
+    showAlert('Banco online salvo. Use o botão Abrir Login para entrar com o usuário cadastrado.');
+}
+
+function openLoginModal() {
+    loadOnlineDatabaseSettings();
+    const modal = document.getElementById('systemLoginModal');
+    const user = getCurrentSystemUser();
+    const emailInput = document.getElementById('systemLoginEmail');
+    const profileInput = document.getElementById('systemLoginLocalProfile');
+    if (emailInput) emailInput.value = user.email || DEFAULT_GESTOR_EMAIL;
+    if (profileInput) profileInput.value = normalizeSystemProfile(user.perfil || 'GESTOR');
+    updateLoginProfileHint();
+    updateLoginConnectionInfo();
+    if (modal) modal.classList.add('active');
+}
+
+function closeLoginModal() {
+    const modal = document.getElementById('systemLoginModal');
+    if (modal) modal.classList.remove('active');
+}
+
+function updateLoginProfileHint() {
+    const profile = document.getElementById('systemLoginLocalProfile')?.value || 'VISITANTE';
+    const hint = document.getElementById('loginProfileHint');
+    if (hint) hint.textContent = getProfileHint(profile);
+}
+
+async function doSystemLogin() {
+    loadOnlineDatabaseSettings();
+    const email = String(document.getElementById('systemLoginEmail')?.value || '').trim().toLowerCase();
+    if (!email) {
+        showBudgetError('Login bloqueado: informe o e-mail do usuário.');
+        return;
+    }
+
+    if (isOnlineDatabaseReady()) {
+        try {
+            const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'login', email, _: Date.now() });
+            const res = await jsonpRequestWithRetry(url, 3, 20000);
+            if (!res || res.success !== true || !res.user) {
+                throw new Error((res && res.message) ? res.message : 'Resposta inválida do banco online.');
+            }
+            if (String(res.user.status || '').toUpperCase() !== 'ATIVO') {
+                throw new Error('Usuário não cadastrado ou inativo na aba USUARIOS.');
+            }
+            applyOnlineUser(res.user);
+            saveSystemUserSession(getCurrentSystemUser());
+            updateSystemUserInterface();
+            closeLoginModal();
+            showAlert(`Login realizado como ${currentSystemUser.nome || currentSystemUser.email} (${currentSystemUser.perfil}).`);
+            return;
+        } catch (err) {
+            showBudgetError('Falha no login online: ' + (err.message || err));
+            return;
+        }
+    }
+
+    const localProfile = normalizeSystemProfile(document.getElementById('systemLoginLocalProfile')?.value || (email === DEFAULT_GESTOR_EMAIL ? 'GESTOR' : 'OPERADOR'));
+    applyOnlineUser({
+        id_usuario: 'LOCAL_' + Date.now(),
+        email,
+        nome: email === DEFAULT_GESTOR_EMAIL ? 'Transportes 6oBBM' : email,
+        perfil: localProfile,
+        status: 'ATIVO'
+    });
+    saveSystemUserSession(getCurrentSystemUser());
+    updateSystemUserInterface();
+    closeLoginModal();
+    showAlert(`Login local realizado como ${currentSystemUser.nome || currentSystemUser.email} (${currentSystemUser.perfil}).`);
+}
+
+function doSystemLogout() {
+    clearSystemUserSession();
+    currentSystemUser = { email: '', nome: 'Visitante', perfil: 'VISITANTE', status: 'LOCAL' };
+    updateSystemUserInterface();
+    closeLoginModal();
+    showAlert('Usuário desconectado. O sistema está em modo visitante.');
+}
+
+function loginAsVisitor() {
+    applyOnlineUser({ id_usuario: 'VISITANTE', email: '', nome: 'Visitante', perfil: 'VISITANTE', status: 'ATIVO' });
+    saveSystemUserSession(getCurrentSystemUser());
+    updateSystemUserInterface();
+    closeLoginModal();
+}
+
+async function testOnlineDatabaseLogin() {
+    saveOnlineDatabaseSettings();
+    if (!isOnlineDatabaseReady()) return;
+    const email = String(document.getElementById('systemLoginEmail')?.value || '').trim().toLowerCase();
+    try {
+        const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'ping', email, _: Date.now() });
+        const res = await jsonpRequestWithRetry(url, 3, 20000);
+        if (!res || res.success !== true) throw new Error((res && res.message) ? res.message : 'Sem resposta válida.');
+        showAlert('Conexão com o banco online testada com sucesso.');
+    } catch (err) {
+        showBudgetError('Falha ao testar o banco online: ' + (err.message || err));
+    }
+}
+
+function openOnlineDatabaseSheet() {
+    window.open(ONLINE_DATABASE_CONFIG.spreadsheetUrl, '_blank');
+}
+
         // Expor para depuração / console
         window.vehicles = vehicles;
         window.maintenances = maintenances;
@@ -2331,27 +2750,15 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
             okEl.style.color = ok ? 'green' : 'crimson';
         }
 
-        // === AUTENTICAÇÃO ===
+        // === AUTENTICAÇÃO / LOGIN POR PERFIL ===
         function checkAuth() {
-            const password = localStorage.getItem('manager-auth');
-            if (password === 'gestor6bbm2025') {
-                isManager = true;
-                document.getElementById('userBadge').textContent = '👨‍💼 Gestor da Frota';
-                document.getElementById('configTab').style.display = 'block';
-            }
+            loadOnlineDatabaseSettings();
+            loadSystemUserSession();
+            updateSystemUserInterface();
         }
 
         function becomeManager() {
-            const password = prompt('Digite a senha do gestor:');
-            if (password === 'gestor6bbm2025') {
-                localStorage.setItem('manager-auth', password);
-                isManager = true;
-                document.getElementById('userBadge').textContent = '👨‍💼 Gestor da Frota';
-                document.getElementById('configTab').style.display = 'block';
-                showAlert('Acesso de gestor ativado!');
-            } else {
-                alert('Senha incorreta!');
-            }
+            openLoginModal();
         }
 
         // Log para facilitar acesso do gestor
@@ -4657,7 +5064,7 @@ function showBudgetError(message) {
 }
 
 function getCurrentSystemUser() {
-    return currentSystemUser || { nome: 'Usuário local', email: '', perfil: 'GESTOR', status: 'LOCAL' };
+    return currentSystemUser || { nome: 'Visitante', email: '', perfil: 'VISITANTE', status: 'LOCAL' };
 }
 
 function getCurrentUserProfile() {

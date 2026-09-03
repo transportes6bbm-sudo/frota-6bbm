@@ -1855,6 +1855,28 @@ let currentBudgetCommitmentId = null;
 let expandedBudgetStatements = {};
 let budgetQuoteVehicleSearchCache = [];
 let budgetQuoteVehicleHighlightedIndex = -1;
+
+// Banco de dados online / autenticação por perfil
+// Para ativar a sincronização online, publique o Apps Script fornecido e cole a URL em webAppUrl.
+const ONLINE_DATABASE_CONFIG = {
+    spreadsheetId: '1xjCIvNNQApEKLEp0R_lrdYShmbIhxItr1zAoy6nfcFw',
+    spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/1xjCIvNNQApEKLEp0R_lrdYShmbIhxItr1zAoy6nfcFw/edit',
+    webAppUrl: '',
+    enabled: false
+};
+
+let currentSystemUser = {
+    email: 'transportes6bbm@gmail.com',
+    nome: 'Transportes 6oBBM',
+    perfil: 'GESTOR',
+    status: 'LOCAL'
+};
+
+const USER_PROFILE_RULES = {
+    GESTOR: { level: 3, visualizar: true, incluir: true, alterar: true, excluir_cancelar: true, gerenciar_usuarios: true },
+    OPERADOR: { level: 2, visualizar: true, incluir: true, alterar: false, excluir_cancelar: false, gerenciar_usuarios: false },
+    VISITANTE: { level: 1, visualizar: true, incluir: false, alterar: false, excluir_cancelar: false, gerenciar_usuarios: false }
+};
         // Expor para depuração / console
         window.vehicles = vehicles;
         window.maintenances = maintenances;
@@ -4582,6 +4604,37 @@ function saveBudgetStorage() {
     saveToStorage(BUDGET_STORAGE_KEYS.addenda, budgetAddenda);
     saveToStorage(BUDGET_STORAGE_KEYS.quotes, budgetQuotes);
     saveToStorage(BUDGET_STORAGE_KEYS.history, budgetHistory);
+    queueOnlineBudgetSync();
+}
+
+function queueOnlineBudgetSync() {
+    // A sincronização online será ativada quando ONLINE_DATABASE_CONFIG.enabled = true
+    // e a URL do Apps Script publicado for preenchida em ONLINE_DATABASE_CONFIG.webAppUrl.
+    if (!ONLINE_DATABASE_CONFIG.enabled || !ONLINE_DATABASE_CONFIG.webAppUrl) return;
+    try {
+        localStorage.setItem('budget-online-sync-pending-6bbm', JSON.stringify({
+            contracts: budgetContracts,
+            commitments: budgetCommitments,
+            movements: budgetMovements,
+            addenda: budgetAddenda,
+            quotes: budgetQuotes,
+            history: budgetHistory,
+            queuedAt: new Date().toISOString()
+        }));
+    } catch (e) {
+        console.warn('Não foi possível enfileirar sincronização online:', e);
+    }
+}
+
+function applyOnlineUser(user) {
+    if (!user) return;
+    currentSystemUser = {
+        id_usuario: user.id_usuario || user.id || '',
+        email: user.email || '',
+        nome: user.nome || user.name || user.email || 'Usuário',
+        perfil: String(user.perfil || user.profile || 'VISITANTE').toUpperCase(),
+        status: user.status || 'ATIVO'
+    };
 }
 
 function generateBudgetId(prefix) {
@@ -4603,7 +4656,37 @@ function showBudgetError(message) {
     showAlert(message, 'error');
 }
 
+function getCurrentSystemUser() {
+    return currentSystemUser || { nome: 'Usuário local', email: '', perfil: 'GESTOR', status: 'LOCAL' };
+}
+
+function getCurrentUserProfile() {
+    const user = getCurrentSystemUser();
+    return String(user.perfil || 'VISITANTE').toUpperCase();
+}
+
+function hasBudgetPermission(permission) {
+    const profile = getCurrentUserProfile();
+    const rules = USER_PROFILE_RULES[profile] || USER_PROFILE_RULES.VISITANTE;
+    return rules[permission] === true;
+}
+
+function requireBudgetPermission(permission, actionLabel = 'executar esta ação') {
+    if (hasBudgetPermission(permission)) return true;
+    showBudgetError(`Permissão negada: o perfil ${getCurrentUserProfile()} não pode ${actionLabel}.`);
+    return false;
+}
+
 function askBudgetChangeIdentity(actionLabel) {
+    const user = getCurrentSystemUser();
+    if (user && (user.email || user.nome)) {
+        return {
+            name: user.nome || user.email || 'Usuário local',
+            matricula: user.email || user.id_usuario || 'LOGIN',
+            email: user.email || '',
+            perfil: user.perfil || 'GESTOR'
+        };
+    }
     const name = prompt(`Identificação obrigatória: informe o nome de quem está ${actionLabel}:`);
     if (!name || !String(name).trim()) {
         showBudgetError('Alteração bloqueada: é obrigatório identificar o responsável pelo lançamento/edição.');
@@ -4614,11 +4697,12 @@ function askBudgetChangeIdentity(actionLabel) {
         showBudgetError('Alteração bloqueada: é obrigatório informar matrícula ou identificação funcional.');
         return null;
     }
-    return { name: String(name).trim(), matricula: String(matricula).trim() };
+    return { name: String(name).trim(), matricula: String(matricula).trim(), email: '', perfil: 'GESTOR' };
 }
 
 function recordBudgetHistory(tableName, recordId, action, beforeValue, afterValue, identity, note = '') {
-    budgetHistory.push({
+    const user = identity || askBudgetChangeIdentity('registrando alteração');
+    const history = {
         id: generateBudgetId('HIS'),
         timestamp: new Date().toISOString(),
         tableName,
@@ -4626,10 +4710,14 @@ function recordBudgetHistory(tableName, recordId, action, beforeValue, afterValu
         action,
         beforeValue: beforeValue ? JSON.stringify(beforeValue) : '',
         afterValue: afterValue ? JSON.stringify(afterValue) : '',
-        changedBy: identity?.name || '',
-        matricula: identity?.matricula || '',
+        changedBy: user?.name || user?.nome || '',
+        email: user?.email || '',
+        perfil: user?.perfil || getCurrentUserProfile(),
+        matricula: user?.matricula || '',
         note
-    });
+    };
+    budgetHistory.push(history);
+    return history;
 }
 
 function isBudgetReinforcement(type) {
@@ -5032,6 +5120,8 @@ function closeBudgetContractForm() {
 
 function saveBudgetContract(event) {
     event.preventDefault();
+    const isEditingContract = !!document.getElementById('budgetContractId').value;
+    if (!requireBudgetPermission(isEditingContract ? 'alterar' : 'incluir', isEditingContract ? 'alterar contratos' : 'incluir contratos')) return;
 
     const id = document.getElementById('budgetContractId').value || generateBudgetId('CTR');
     const existingIndex = budgetContracts.findIndex(c => String(c.id) === String(id));
@@ -5244,6 +5334,8 @@ function updateBudgetAddendumLabels() {
 
 function saveBudgetAddendum(event) {
     event.preventDefault();
+    const isEditingAddendum = !!document.getElementById('budgetAddendumId').value;
+    if (!requireBudgetPermission(isEditingAddendum ? 'alterar' : 'incluir', isEditingAddendum ? 'alterar aditivos' : 'incluir aditivos')) return;
     const contract = getBudgetContractById(currentBudgetContractId);
     if (!contract) {
         showBudgetError('Contrato não localizado para lançamento do aditivo.');
@@ -5363,6 +5455,8 @@ function hideBudgetCommitmentForm() {
 
 function saveBudgetCommitment(event) {
     event.preventDefault();
+    const isEditingCommitment = !!document.getElementById('budgetCommitmentId').value;
+    if (!requireBudgetPermission(isEditingCommitment ? 'alterar' : 'incluir', isEditingCommitment ? 'alterar empenhos' : 'incluir empenhos')) return;
 
     const contract = getBudgetContractById(currentBudgetContractId);
     if (!contract) {
@@ -5514,6 +5608,8 @@ function updateBudgetMovementLabels() {
 
 function saveBudgetMovement(event) {
     event.preventDefault();
+    const isEditingMovement = !!document.getElementById('budgetMovementId').value;
+    if (!requireBudgetPermission(isEditingMovement ? 'alterar' : 'incluir', isEditingMovement ? 'alterar movimentações' : 'incluir movimentações')) return;
 
     const commitmentId = document.getElementById('budgetMovementCommitmentId').value;
     const e = getBudgetCommitmentById(commitmentId);
@@ -6121,6 +6217,8 @@ function closeBudgetQuoteForm() {
 
 function saveBudgetQuote(event) {
     event.preventDefault();
+    const isEditingQuote = !!document.getElementById('budgetQuoteId').value;
+    if (!requireBudgetPermission(isEditingQuote ? 'alterar' : 'incluir', isEditingQuote ? 'alterar orçamentos/manutenções' : 'incluir orçamentos/manutenções')) return;
     const id = document.getElementById('budgetQuoteId').value || generateBudgetId('ORC');
     const existingIndex = budgetQuotes.findIndex(q => String(q.id) === String(id));
     const before = existingIndex >= 0 ? { ...budgetQuotes[existingIndex] } : null;
@@ -6249,6 +6347,7 @@ ${marker}` : marker;
 }
 
 function deleteBudgetQuote(quoteId) {
+    if (!requireBudgetPermission('excluir_cancelar', 'excluir/cancelar orçamentos')) return;
     const q = getBudgetQuoteById(quoteId);
     if (!q) return;
     if (!confirm(`Confirma a exclusão do orçamento ${q.number || ''}?`)) return;

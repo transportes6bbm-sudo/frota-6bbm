@@ -1462,6 +1462,8 @@ table{
                     </div>
                     <button class="btn btn-primary" onclick="saveOnlineDatabaseSettingsFromConfig()">💾 Salvar Banco Online</button>
                     <button class="btn btn-secondary" onclick="openLoginModal()">🔐 Abrir Login</button>
+                    <button class="btn btn-secondary" onclick="openUserManagementModal()">👥 Gerenciar Usuários</button>
+                    <button class="btn btn-secondary" onclick="setupOnlineDatabase()">🧱 Conferir Estrutura do Banco</button>
                     <button class="btn btn-secondary" onclick="openOnlineDatabaseSheet()">📄 Abrir Planilha do Banco</button>
                     <button class="btn btn-secondary" onclick="loadOnlineBudgetData(true)">⬇️ Carregar Dados Online</button>
                     <button class="btn btn-primary" onclick="migrateLocalBudgetDataToOnline()">⬆️ Enviar Dados Locais para o Banco Online</button>
@@ -1476,7 +1478,7 @@ table{
                         <li>Cole o código fornecido</li>
                         <li>Implante como Web App e copie a URL terminada em /exec</li>
                         <li>Cole a URL no campo Banco Online e Login de Usuários</li>
-                        <li>Cadastre os usuários na aba USUARIOS com perfil GESTOR, OPERADOR ou VISITANTE</li>
+                        <li>Cadastre/aprove usuários pelo botão Gerenciar Usuários; senhas ficam em hash no banco, nunca em texto puro</li>
                     </ol>
                 </div>
             </div>
@@ -1489,14 +1491,14 @@ table{
 
     <!-- Modal Login / Perfis de Usuário -->
     <div class="modal" id="systemLoginModal">
-        <div class="modal-content" style="max-width: 920px;">
+        <div class="modal-content" style="max-width: 820px;">
             <div class="modal-header">
                 <h2>🔐 Login do Sistema</h2>
                 <button class="close-modal" onclick="closeLoginModal()">✕</button>
             </div>
 
             <div class="login-info-box">
-                O login identifica automaticamente quem inclui ou altera lançamentos. Com o banco online ativo, o perfil será consultado na aba <strong>USUARIOS</strong> da planilha. Sem a URL do Apps Script publicada, o sistema opera em modo local/teste.
+                O acesso agora é feito por <strong>e-mail e senha</strong>. O perfil é carregado do banco online. Usuários sem cadastro ativo devem solicitar acesso e aguardar aprovação do gestor.
                 <div class="login-status-line" id="loginConnectionInfo">Banco online: não configurado.</div>
             </div>
 
@@ -1505,31 +1507,28 @@ table{
                     <div class="form-group">
                         <label>E-mail do usuário *</label>
                         <input type="email" id="systemLoginEmail" placeholder="usuario@dominio.com" autocomplete="username">
-                        <small class="login-small-note">Deve estar cadastrado na aba USUARIOS quando o banco online estiver ativo.</small>
                     </div>
                     <div class="form-group">
-                        <label>Perfil local/teste</label>
-                        <select id="systemLoginLocalProfile" onchange="updateLoginProfileHint()">
-                            <option value="GESTOR">GESTOR</option>
-                            <option value="OPERADOR">OPERADOR</option>
-                            <option value="VISITANTE">VISITANTE</option>
-                        </select>
-                        <small class="login-small-note" id="loginProfileHint">GESTOR: inclui, altera, cancela e gerencia usuários.</small>
+                        <label>Senha *</label>
+                        <input type="password" id="systemLoginPassword" placeholder="Digite sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') doSystemLogin();">
+                        <small class="login-small-note">O perfil não é escolhido no login. Ele é definido previamente pelo gestor.</small>
                     </div>
                 </div>
                 <div class="login-actions">
                     <button type="button" class="btn btn-primary" onclick="doSystemLogin()">Entrar</button>
+                    <button type="button" class="btn btn-secondary" onclick="changeOwnPassword()">Alterar minha senha</button>
+                    <button type="button" class="btn btn-secondary" onclick="openSignupRequestModal()">Solicitar cadastro</button>
                     <button type="button" class="btn btn-secondary" onclick="doSystemLogout()">Sair</button>
-                    <button type="button" class="btn btn-secondary" onclick="loginAsVisitor()">Entrar como Visitante</button>
                 </div>
+                <small class="login-small-note">Senha inicial do gestor, somente no primeiro acesso: <strong>Frota6BBM@2026!</strong>. Após entrar, altere a senha.</small>
             </div>
 
-            <div class="login-profile-card">
+            <div class="login-profile-card" id="onlineConfigCardInLogin">
                 <h3 style="margin-bottom: 1rem; color: var(--secondary);">🌐 Banco online</h3>
                 <div class="form-group">
                     <label>URL do Web App / Apps Script</label>
                     <input type="text" id="onlineDatabaseWebAppUrl" placeholder="https://script.google.com/macros/s/.../exec">
-                    <small class="login-small-note">Depois de publicar o Apps Script como Aplicativo da Web, cole aqui o endereço terminado em /exec.</small>
+                    <small class="login-small-note">Esta versão já vem com a URL /exec configurada. Use este campo apenas se a implantação mudar.</small>
                 </div>
                 <div class="form-group">
                     <label style="display:flex; gap:.6rem; align-items:center; color: var(--text); cursor:pointer;">
@@ -1539,10 +1538,85 @@ table{
                 </div>
                 <div class="login-actions">
                     <button type="button" class="btn btn-primary" onclick="saveOnlineDatabaseSettings()">Salvar configuração online</button>
-                    <button type="button" class="btn btn-secondary" onclick="testOnlineDatabaseLogin()">Testar login online</button>
+                    <button type="button" class="btn btn-secondary" onclick="setupOnlineDatabase()">Conferir estrutura do banco</button>
+                    <button type="button" class="btn btn-secondary" onclick="testOnlineDatabaseLogin()">Testar conexão</button>
                     <button type="button" class="btn btn-secondary" onclick="openOnlineDatabaseSheet()">Abrir planilha do banco</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal Solicitação de Cadastro -->
+    <div class="modal" id="signupRequestModal">
+        <div class="modal-content" style="max-width: 820px;">
+            <div class="modal-header">
+                <h2>📝 Solicitação de Cadastro</h2>
+                <button class="close-modal" onclick="closeSignupRequestModal()">✕</button>
+            </div>
+            <div class="login-info-box">
+                O usuário cria uma senha pessoal e a solicitação fica pendente. Somente um gestor pode aprovar e definir o perfil final.
+            </div>
+            <form onsubmit="submitSignupRequest(event)">
+                <div class="login-grid">
+                    <div class="form-group">
+                        <label>Nome completo *</label>
+                        <input type="text" id="signupName" required placeholder="Nome do usuário">
+                    </div>
+                    <div class="form-group">
+                        <label>E-mail *</label>
+                        <input type="email" id="signupEmail" required placeholder="usuario@dominio.com" autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label>Perfil solicitado *</label>
+                        <select id="signupProfile" required>
+                            <option value="OPERADOR">OPERADOR - inclui lançamentos</option>
+                            <option value="VISITANTE">VISITANTE - somente consulta</option>
+                            <option value="GESTOR">GESTOR - sujeito à aprovação</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Senha pessoal *</label>
+                        <input type="password" id="signupPassword" required autocomplete="new-password" placeholder="Mínimo 8 caracteres, letras e números">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirmar senha *</label>
+                        <input type="password" id="signupPasswordConfirm" required autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label>Justificativa / seção</label>
+                        <input type="text" id="signupReason" placeholder="Ex: Almoxarifado, Transporte, Cia, visitante externo...">
+                    </div>
+                </div>
+                <div class="login-actions">
+                    <button type="submit" class="btn btn-primary">Enviar solicitação</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeSignupRequestModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Gerenciamento de Usuários -->
+    <div class="modal" id="userManagementModal">
+        <div class="modal-content" style="max-width: 1120px;">
+            <div class="modal-header">
+                <h2>👥 Gerenciamento de Usuários</h2>
+                <button class="close-modal" onclick="closeUserManagementModal()">✕</button>
+            </div>
+            <div class="login-info-box">
+                Área restrita ao perfil GESTOR. Aqui é possível aprovar solicitações, cadastrar usuários, alterar perfil/status e redefinir senha.
+            </div>
+            <div class="login-profile-card">
+                <h3 style="color: var(--secondary); margin-bottom:.8rem;">Cadastrar usuário manualmente</h3>
+                <div class="login-grid">
+                    <div class="form-group"><label>Nome</label><input type="text" id="adminNewUserName" placeholder="Nome completo"></div>
+                    <div class="form-group"><label>E-mail</label><input type="email" id="adminNewUserEmail" placeholder="usuario@dominio.com"></div>
+                    <div class="form-group"><label>Perfil</label><select id="adminNewUserProfile"><option>OPERADOR</option><option>VISITANTE</option><option>GESTOR</option></select></div>
+                    <div class="form-group"><label>Senha inicial</label><input type="password" id="adminNewUserPassword" placeholder="Mínimo 8 caracteres, letras e números"></div>
+                </div>
+                <button class="btn btn-primary" onclick="createUserFromAdmin()">Criar usuário</button>
+                <button class="btn btn-secondary" onclick="loadUserManagementData()">Atualizar lista</button>
+            </div>
+            <div id="userManagementContent" style="margin-top:1rem;">Carregue os dados de usuários.</div>
         </div>
     </div>
 
@@ -2218,10 +2292,9 @@ function openLoginModal() {
     const modal = document.getElementById('systemLoginModal');
     const user = getCurrentSystemUser();
     const emailInput = document.getElementById('systemLoginEmail');
-    const profileInput = document.getElementById('systemLoginLocalProfile');
+    const passwordInput = document.getElementById('systemLoginPassword');
     if (emailInput) emailInput.value = user.email || DEFAULT_GESTOR_EMAIL;
-    if (profileInput) profileInput.value = normalizeSystemProfile(user.perfil || 'GESTOR');
-    updateLoginProfileHint();
+    if (passwordInput) passwordInput.value = '';
     updateLoginConnectionInfo();
     if (modal) modal.classList.add('active');
 }
@@ -2232,77 +2305,71 @@ function closeLoginModal() {
 }
 
 function updateLoginProfileHint() {
-    const profile = document.getElementById('systemLoginLocalProfile')?.value || 'VISITANTE';
-    const hint = document.getElementById('loginProfileHint');
-    if (hint) hint.textContent = getProfileHint(profile);
+    // Mantida apenas para compatibilidade com versões anteriores do HTML.
+}
+
+function hasValidOnlineSession() {
+    const user = getCurrentSystemUser();
+    return !!(user && user.email && user.authToken && String(user.status || '').toUpperCase() === 'ATIVO');
 }
 
 async function doSystemLogin() {
     loadOnlineDatabaseSettings();
     const email = String(document.getElementById('systemLoginEmail')?.value || '').trim().toLowerCase();
-    if (!email) {
-        showBudgetError('Login bloqueado: informe o e-mail do usuário.');
+    const password = String(document.getElementById('systemLoginPassword')?.value || '');
+    if (!email || !password) {
+        showBudgetError('Login bloqueado: informe e-mail e senha.');
         return;
     }
-
-    if (isOnlineDatabaseReady()) {
-        try {
-            const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'login', email, _: Date.now() });
-            const res = await jsonpRequestWithRetry(url, 3, 20000);
-            if (!res || res.success !== true || !res.user) {
-                throw new Error((res && res.message) ? res.message : 'Resposta inválida do banco online.');
-            }
-            if (String(res.user.status || '').toUpperCase() !== 'ATIVO') {
-                throw new Error('Usuário não cadastrado ou inativo na aba USUARIOS.');
-            }
-            applyOnlineUser(res.user);
-            saveSystemUserSession(getCurrentSystemUser());
-            updateSystemUserInterface();
-            closeLoginModal();
-            await loadOnlineBudgetData(false);
-            showAlert(`Login realizado como ${currentSystemUser.nome || currentSystemUser.email} (${currentSystemUser.perfil}).`);
-            return;
-        } catch (err) {
-            showBudgetError('Falha no login online: ' + (err.message || err));
-            return;
-        }
+    if (!isOnlineDatabaseReady()) {
+        showBudgetError('Banco online não está ativo. O login por senha depende do Apps Script publicado.');
+        return;
     }
-
-    const localProfile = normalizeSystemProfile(document.getElementById('systemLoginLocalProfile')?.value || (email === DEFAULT_GESTOR_EMAIL ? 'GESTOR' : 'OPERADOR'));
-    applyOnlineUser({
-        id_usuario: 'LOCAL_' + Date.now(),
-        email,
-        nome: email === DEFAULT_GESTOR_EMAIL ? 'Transportes 6oBBM' : email,
-        perfil: localProfile,
-        status: 'ATIVO'
-    });
-    saveSystemUserSession(getCurrentSystemUser());
-    updateSystemUserInterface();
-    closeLoginModal();
-    showAlert(`Login local realizado como ${currentSystemUser.nome || currentSystemUser.email} (${currentSystemUser.perfil}).`);
+    try {
+        const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'login', email, password, _: Date.now() });
+        const res = await jsonpRequestWithRetry(url, 3, 25000);
+        if (!res || res.success !== true || !res.user) {
+            throw new Error((res && res.message) ? res.message : 'Resposta inválida do banco online.');
+        }
+        applyOnlineUser(res.user);
+        saveSystemUserSession(getCurrentSystemUser());
+        updateSystemUserInterface();
+        closeLoginModal();
+        await loadOnlineBudgetData(false);
+        const mustChange = String(res.user.precisa_trocar_senha || '').toUpperCase() === 'SIM';
+        showAlert(`Login realizado como ${currentSystemUser.nome || currentSystemUser.email} (${currentSystemUser.perfil}).`);
+        if (mustChange) {
+            setTimeout(() => showBudgetError('Senha temporária detectada. Use “Alterar minha senha” para criar uma senha definitiva.'), 300);
+        }
+    } catch (err) {
+        showBudgetError('Falha no login: ' + (err.message || err));
+    }
 }
 
-function doSystemLogout() {
+async function doSystemLogout() {
+    try {
+        if (isOnlineDatabaseReady() && hasValidOnlineSession()) {
+            await onlineDbRequest({ action: 'logout' }, 1, 10000);
+        }
+    } catch (e) {
+        console.warn('Falha ao encerrar sessão no backend:', e);
+    }
     clearSystemUserSession();
-    currentSystemUser = { email: '', nome: 'Visitante', perfil: 'VISITANTE', status: 'LOCAL' };
+    currentSystemUser = { email: '', nome: 'Visitante', perfil: 'VISITANTE', status: 'LOCAL', authToken: '' };
     updateSystemUserInterface();
     closeLoginModal();
-    showAlert('Usuário desconectado. O sistema está em modo visitante.');
+    showAlert('Usuário desconectado. Faça login para acessar os dados online.');
 }
 
 function loginAsVisitor() {
-    applyOnlineUser({ id_usuario: 'VISITANTE', email: '', nome: 'Visitante', perfil: 'VISITANTE', status: 'ATIVO' });
-    saveSystemUserSession(getCurrentSystemUser());
-    updateSystemUserInterface();
-    closeLoginModal();
+    showBudgetError('Acesso visitante também deve ser cadastrado e aprovado pelo gestor. Use e-mail e senha de um usuário VISITANTE ou solicite cadastro.');
 }
 
 async function testOnlineDatabaseLogin() {
     saveOnlineDatabaseSettings();
     if (!isOnlineDatabaseReady()) return;
-    const email = String(document.getElementById('systemLoginEmail')?.value || '').trim().toLowerCase();
     try {
-        const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'ping', email, _: Date.now() });
+        const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'ping', _: Date.now() });
         const res = await jsonpRequestWithRetry(url, 3, 20000);
         if (!res || res.success !== true) throw new Error((res && res.message) ? res.message : 'Sem resposta válida.');
         showAlert('Conexão com o banco online testada com sucesso.');
@@ -2311,14 +2378,217 @@ async function testOnlineDatabaseLogin() {
     }
 }
 
+async function setupOnlineDatabase() {
+    if (!isOnlineDatabaseReady()) {
+        showBudgetError('Banco online não está ativo. Confira a URL /exec.');
+        return;
+    }
+    try {
+        const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'setupDatabase', _: Date.now() });
+        const res = await jsonpRequestWithRetry(url, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao conferir estrutura do banco.');
+        showAlert('Estrutura do banco online conferida/atualizada.');
+    } catch (err) {
+        showBudgetError('Falha ao conferir estrutura do banco: ' + (err.message || err));
+    }
+}
+
+function openSignupRequestModal() {
+    if (!isOnlineDatabaseReady()) {
+        showBudgetError('Banco online não está ativo. A solicitação de cadastro depende do Apps Script.');
+        return;
+    }
+    closeLoginModal();
+    const modal = document.getElementById('signupRequestModal');
+    const email = document.getElementById('systemLoginEmail')?.value || '';
+    if (document.getElementById('signupEmail')) document.getElementById('signupEmail').value = email;
+    if (modal) modal.classList.add('active');
+}
+
+function closeSignupRequestModal() {
+    const modal = document.getElementById('signupRequestModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function submitSignupRequest(event) {
+    if (event) event.preventDefault();
+    const nome = String(document.getElementById('signupName')?.value || '').trim();
+    const email = String(document.getElementById('signupEmail')?.value || '').trim().toLowerCase();
+    const perfil = String(document.getElementById('signupProfile')?.value || 'OPERADOR').trim().toUpperCase();
+    const password = String(document.getElementById('signupPassword')?.value || '');
+    const confirmPassword = String(document.getElementById('signupPasswordConfirm')?.value || '');
+    const justificativa = String(document.getElementById('signupReason')?.value || '').trim();
+    if (!nome || !email || !password) { showBudgetError('Informe nome, e-mail e senha.'); return; }
+    if (password !== confirmPassword) { showBudgetError('As senhas não conferem.'); return; }
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) { showBudgetError('A senha deve ter pelo menos 8 caracteres, com letras e números.'); return; }
+    try {
+        const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'requestSignup', nome, email, perfil, password, justificativa, _: Date.now() });
+        const res = await jsonpRequestWithRetry(url, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao enviar solicitação.');
+        closeSignupRequestModal();
+        showAlert('Solicitação enviada. Aguarde aprovação do gestor.');
+    } catch (err) {
+        showBudgetError('Falha ao solicitar cadastro: ' + (err.message || err));
+    }
+}
+
+async function changeOwnPassword() {
+    if (!hasValidOnlineSession()) {
+        showBudgetError('Faça login antes de alterar a senha.');
+        return;
+    }
+    const oldPassword = prompt('Informe a senha atual:');
+    if (!oldPassword) return;
+    const newPassword = prompt('Informe a nova senha (mínimo 8 caracteres, letras e números):');
+    if (!newPassword) return;
+    const confirmPassword = prompt('Confirme a nova senha:');
+    if (newPassword !== confirmPassword) { showBudgetError('As senhas não conferem.'); return; }
+    try {
+        const res = await onlineDbRequest({ action: 'changePassword', oldPassword, newPassword }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao alterar senha.');
+        showAlert('Senha alterada com sucesso.');
+    } catch (err) {
+        showBudgetError('Falha ao alterar senha: ' + (err.message || err));
+    }
+}
+
+function openUserManagementModal() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'gerenciar usuários')) return;
+    const modal = document.getElementById('userManagementModal');
+    if (modal) modal.classList.add('active');
+    loadUserManagementData();
+}
+
+function closeUserManagementModal() {
+    const modal = document.getElementById('userManagementModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function loadUserManagementData() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'gerenciar usuários')) return;
+    const content = document.getElementById('userManagementContent');
+    if (content) content.innerHTML = '<div style="color:var(--text-muted);">Carregando usuários e solicitações...</div>';
+    try {
+        const res = await onlineDbRequest({ action: 'adminData' }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao carregar usuários.');
+        renderUserManagementPanel(res.usuarios || [], res.solicitacoes || []);
+    } catch (err) {
+        if (content) content.innerHTML = `<div style="color:crimson;">${escapeHTML(err.message || err)}</div>`;
+    }
+}
+
+function renderUserManagementPanel(users, requests) {
+    const content = document.getElementById('userManagementContent');
+    if (!content) return;
+    const pending = (requests || []).filter(r => String(r.status || '').toUpperCase() === 'PENDENTE');
+    const reqHtml = pending.length ? pending.map(r => `
+        <tr>
+            <td>${escapeHTML(r.nome)}</td>
+            <td>${escapeHTML(r.email)}</td>
+            <td>${escapeHTML(r.perfil_solicitado)}</td>
+            <td>${escapeHTML(r.justificativa || '')}</td>
+            <td>
+                <button class="btn btn-primary" style="padding:.35rem .6rem;" onclick="approveSignupRequest('${escapeHTML(r.id_solicitacao)}')">Aprovar</button>
+                <button class="btn btn-secondary" style="padding:.35rem .6rem;" onclick="rejectSignupRequest('${escapeHTML(r.id_solicitacao)}')">Rejeitar</button>
+            </td>
+        </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Nenhuma solicitação pendente.</td></tr>';
+    const usersHtml = (users || []).length ? users.map(u => `
+        <tr>
+            <td>${escapeHTML(u.nome)}</td>
+            <td>${escapeHTML(u.email)}</td>
+            <td>
+                <select id="profile_${escapeHTML(u.id_usuario)}"><option ${u.perfil==='GESTOR'?'selected':''}>GESTOR</option><option ${u.perfil==='OPERADOR'?'selected':''}>OPERADOR</option><option ${u.perfil==='VISITANTE'?'selected':''}>VISITANTE</option></select>
+            </td>
+            <td>
+                <select id="status_${escapeHTML(u.id_usuario)}"><option ${String(u.status).toUpperCase()==='ATIVO'?'selected':''}>ATIVO</option><option ${String(u.status).toUpperCase()==='INATIVO'?'selected':''}>INATIVO</option></select>
+            </td>
+            <td>${escapeHTML(u.senha_configurada || '')}</td>
+            <td>${escapeHTML(u.ultimo_login || '')}</td>
+            <td>
+                <button class="btn btn-primary" style="padding:.35rem .6rem;" onclick="updateUserFromAdmin('${escapeHTML(u.id_usuario)}')">Salvar</button>
+                <button class="btn btn-secondary" style="padding:.35rem .6rem;" onclick="resetPasswordFromAdmin('${escapeHTML(u.email)}')">Senha</button>
+            </td>
+        </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Nenhum usuário cadastrado.</td></tr>';
+    content.innerHTML = `
+        <div class="login-profile-card">
+            <h3 style="color:var(--secondary);margin-bottom:.8rem;">Solicitações pendentes</h3>
+            <div style="overflow:auto;"><table class="budget-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil solicitado</th><th>Justificativa</th><th>Ações</th></tr></thead><tbody>${reqHtml}</tbody></table></div>
+        </div>
+        <div class="login-profile-card" style="margin-top:1rem;">
+            <h3 style="color:var(--secondary);margin-bottom:.8rem;">Usuários cadastrados</h3>
+            <div style="overflow:auto;"><table class="budget-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Senha</th><th>Último login</th><th>Ações</th></tr></thead><tbody>${usersHtml}</tbody></table></div>
+        </div>`;
+}
+
+async function approveSignupRequest(id) {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'aprovar usuários')) return;
+    const perfil = prompt('Perfil final do usuário: GESTOR, OPERADOR ou VISITANTE', 'OPERADOR');
+    if (!perfil) return;
+    try {
+        const res = await onlineDbRequest({ action: 'approveSignup', id, perfil: String(perfil).toUpperCase() }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao aprovar.');
+        showAlert('Solicitação aprovada.');
+        await loadUserManagementData();
+    } catch (err) { showBudgetError('Falha ao aprovar usuário: ' + (err.message || err)); }
+}
+
+async function rejectSignupRequest(id) {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'rejeitar usuários')) return;
+    const motivo = prompt('Motivo/observação da rejeição:', 'Rejeitada pelo gestor.');
+    if (motivo === null) return;
+    try {
+        const res = await onlineDbRequest({ action: 'rejectSignup', id, motivo }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao rejeitar.');
+        showAlert('Solicitação rejeitada.');
+        await loadUserManagementData();
+    } catch (err) { showBudgetError('Falha ao rejeitar usuário: ' + (err.message || err)); }
+}
+
+async function createUserFromAdmin() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'criar usuários')) return;
+    const nome = String(document.getElementById('adminNewUserName')?.value || '').trim();
+    const email = String(document.getElementById('adminNewUserEmail')?.value || '').trim().toLowerCase();
+    const perfil = String(document.getElementById('adminNewUserProfile')?.value || 'OPERADOR').toUpperCase();
+    const password = String(document.getElementById('adminNewUserPassword')?.value || '');
+    if (!nome || !email || !password) { showBudgetError('Informe nome, e-mail e senha inicial.'); return; }
+    try {
+        const res = await onlineDbRequest({ action: 'createUser', userJson: JSON.stringify({ nome, email, perfil, status: 'ATIVO' }), password }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao criar usuário.');
+        showAlert('Usuário criado.');
+        ['adminNewUserName','adminNewUserEmail','adminNewUserPassword'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        await loadUserManagementData();
+    } catch (err) { showBudgetError('Falha ao criar usuário: ' + (err.message || err)); }
+}
+
+async function updateUserFromAdmin(id) {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'alterar usuários')) return;
+    const perfil = document.getElementById(`profile_${id}`)?.value || 'VISITANTE';
+    const status = document.getElementById(`status_${id}`)?.value || 'ATIVO';
+    try {
+        const res = await onlineDbRequest({ action: 'updateUser', id, patchJson: JSON.stringify({ perfil, status }) }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao atualizar usuário.');
+        showAlert('Usuário atualizado.');
+        await loadUserManagementData();
+    } catch (err) { showBudgetError('Falha ao atualizar usuário: ' + (err.message || err)); }
+}
+
+async function resetPasswordFromAdmin(email) {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'redefinir senhas')) return;
+    const password = prompt(`Nova senha temporária para ${email}:`);
+    if (!password) return;
+    try {
+        const res = await onlineDbRequest({ action: 'resetUserPassword', email, password }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao redefinir senha.');
+        showAlert('Senha redefinida. O usuário deverá alterá-la no próximo acesso.');
+        await loadUserManagementData();
+    } catch (err) { showBudgetError('Falha ao redefinir senha: ' + (err.message || err)); }
+}
+
 function openOnlineDatabaseSheet() {
     window.open(ONLINE_DATABASE_CONFIG.spreadsheetUrl, '_blank');
 }
 
-        // Expor para depuração / console
-        window.vehicles = vehicles;
-        window.maintenances = maintenances;
-        async function loadMaintenancesFromSheet() {
+async function loadMaintenancesFromSheet() {
     console.log("Buscando manutenções:", `${MAINTENANCE_WEBAPP_URL}?action=listMaint...`);
 
     try {
@@ -2780,8 +3050,10 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
             let budgetOk = false;
             try {
                 loadOnlineDatabaseSettings();
-                if (isOnlineDatabaseReady()) {
+                if (isOnlineDatabaseReady() && hasValidOnlineSession()) {
                     budgetOk = await loadOnlineBudgetData(true);
+                } else if (isOnlineDatabaseReady()) {
+                    setOnlineDbSyncStatus('Banco online ativo. Faça login para carregar contratos/orçamentos.');
                 }
             } catch (err) {
                 console.warn('Falha ao sincronizar banco online:', err);
@@ -5098,15 +5370,18 @@ function scheduleOnlineBudgetSync(delayMs = 250) {
 
 function getOnlineUserEmail() {
     const user = getCurrentSystemUser ? getCurrentSystemUser() : currentSystemUser;
-    return String(user?.email || DEFAULT_GESTOR_EMAIL || '').trim().toLowerCase();
+    return String(user?.email || '').trim().toLowerCase();
 }
 
 async function onlineDbRequest(params, tries = 3, timeoutMs = 30000) {
     if (!isOnlineDatabaseReady()) throw new Error('Banco online não configurado.');
-    const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, Object.assign({
-        email: getOnlineUserEmail(),
+    const user = getCurrentSystemUser();
+    const payload = Object.assign({
+        email: user?.email || '',
+        authToken: user?.authToken || '',
         _: Date.now()
-    }, params || {}));
+    }, params || {});
+    const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, payload);
     return await jsonpRequestWithRetry(url, tries, timeoutMs);
 }
 
@@ -5401,6 +5676,11 @@ async function loadOnlineBudgetData(showUserMessage = false) {
         if (showUserMessage) showBudgetError('Banco online não está ativo. Configure a URL /exec e marque Ativar Banco Online.');
         return false;
     }
+    if (!hasValidOnlineSession()) {
+        setOnlineDbSyncStatus('Faça login para carregar os dados online.');
+        if (showUserMessage) showBudgetError('Faça login com e-mail e senha para carregar os dados online.');
+        return false;
+    }
     try {
         setOnlineDbSyncStatus('Carregando dados do banco online...');
         const res = await onlineDbRequest({ action: 'initialData' }, 3, 45000);
@@ -5472,6 +5752,10 @@ async function onlineUpsertRecord(sheet, idField, record, localProfile) {
 
 async function syncBudgetDataOnline(options = {}) {
     if (onlineBudgetSyncRunning || !isOnlineDatabaseReady()) return false;
+    if (!hasValidOnlineSession()) {
+        setOnlineDbSyncStatus('Sincronização bloqueada: faça login com usuário autorizado.');
+        return false;
+    }
     onlineBudgetSyncRunning = true;
     const silent = options.silent === true;
     const profile = options.forceGestor === true ? 'GESTOR' : normalizeSystemProfile(getCurrentSystemUser()?.perfil);
@@ -5524,7 +5808,9 @@ function applyOnlineUser(user) {
         email: user.email || '',
         nome: user.nome || user.name || user.email || 'Usuário',
         perfil: String(user.perfil || user.profile || 'VISITANTE').toUpperCase(),
-        status: user.status || 'ATIVO'
+        status: user.status || 'ATIVO',
+        authToken: user.authToken || user.token || currentSystemUser?.authToken || '',
+        precisa_trocar_senha: user.precisa_trocar_senha || user.requiresPasswordChange || 'NAO'
     };
 }
 
@@ -5557,6 +5843,10 @@ function getCurrentUserProfile() {
 }
 
 function hasBudgetPermission(permission) {
+    const user = getCurrentSystemUser();
+    if (isOnlineDatabaseReady() && (!user || !user.email || !user.authToken || String(user.status || '').toUpperCase() !== 'ATIVO')) {
+        return false;
+    }
     const profile = getCurrentUserProfile();
     const rules = USER_PROFILE_RULES[profile] || USER_PROFILE_RULES.VISITANTE;
     return rules[permission] === true;
@@ -5564,31 +5854,22 @@ function hasBudgetPermission(permission) {
 
 function requireBudgetPermission(permission, actionLabel = 'executar esta ação') {
     if (hasBudgetPermission(permission)) return true;
-    showBudgetError(`Permissão negada: o perfil ${getCurrentUserProfile()} não pode ${actionLabel}.`);
+    showBudgetError(`Permissão negada: faça login com usuário autorizado. Perfil atual: ${getCurrentUserProfile()}. Ação bloqueada: ${actionLabel}.`);
     return false;
 }
 
 function askBudgetChangeIdentity(actionLabel) {
     const user = getCurrentSystemUser();
-    if (user && (user.email || user.nome)) {
+    if (user && user.email && (!isOnlineDatabaseReady() || user.authToken) && String(user.status || '').toUpperCase() === 'ATIVO') {
         return {
-            name: user.nome || user.email || 'Usuário local',
+            name: user.nome || user.email || 'Usuário',
             matricula: user.email || user.id_usuario || 'LOGIN',
             email: user.email || '',
-            perfil: user.perfil || 'GESTOR'
+            perfil: user.perfil || 'VISITANTE'
         };
     }
-    const name = prompt(`Identificação obrigatória: informe o nome de quem está ${actionLabel}:`);
-    if (!name || !String(name).trim()) {
-        showBudgetError('Alteração bloqueada: é obrigatório identificar o responsável pelo lançamento/edição.');
-        return null;
-    }
-    const matricula = prompt('Informe a matrícula ou identificação funcional:');
-    if (!matricula || !String(matricula).trim()) {
-        showBudgetError('Alteração bloqueada: é obrigatório informar matrícula ou identificação funcional.');
-        return null;
-    }
-    return { name: String(name).trim(), matricula: String(matricula).trim(), email: '', perfil: 'GESTOR' };
+    showBudgetError(`Alteração bloqueada: faça login antes de ${actionLabel}.`);
+    return null;
 }
 
 function recordBudgetHistory(tableName, recordId, action, beforeValue, afterValue, identity, note = '') {

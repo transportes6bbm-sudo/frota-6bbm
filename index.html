@@ -2027,8 +2027,8 @@ let budgetQuoteVehicleHighlightedIndex = -1;
 const ONLINE_DATABASE_CONFIG = {
     spreadsheetId: '1xjCIvNNQApEKLEp0R_lrdYShmbIhxItr1zAoy6nfcFw',
     spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/1xjCIvNNQApEKLEp0R_lrdYShmbIhxItr1zAoy6nfcFw/edit',
-    webAppUrl: '',
-    enabled: false
+    webAppUrl: 'https://script.google.com/macros/s/AKfycbxv4VcS7qAfKyQygQpKvwSfNaS5rojq8LpScwAYnviDPRr2zknWJStNccDdr9YlrcrG9A/exec',
+    enabled: true
 };
 
 let currentSystemUser = {
@@ -2064,8 +2064,15 @@ function loadOnlineDatabaseSettings() {
     try {
         const saved = JSON.parse(localStorage.getItem(ONLINE_DATABASE_STORAGE_KEY) || '{}');
         if (saved && typeof saved === 'object') {
-            if (saved.webAppUrl !== undefined) ONLINE_DATABASE_CONFIG.webAppUrl = String(saved.webAppUrl || '').trim();
-            if (saved.enabled !== undefined) ONLINE_DATABASE_CONFIG.enabled = saved.enabled === true || saved.enabled === 'true';
+            const savedUrl = String(saved.webAppUrl || '').trim();
+            // A URL oficial embutida no index tem prioridade quando a configuração local antiga estiver vazia.
+            // Isso evita que navegadores já usados continuem presos no modo local/teste.
+            if (savedUrl) {
+                ONLINE_DATABASE_CONFIG.webAppUrl = savedUrl;
+                ONLINE_DATABASE_CONFIG.enabled = saved.enabled === true || saved.enabled === 'true';
+            } else if (ONLINE_DATABASE_CONFIG.webAppUrl) {
+                ONLINE_DATABASE_CONFIG.enabled = true;
+            }
         }
     } catch (e) {
         console.warn('Não foi possível carregar configuração online:', e);

@@ -1120,7 +1120,7 @@ table{
             <div id="syncStatus" style="margin-top:6px; font-size:12px; opacity:0.9; display: flex; align-items: center; gap: 8px;">
                 Última atualização da planilha: <span id="lastSyncAt">—</span>
                 <span id="lastSyncOk" style="margin-left:8px; font-weight:600;"></span>
-                <button onclick="syncFleetFromSheet(true)" style="margin-left: 8px; padding: 4px 8px; background: rgba(25,118,210,0.7); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white; cursor: pointer; font-size: 11px;" title="Sincronizar agora com a planilha">🔄 Sincronizar</button>
+                <button onclick="syncAllOnlineData(true)" style="margin-left: 8px; padding: 4px 8px; background: rgba(25,118,210,0.7); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; color: white; cursor: pointer; font-size: 11px;" title="Sincronizar frota e banco online">🔄 Sincronizar</button>
             </div>
 
                     <div class="subtitle">6º Batalhão de Bombeiros Militar - Minas Gerais</div>
@@ -2066,17 +2066,24 @@ function getProfileHint(profile) {
 
 function loadOnlineDatabaseSettings() {
     try {
+        const embeddedUrl = String(ONLINE_DATABASE_CONFIG.webAppUrl || '').trim();
         const saved = JSON.parse(localStorage.getItem(ONLINE_DATABASE_STORAGE_KEY) || '{}');
-        if (saved && typeof saved === 'object') {
-            const savedUrl = String(saved.webAppUrl || '').trim();
-            // A URL oficial embutida no index tem prioridade quando a configuração local antiga estiver vazia.
-            // Isso evita que navegadores já usados continuem presos no modo local/teste.
-            if (savedUrl) {
-                ONLINE_DATABASE_CONFIG.webAppUrl = savedUrl;
-                ONLINE_DATABASE_CONFIG.enabled = saved.enabled === true || saved.enabled === 'true';
-            } else if (ONLINE_DATABASE_CONFIG.webAppUrl) {
-                ONLINE_DATABASE_CONFIG.enabled = true;
-            }
+        const savedUrl = String(saved?.webAppUrl || '').trim();
+
+        // Fonte única: quando o index já vem com URL /exec embutida, ela tem prioridade.
+        // Isso impede que uma configuração antiga do navegador deixe outra máquina em modo local/offline.
+        if (embeddedUrl && embeddedUrl.includes('/exec')) {
+            ONLINE_DATABASE_CONFIG.webAppUrl = embeddedUrl;
+            ONLINE_DATABASE_CONFIG.enabled = true;
+            persistOnlineDatabaseSettings();
+            return ONLINE_DATABASE_CONFIG;
+        }
+
+        if (savedUrl) {
+            ONLINE_DATABASE_CONFIG.webAppUrl = savedUrl;
+            ONLINE_DATABASE_CONFIG.enabled = saved.enabled === true || saved.enabled === 'true';
+        } else if (ONLINE_DATABASE_CONFIG.webAppUrl) {
+            ONLINE_DATABASE_CONFIG.enabled = true;
         }
     } catch (e) {
         console.warn('Não foi possível carregar configuração online:', e);
@@ -2760,6 +2767,27 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
         
             okEl.textContent = ok ? '● sincronizado' : '● falha ao sincronizar';
             okEl.style.color = ok ? 'green' : 'crimson';
+        }
+
+        async function syncAllOnlineData(force = true) {
+            let fleetOk = false;
+            try {
+                fleetOk = await syncFleetFromSheet(force);
+            } catch (err) {
+                console.warn('Falha ao sincronizar frota:', err);
+            }
+
+            let budgetOk = false;
+            try {
+                loadOnlineDatabaseSettings();
+                if (isOnlineDatabaseReady()) {
+                    budgetOk = await loadOnlineBudgetData(true);
+                }
+            } catch (err) {
+                console.warn('Falha ao sincronizar banco online:', err);
+            }
+
+            return fleetOk || budgetOk;
         }
 
         // === AUTENTICAÇÃO / LOGIN POR PERFIL ===
@@ -5060,7 +5088,7 @@ function setOnlineDbSyncStatus(message, isError = false) {
     console.log('[Banco online]', message);
 }
 
-function scheduleOnlineBudgetSync(delayMs = 1200) {
+function scheduleOnlineBudgetSync(delayMs = 250) {
     if (!isOnlineDatabaseReady()) return;
     if (onlineBudgetSyncTimer) clearTimeout(onlineBudgetSyncTimer);
     onlineBudgetSyncTimer = setTimeout(() => {
@@ -5366,6 +5394,8 @@ function sanitizeOnlineArray(arr, mapper) {
     return (arr || []).map(mapper).filter(x => x && x.id);
 }
 
+let optionsOnlineSeedInProgress = false;
+
 async function loadOnlineBudgetData(showUserMessage = false) {
     if (!isOnlineDatabaseReady()) {
         if (showUserMessage) showBudgetError('Banco online não está ativo. Configure a URL /exec e marque Ativar Banco Online.');
@@ -5377,6 +5407,19 @@ async function loadOnlineBudgetData(showUserMessage = false) {
         if (!res || res.success !== true) throw new Error(res?.message || 'Resposta inválida do banco online.');
 
         if (!onlineBudgetResponseHasData(res) && localBudgetHasData()) {
+            const email = getOnlineUserEmail();
+            const canSeedOnline = String(email).toLowerCase() === String(DEFAULT_GESTOR_EMAIL).toLowerCase() || hasBudgetPermission('gerenciar_usuarios');
+            if (canSeedOnline && !optionsOnlineSeedInProgress) {
+                optionsOnlineSeedInProgress = true;
+                try {
+                    setOnlineDbSyncStatus('Banco online vazio. Enviando automaticamente os dados locais desta máquina para o banco online...');
+                    await syncBudgetDataOnline({ silent: true, forceGestor: true });
+                    setOnlineDbSyncStatus('Dados locais enviados. Recarregando banco online...');
+                    return await loadOnlineBudgetData(showUserMessage);
+                } finally {
+                    optionsOnlineSeedInProgress = false;
+                }
+            }
             setOnlineDbSyncStatus('Banco online está vazio. Os dados locais foram preservados nesta máquina. Use “Enviar Dados Locais para o Banco Online” na máquina que possui os cadastros.');
             if (showUserMessage) showBudgetError('O banco online está vazio. Na máquina onde os contratos aparecem, clique em “Enviar Dados Locais para o Banco Online”.');
             return false;
@@ -5411,7 +5454,10 @@ async function loadOnlineBudgetData(showUserMessage = false) {
 
 async function onlineUpsertRecord(sheet, idField, record, localProfile) {
     if (!record || !record[idField]) return;
-    const profile = normalizeSystemProfile(localProfile || getCurrentSystemUser()?.perfil);
+    const email = getOnlineUserEmail();
+    const profile = String(email).toLowerCase() === String(DEFAULT_GESTOR_EMAIL).toLowerCase()
+        ? 'GESTOR'
+        : normalizeSystemProfile(localProfile || getCurrentSystemUser()?.perfil);
     const action = profile === 'GESTOR' ? 'upsert' : 'insertIfMissing';
     const res = await onlineDbRequest({
         action,
@@ -5428,7 +5474,7 @@ async function syncBudgetDataOnline(options = {}) {
     if (onlineBudgetSyncRunning || !isOnlineDatabaseReady()) return false;
     onlineBudgetSyncRunning = true;
     const silent = options.silent === true;
-    const profile = normalizeSystemProfile(getCurrentSystemUser()?.perfil);
+    const profile = options.forceGestor === true ? 'GESTOR' : normalizeSystemProfile(getCurrentSystemUser()?.perfil);
     try {
         if (!silent) setOnlineDbSyncStatus('Enviando dados locais ao banco online...');
         const jobs = [];
@@ -7328,6 +7374,26 @@ function deleteBudgetQuote(quoteId) {
 
 initializeData();
         bootSyncPlanilhaVerdade();
+
+// Mantém as máquinas alinhadas com o banco online. Se houver pendência local, envia primeiro;
+// se não houver, recarrega o banco online periodicamente.
+setInterval(async function() {
+    try {
+        if (!isOnlineDatabaseReady()) return;
+        const pending = localStorage.getItem('budget-online-sync-pending-6bbm');
+        if (pending) {
+            await syncBudgetDataOnline({ silent: true });
+        } else {
+            await loadOnlineBudgetData(false);
+        }
+    } catch (err) {
+        console.warn('Sincronização periódica do banco online falhou:', err);
+    }
+}, 60000);
+
+window.addEventListener('online', function() {
+    try { scheduleOnlineBudgetSync(500); } catch (e) {}
+});
 
 // Fecha a lista de pesquisa de viatura ao clicar fora do campo.
 document.addEventListener('click', function(event) {

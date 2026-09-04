@@ -1463,6 +1463,9 @@ table{
                     <button class="btn btn-primary" onclick="saveOnlineDatabaseSettingsFromConfig()">💾 Salvar Banco Online</button>
                     <button class="btn btn-secondary" onclick="openLoginModal()">🔐 Abrir Login</button>
                     <button class="btn btn-secondary" onclick="openOnlineDatabaseSheet()">📄 Abrir Planilha do Banco</button>
+                    <button class="btn btn-secondary" onclick="loadOnlineBudgetData(true)">⬇️ Carregar Dados Online</button>
+                    <button class="btn btn-primary" onclick="migrateLocalBudgetDataToOnline()">⬆️ Enviar Dados Locais para o Banco Online</button>
+                    <div id="onlineDbSyncStatus" style="margin-top:.8rem; color: var(--text-muted); font-size:.9rem;">Banco online configurado para uso compartilhado. Se a outra máquina aparecer vazia, envie os dados locais da máquina onde os cadastros existem.</div>
                 </div>
 
                 <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--secondary);">
@@ -2249,6 +2252,7 @@ async function doSystemLogin() {
             saveSystemUserSession(getCurrentSystemUser());
             updateSystemUserInterface();
             closeLoginModal();
+            await loadOnlineBudgetData(false);
             showAlert(`Login realizado como ${currentSystemUser.nome || currentSystemUser.email} (${currentSystemUser.perfil}).`);
             return;
         } catch (err) {
@@ -2826,6 +2830,9 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
             
             // Verificar autenticação
             checkAuth();
+            if (isOnlineDatabaseReady()) {
+                setTimeout(() => loadOnlineBudgetData(false).catch(e => console.warn(e)), 800);
+            }
             
             // Carregar config do Google Sheets se existir
             if (googleSheetsConfig && googleSheetsConfig.apiKey) {
@@ -5023,8 +5030,7 @@ function saveBudgetStorage() {
 }
 
 function queueOnlineBudgetSync() {
-    // A sincronização online será ativada quando ONLINE_DATABASE_CONFIG.enabled = true
-    // e a URL do Apps Script publicado for preenchida em ONLINE_DATABASE_CONFIG.webAppUrl.
+    // Mantém uma fila local e tenta enviar os registros ao banco online.
     if (!ONLINE_DATABASE_CONFIG.enabled || !ONLINE_DATABASE_CONFIG.webAppUrl) return;
     try {
         localStorage.setItem('budget-online-sync-pending-6bbm', JSON.stringify({
@@ -5036,9 +5042,433 @@ function queueOnlineBudgetSync() {
             history: budgetHistory,
             queuedAt: new Date().toISOString()
         }));
+        scheduleOnlineBudgetSync();
     } catch (e) {
         console.warn('Não foi possível enfileirar sincronização online:', e);
     }
+}
+
+let onlineBudgetSyncTimer = null;
+let onlineBudgetSyncRunning = false;
+
+function setOnlineDbSyncStatus(message, isError = false) {
+    const el = document.getElementById('onlineDbSyncStatus');
+    if (el) {
+        el.textContent = message;
+        el.style.color = isError ? 'crimson' : 'var(--text-muted)';
+    }
+    console.log('[Banco online]', message);
+}
+
+function scheduleOnlineBudgetSync(delayMs = 1200) {
+    if (!isOnlineDatabaseReady()) return;
+    if (onlineBudgetSyncTimer) clearTimeout(onlineBudgetSyncTimer);
+    onlineBudgetSyncTimer = setTimeout(() => {
+        syncBudgetDataOnline({ silent: true }).catch(err => console.warn('Falha na sincronização online:', err));
+    }, delayMs);
+}
+
+function getOnlineUserEmail() {
+    const user = getCurrentSystemUser ? getCurrentSystemUser() : currentSystemUser;
+    return String(user?.email || DEFAULT_GESTOR_EMAIL || '').trim().toLowerCase();
+}
+
+async function onlineDbRequest(params, tries = 3, timeoutMs = 30000) {
+    if (!isOnlineDatabaseReady()) throw new Error('Banco online não configurado.');
+    const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, Object.assign({
+        email: getOnlineUserEmail(),
+        _: Date.now()
+    }, params || {}));
+    return await jsonpRequestWithRetry(url, tries, timeoutMs);
+}
+
+function onlineNumber(value) {
+    if (value === null || value === undefined || value === '') return 0;
+    if (typeof value === 'number') return value;
+    const txt = String(value).replace(/R\$/g, '').replace(/\./g, '').replace(',', '.').trim();
+    const n = parseFloat(txt);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function onlineDate(value) {
+    if (!value) return '';
+    if (value instanceof Date && !isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+    const txt = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(txt)) return txt.slice(0, 10);
+    const m = txt.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    return txt;
+}
+
+function isTruthyOnline(value) {
+    return value === true || String(value || '').toUpperCase().trim() === 'SIM' || String(value || '').toUpperCase().trim() === 'TRUE';
+}
+
+function localBudgetHasData() {
+    return (budgetContracts?.length || 0) + (budgetCommitments?.length || 0) + (budgetMovements?.length || 0) + (budgetAddenda?.length || 0) + (budgetQuotes?.length || 0) > 0;
+}
+
+function onlineBudgetResponseHasData(res) {
+    return (res?.contratos?.length || 0) + (res?.empenhos?.length || 0) + (res?.extrato?.length || 0) + (res?.aditivos?.length || 0) + (res?.orcamentos?.length || 0) > 0;
+}
+
+function dbContractToLocal(r) {
+    return {
+        id: r.id_contrato || r.id || '',
+        number: r.numero_contrato || r.number || '',
+        company: r.empresa || r.company || '',
+        cnpj: r.cnpj || '',
+        object: r.objeto || r.object || '',
+        startDate: onlineDate(r.data_inicio_original || r.startDate),
+        endDate: onlineDate(r.data_fim_original || r.endDate),
+        value: onlineNumber(r.valor_original ?? r.value),
+        status: r.situacao || r.status || 'ATIVO',
+        notes: r.observacoes || r.notes || '',
+        updatedAt: r.atualizado_em || r.updatedAt || r.criado_em || ''
+    };
+}
+
+function localContractToDb(c) {
+    const totals = getBudgetContractTotals(c.id);
+    return {
+        id_contrato: c.id,
+        numero_contrato: c.number || '',
+        empresa: c.company || '',
+        cnpj: c.cnpj || '',
+        objeto: c.object || '',
+        data_inicio_original: c.startDate || '',
+        data_fim_original: c.endDate || '',
+        valor_original: Number(c.value || 0),
+        valor_atual_calculado: totals.contracted,
+        vigencia_final_atual_calculada: getBudgetContractCurrentEndDate(c.id) || c.endDate || '',
+        situacao: c.status || 'ATIVO',
+        criado_por: c.createdBy || getOnlineUserEmail(),
+        criado_em: c.createdAt || c.updatedAt || new Date().toISOString(),
+        atualizado_por: c.updatedBy || getOnlineUserEmail(),
+        atualizado_em: c.updatedAt || new Date().toISOString(),
+        observacoes: c.notes || ''
+    };
+}
+
+function dbAddendumToLocal(r) {
+    const valueDelta = onlineNumber(r.valor_acrescido) - onlineNumber(r.valor_suprimido);
+    return {
+        id: r.id_aditivo || r.id || '',
+        contractId: r.id_contrato || r.contractId || '',
+        type: r.tipo_aditivo || r.type || 'PRAZO',
+        document: r.numero_termo || r.document || '',
+        date: onlineDate(r.data_aditivo || r.date),
+        valueDelta,
+        endDate: onlineDate(r.nova_data_fim || r.endDate),
+        responsible: r.responsavel || r.responsible || '',
+        notes: r.observacoes || r.notes || '',
+        updatedAt: r.criado_em || r.updatedAt || ''
+    };
+}
+
+function localAddendumToDb(a) {
+    return {
+        id_aditivo: a.id,
+        id_contrato: a.contractId || '',
+        numero_contrato: getBudgetContractById(a.contractId)?.number || '',
+        tipo_aditivo: a.type || '',
+        numero_termo: a.document || '',
+        data_aditivo: a.date || '',
+        valor_acrescido: Number(a.valueDelta || 0) > 0 ? Number(a.valueDelta || 0) : 0,
+        valor_suprimido: Number(a.valueDelta || 0) < 0 ? Math.abs(Number(a.valueDelta || 0)) : 0,
+        nova_data_fim: a.endDate || '',
+        responsavel: a.responsible || '',
+        usuario: getOnlineUserEmail(),
+        criado_em: a.updatedAt || new Date().toISOString(),
+        observacoes: a.notes || ''
+    };
+}
+
+function dbCommitmentToLocal(r) {
+    return {
+        id: r.id_empenho || r.id || '',
+        contractId: r.id_contrato || r.contractId || '',
+        number: r.numero_empenho || r.number || '',
+        type: r.tipo_lancamento || r.type || 'EMPENHO INICIAL',
+        date: onlineDate(r.data_lancamento || r.date),
+        value: onlineNumber(r.valor ?? r.value),
+        source: r.fonte || r.source || '',
+        nature: r.natureza_despesa || r.nature || '',
+        notes: r.observacoes || r.notes || '',
+        updatedAt: r.criado_em || r.updatedAt || ''
+    };
+}
+
+function localCommitmentToDb(e) {
+    return {
+        id_empenho: e.id,
+        id_contrato: e.contractId || '',
+        numero_contrato: getBudgetContractById(e.contractId)?.number || '',
+        numero_empenho: e.number || '',
+        tipo_lancamento: e.type || 'EMPENHO INICIAL',
+        data_lancamento: e.date || '',
+        valor: Number(e.value || 0),
+        fonte: e.source || '',
+        natureza_despesa: e.nature || '',
+        documento: e.document || e.number || '',
+        usuario: getOnlineUserEmail(),
+        criado_em: e.updatedAt || new Date().toISOString(),
+        observacoes: e.notes || ''
+    };
+}
+
+function dbMovementToLocal(r) {
+    return {
+        id: r.id_extrato || r.id || '',
+        contractId: r.id_contrato || r.contractId || '',
+        commitmentId: r.id_empenho || r.commitmentId || '',
+        type: r.origem_tipo || r.type || '',
+        document: r.documento_exibido || r.document || '',
+        date: onlineDate(r.data || r.date),
+        value: onlineNumber(r.entrada) > 0 ? onlineNumber(r.entrada) : onlineNumber(r.saida),
+        favored: r.favorecido || r.favored || '',
+        seiDocument: r.sei_lancamento || r.seiDocument || '',
+        notes: r.observacoes || r.notes || '',
+        createdAt: r.data_registro || r.createdAt || ''
+    };
+}
+
+function localMovementToDb(m) {
+    const isEntry = m.type === 'REFORÇO DE EMPENHO';
+    return {
+        id_extrato: m.id,
+        data: m.date || '',
+        id_contrato: m.contractId || getBudgetCommitmentById(m.commitmentId)?.contractId || '',
+        numero_contrato: getBudgetContractById(m.contractId || getBudgetCommitmentById(m.commitmentId)?.contractId)?.number || '',
+        id_empenho: m.commitmentId || '',
+        numero_empenho: getBudgetCommitmentById(m.commitmentId)?.number || '',
+        origem_tipo: m.type || '',
+        id_orcamento: m.quoteId || '',
+        documento_exibido: m.document || '',
+        entrada: isEntry ? Number(m.value || 0) : 0,
+        saida: isEntry ? 0 : Number(m.value || 0),
+        saldo_empenho_apos: '',
+        status_faturamento: '',
+        sei_lancamento: m.seiDocument || '',
+        usuario: getOnlineUserEmail(),
+        data_registro: m.createdAt || new Date().toISOString(),
+        observacoes: m.notes || ''
+    };
+}
+
+function dbQuoteToLocal(r) {
+    return {
+        id: r.id_orcamento || r.id || '',
+        number: r.numero_nota_branca || r.number || '',
+        officialPartsQuote: r.orcamento_oficial_pecas || r.officialPartsQuote || '',
+        officialServiceQuote: r.orcamento_oficial_servicos || r.officialServiceQuote || '',
+        contractId: r.id_contrato || r.contractId || '',
+        commitmentId: r.id_empenho || r.commitmentId || '',
+        date: onlineDate(r.data_orcamento || r.date),
+        maintenanceDate: onlineDate(r.data_manutencao || r.maintenanceDate),
+        vehicle: r.placa_prefixo || r.vehicle || '',
+        description: r.descricao_servico || r.description || '',
+        partsValue: onlineNumber(r.valor_pecas ?? r.partsValue),
+        serviceValue: onlineNumber(r.valor_servicos ?? r.serviceValue),
+        nfParts: r.nf_pecas || r.nfParts || '',
+        nfService: r.nf_servicos || r.nfService || '',
+        seiDocument: r.sei_lancamento_nf || r.seiDocument || '',
+        status: r.status_orcamento || r.status || 'ABERTO',
+        maintenanceType: r.tipo_manutencao || r.maintenanceType || 'PREVENTIVA',
+        maintenanceKm: parseInt(r.hodometro_servico || r.maintenanceKm || 0, 10) || 0,
+        maintenanceCost: onlineNumber(r.valor_total ?? r.maintenanceCost),
+        maintenanceSystemCategory: r.categoria_sistema || r.maintenanceSystemCategory || '',
+        maintenanceBrake: isTruthyOnline(r.manutencao_freios || r.maintenanceBrake),
+        maintenanceResponsible: r.responsavel_lancamento || r.maintenanceResponsible || '',
+        maintenanceMatricula: r.matricula_responsavel || r.maintenanceMatricula || '',
+        lastChangedBy: r.atualizado_por || r.usuario || r.lastChangedBy || '',
+        notes: r.observacoes_tecnicas || r.notes || '',
+        maintenanceNotes: r.observacoes_tecnicas || r.maintenanceNotes || '',
+        createdAt: r.criado_em || r.createdAt || '',
+        updatedAt: r.atualizado_em || r.updatedAt || ''
+    };
+}
+
+function localQuoteToDb(q) {
+    const total = getBudgetQuoteTotal(q);
+    return {
+        id_orcamento: q.id,
+        numero_nota_branca: q.number || '',
+        id_contrato: q.contractId || '',
+        numero_contrato: getBudgetContractById(q.contractId)?.number || '',
+        id_empenho: q.commitmentId || '',
+        numero_empenho: getBudgetCommitmentById(q.commitmentId)?.number || '',
+        data_orcamento: q.date || '',
+        data_manutencao: q.maintenanceDate || q.date || '',
+        placa_prefixo: q.vehicle || '',
+        viatura_cadastrada: findVehicleByFreeText(q.vehicle) ? 'SIM' : 'NAO',
+        unidade_lotacao: findVehicleByFreeText(q.vehicle)?.unidade || findVehicleByFreeText(q.vehicle)?.lotacao || '',
+        tipo_manutencao: q.maintenanceType || '',
+        descricao_servico: q.description || '',
+        hodometro_servico: Number(q.maintenanceKm || 0),
+        valor_pecas: Number(q.partsValue || 0),
+        valor_servicos: Number(q.serviceValue || 0),
+        valor_total: total,
+        orcamento_oficial_pecas: q.officialPartsQuote || '',
+        orcamento_oficial_servicos: q.officialServiceQuote || '',
+        nf_pecas: q.nfParts || '',
+        nf_servicos: q.nfService || '',
+        sei_lancamento_nf: q.seiDocument || '',
+        status_orcamento: q.status || getBudgetQuoteStatus(q),
+        status_faturamento: getBudgetQuoteStatus(q),
+        troca_oleo_motor: q.maintenanceSystemCategory === ENGINE_OIL_SYSTEM_CATEGORY ? 'SIM' : 'NAO',
+        manutencao_freios: q.maintenanceBrake ? 'SIM' : 'NAO',
+        categoria_sistema: q.maintenanceSystemCategory || '',
+        responsavel_lancamento: q.maintenanceResponsible || '',
+        matricula_responsavel: q.maintenanceMatricula || '',
+        usuario: getOnlineUserEmail(),
+        criado_em: q.createdAt || new Date().toISOString(),
+        atualizado_por: q.lastChangedBy || getOnlineUserEmail(),
+        atualizado_em: q.updatedAt || new Date().toISOString(),
+        observacoes_tecnicas: q.maintenanceNotes || q.notes || ''
+    };
+}
+
+function dbHistoryToLocal(r) {
+    return {
+        id: r.id_historico || r.id || '',
+        date: r.data_hora || r.date || '',
+        table: r.tabela_alterada || r.table || '',
+        recordId: r.id_registro || r.recordId || '',
+        action: r.acao || r.action || '',
+        before: r.valor_anterior || r.before || '',
+        after: r.valor_novo || r.after || '',
+        user: r.usuario || r.user || '',
+        email: r.email || '',
+        profile: r.perfil || r.profile || '',
+        notes: r.motivo_observacao || r.notes || ''
+    };
+}
+
+function localHistoryToDb(h) {
+    return {
+        id_historico: h.id || generateBudgetId('HIS'),
+        data_hora: h.date || new Date().toISOString(),
+        tabela_alterada: h.table || '',
+        id_registro: h.recordId || '',
+        acao: h.action || '',
+        campo_alterado: '',
+        valor_anterior: typeof h.before === 'string' ? h.before : JSON.stringify(h.before || ''),
+        valor_novo: typeof h.after === 'string' ? h.after : JSON.stringify(h.after || ''),
+        usuario: h.user || h.identity?.name || getOnlineUserEmail(),
+        email: h.email || getOnlineUserEmail(),
+        perfil: h.profile || normalizeSystemProfile(getCurrentSystemUser()?.perfil),
+        motivo_observacao: h.notes || h.identity?.reason || ''
+    };
+}
+
+function sanitizeOnlineArray(arr, mapper) {
+    return (arr || []).map(mapper).filter(x => x && x.id);
+}
+
+async function loadOnlineBudgetData(showUserMessage = false) {
+    if (!isOnlineDatabaseReady()) {
+        if (showUserMessage) showBudgetError('Banco online não está ativo. Configure a URL /exec e marque Ativar Banco Online.');
+        return false;
+    }
+    try {
+        setOnlineDbSyncStatus('Carregando dados do banco online...');
+        const res = await onlineDbRequest({ action: 'initialData' }, 3, 45000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Resposta inválida do banco online.');
+
+        if (!onlineBudgetResponseHasData(res) && localBudgetHasData()) {
+            setOnlineDbSyncStatus('Banco online está vazio. Os dados locais foram preservados nesta máquina. Use “Enviar Dados Locais para o Banco Online” na máquina que possui os cadastros.');
+            if (showUserMessage) showBudgetError('O banco online está vazio. Na máquina onde os contratos aparecem, clique em “Enviar Dados Locais para o Banco Online”.');
+            return false;
+        }
+
+        budgetContracts = sanitizeOnlineArray(res.contratos, dbContractToLocal);
+        budgetAddenda = sanitizeOnlineArray(res.aditivos, dbAddendumToLocal);
+        budgetCommitments = sanitizeOnlineArray(res.empenhos, dbCommitmentToLocal);
+        budgetMovements = sanitizeOnlineArray(res.extrato, dbMovementToLocal).filter(m => m.type !== 'ORÇAMENTO' && m.type !== 'ORCAMENTO');
+        budgetQuotes = sanitizeOnlineArray(res.orcamentos, dbQuoteToLocal);
+        budgetHistory = sanitizeOnlineArray(res.historico || [], dbHistoryToLocal);
+        normalizeBudgetCommitmentsAsCheckingAccounts();
+        saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
+        saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
+        saveToStorage(BUDGET_STORAGE_KEYS.movements, budgetMovements);
+        saveToStorage(BUDGET_STORAGE_KEYS.addenda, budgetAddenda);
+        saveToStorage(BUDGET_STORAGE_KEYS.quotes, budgetQuotes);
+        saveToStorage(BUDGET_STORAGE_KEYS.history, budgetHistory);
+        renderBudgetModule();
+        renderBudgetQuotesModule();
+        renderVehicles();
+        if (currentMaintenanceVehicleId) { try { renderMaintenanceList(); } catch(e){} }
+        setOnlineDbSyncStatus(`Dados online carregados: ${budgetContracts.length} contrato(s), ${budgetCommitments.length} empenho(s), ${budgetQuotes.length} orçamento(s).`);
+        if (showUserMessage) showAlert('Dados do banco online carregados com sucesso.');
+        return true;
+    } catch (err) {
+        setOnlineDbSyncStatus('Falha ao carregar dados online: ' + (err.message || err), true);
+        if (showUserMessage) showBudgetError('Falha ao carregar dados online: ' + (err.message || err));
+        return false;
+    }
+}
+
+async function onlineUpsertRecord(sheet, idField, record, localProfile) {
+    if (!record || !record[idField]) return;
+    const profile = normalizeSystemProfile(localProfile || getCurrentSystemUser()?.perfil);
+    const action = profile === 'GESTOR' ? 'upsert' : 'insertIfMissing';
+    const res = await onlineDbRequest({
+        action,
+        sheet,
+        idField,
+        id: record[idField],
+        recordJson: JSON.stringify(record)
+    }, 3, 30000);
+    if (!res || res.success !== true) throw new Error(res?.message || `Falha ao sincronizar ${sheet}.`);
+    return res;
+}
+
+async function syncBudgetDataOnline(options = {}) {
+    if (onlineBudgetSyncRunning || !isOnlineDatabaseReady()) return false;
+    onlineBudgetSyncRunning = true;
+    const silent = options.silent === true;
+    const profile = normalizeSystemProfile(getCurrentSystemUser()?.perfil);
+    try {
+        if (!silent) setOnlineDbSyncStatus('Enviando dados locais ao banco online...');
+        const jobs = [];
+        for (const c of (budgetContracts || [])) jobs.push(['CONTRATOS', 'id_contrato', localContractToDb(c)]);
+        for (const a of (budgetAddenda || [])) jobs.push(['ADITIVOS_CONTRATO', 'id_aditivo', localAddendumToDb(a)]);
+        for (const e of (budgetCommitments || [])) jobs.push(['EMPENHOS', 'id_empenho', localCommitmentToDb(e)]);
+        for (const m of (budgetMovements || [])) jobs.push(['EXTRATO_ORCAMENTARIO', 'id_extrato', localMovementToDb(m)]);
+        for (const q of (budgetQuotes || [])) jobs.push(['ORCAMENTOS_MANUTENCOES', 'id_orcamento', localQuoteToDb(q)]);
+        for (const h of (budgetHistory || [])) jobs.push(['HISTORICO_ALTERACOES', 'id_historico', localHistoryToDb(h)]);
+        let count = 0;
+        for (const [sheet, idField, rec] of jobs) {
+            await onlineUpsertRecord(sheet, idField, rec, profile);
+            count += 1;
+        }
+        localStorage.removeItem('budget-online-sync-pending-6bbm');
+        setOnlineDbSyncStatus(`Banco online atualizado com ${count} registro(s).`);
+        if (!silent) showAlert('Dados locais enviados ao banco online com sucesso.');
+        return true;
+    } catch (err) {
+        setOnlineDbSyncStatus('Falha ao enviar dados ao banco online: ' + (err.message || err), true);
+        if (!silent) showBudgetError('Falha ao enviar dados ao banco online: ' + (err.message || err));
+        return false;
+    } finally {
+        onlineBudgetSyncRunning = false;
+    }
+}
+
+async function migrateLocalBudgetDataToOnline() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'migrar dados locais para o banco online')) return;
+    if (!localBudgetHasData()) {
+        showBudgetError('Não há contratos, empenhos ou orçamentos locais para enviar ao banco online nesta máquina. Faça essa operação na máquina onde os dados aparecem.');
+        return;
+    }
+    if (!isOnlineDatabaseReady()) {
+        showBudgetError('Banco online não está ativo. Confirme a URL /exec e marque Ativar Banco Online.');
+        return;
+    }
+    const ok = confirm('Enviar os dados locais desta máquina para o banco online? Depois disso, as outras máquinas poderão carregar os mesmos contratos, empenhos e orçamentos.' );
+    if (!ok) return;
+    await syncBudgetDataOnline({ silent: false });
 }
 
 function applyOnlineUser(user) {

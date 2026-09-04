@@ -1303,11 +1303,12 @@ table{
                         <th>Saldo a Empenhar</th>
                         <th>Saldo Disponível</th>
                         <th>Situação</th>
+                        <th>Última Movimentação</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody id="budgetContractsBody">
-                    <tr><td colspan="9" class="loading">Nenhum contrato cadastrado.</td></tr>
+                    <tr><td colspan="10" class="loading">Nenhum contrato cadastrado.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -5147,12 +5148,16 @@ function isBudgetDebitMovement(type) {
 }
 
 function getBudgetMovementBadge(type) {
-    if (type === 'PAGAMENTO DE NF') return 'badge-success';
-    if (type === 'ANULAÇÃO DE CRÉDITO') return 'badge-warning';
-    if (type === 'CANCELAMENTO DE RESTOS A PAGAR') return 'badge-danger';
-    if (type === 'REFORÇO DE EMPENHO') return 'badge-info';
-    if (type === 'ORÇAMENTO') return 'badge-warning';
-    if (type === 'ORÇAMENTO FATURADO') return 'badge-success';
+    const normalizedType = String(type || '').toUpperCase();
+    if (normalizedType === 'PAGAMENTO DE NF') return 'badge-success';
+    if (normalizedType === 'ANULAÇÃO DE CRÉDITO') return 'badge-warning';
+    if (normalizedType === 'CANCELAMENTO DE RESTOS A PAGAR') return 'badge-danger';
+    if (normalizedType === 'REFORÇO DE EMPENHO') return 'badge-info';
+    if (normalizedType === 'ORÇAMENTO') return 'badge-warning';
+    if (normalizedType === 'ORÇAMENTO FATURADO') return 'badge-success';
+    if (normalizedType.includes('NOTA FISCAL') || normalizedType.includes('NF ')) return 'badge-success';
+    if (normalizedType.includes('ADITIVO') || normalizedType.includes('EMPENHO INICIAL')) return 'badge-info';
+    if (normalizedType.includes('SUPRESSÃO') || normalizedType.includes('CANCELADO')) return 'badge-danger';
     return 'badge-info';
 }
 
@@ -5377,6 +5382,117 @@ function getBudgetGlobalTotals() {
     }, { contracted: 0, committed: 0, toCommit: 0, paid: 0, canceled: 0, quotesReserved: 0, balance: 0 });
 }
 
+function getBudgetMovementTimestamp(entry) {
+    const candidates = [entry?.movementDate, entry?.updatedAt, entry?.createdAt, entry?.date];
+    for (const value of candidates) {
+        const parsed = parseDateValue(value);
+        if (parsed) return parsed.getTime();
+    }
+    return 0;
+}
+
+function getBudgetContractLatestMovement(contractId) {
+    const entries = [];
+
+    getBudgetAddendaForContract(contractId).forEach(a => {
+        const delta = Number(a.valueDelta || 0);
+        const movementType = delta < 0 ? 'SUPRESSÃO CONTRATUAL' : (delta > 0 ? 'ADITIVO DE VALOR' : 'PRORROGAÇÃO DE PRAZO');
+        entries.push({
+            id: a.id,
+            type: movementType,
+            document: a.term || a.number || a.type || 'Aditivo/Prorrogação',
+            date: a.date || a.createdAt || a.updatedAt,
+            movementDate: a.date,
+            updatedAt: a.updatedAt,
+            createdAt: a.createdAt,
+            entrada: delta > 0 ? delta : 0,
+            saida: delta < 0 ? Math.abs(delta) : 0,
+            sourceType: 'ADDENDUM'
+        });
+    });
+
+    getBudgetCommitmentsForContract(contractId).forEach(e => {
+        entries.push({
+            id: e.id,
+            type: 'EMPENHO INICIAL',
+            document: e.number || 'Empenho inicial',
+            date: e.date || e.createdAt || e.updatedAt,
+            movementDate: e.date,
+            updatedAt: e.updatedAt,
+            createdAt: e.createdAt,
+            entrada: Number(e.value || 0),
+            saida: 0,
+            sourceType: 'COMMITMENT'
+        });
+    });
+
+    getBudgetMovementsForContract(contractId).forEach(m => {
+        const isCredit = isBudgetCreditMovement(m.type);
+        entries.push({
+            id: m.id,
+            type: m.type || 'MOVIMENTAÇÃO',
+            document: m.document || '—',
+            date: m.date || m.createdAt || m.updatedAt,
+            movementDate: m.date,
+            updatedAt: m.updatedAt,
+            createdAt: m.createdAt,
+            entrada: isCredit ? Number(m.value || 0) : 0,
+            saida: isCredit ? 0 : Number(m.value || 0),
+            sourceType: 'MOVEMENT'
+        });
+    });
+
+    getBudgetQuotesForContract(contractId).forEach(q => {
+        const status = getBudgetQuoteStatus(q);
+        const hasNf = !!String(q.nfParts || '').trim() || !!String(q.nfService || '').trim();
+        let movementType = 'ORÇAMENTO LANÇADO';
+        if (status === 'CANCELADO') movementType = 'ORÇAMENTO CANCELADO';
+        else if (hasNf) movementType = status === 'FATURADO' ? 'NOTA FISCAL LANÇADA' : 'NF PARCIAL LANÇADA';
+
+        entries.push({
+            id: q.id,
+            type: movementType,
+            document: getBudgetQuoteDisplayDocument(q),
+            date: hasNf ? (q.updatedAt || q.date || q.createdAt) : (q.date || q.createdAt || q.updatedAt),
+            movementDate: hasNf ? (q.updatedAt || q.date) : q.date,
+            updatedAt: q.updatedAt,
+            createdAt: q.createdAt,
+            entrada: 0,
+            saida: status === 'CANCELADO' ? 0 : getBudgetQuoteTotal(q),
+            sourceType: 'QUOTE'
+        });
+    });
+
+    entries.sort((a, b) => {
+        const diff = getBudgetMovementTimestamp(b) - getBudgetMovementTimestamp(a);
+        if (diff !== 0) return diff;
+        return String(b.id || '').localeCompare(String(a.id || ''), 'pt-BR');
+    });
+
+    return entries[0] || null;
+}
+
+function renderBudgetContractLastMovementMarker(contractId) {
+    const last = getBudgetContractLatestMovement(contractId);
+    if (!last) {
+        return `<span class="badge badge-info">Sem movimentação</span><br><small>—</small>`;
+    }
+
+    const valueLabel = Number(last.entrada || 0) > 0
+        ? `<strong class="saldo-positive">+ ${budgetMoney(last.entrada)}</strong>`
+        : (Number(last.saida || 0) > 0
+            ? `<strong class="saldo-danger">- ${budgetMoney(last.saida)}</strong>`
+            : `<span>Sem alteração de valor</span>`);
+
+    return `
+        <div class="last-budget-movement">
+            <span class="badge ${getBudgetMovementBadge(last.type)}">${escapeHTML(last.type)}</span><br>
+            <small>${budgetDateLabel(last.date)} • ${escapeHTML(last.document || '—')}</small><br>
+            ${valueLabel}
+        </div>
+    `;
+}
+
 // Migração de segurança: versões anteriores poderiam ter salvo reforços como empenhos duplicados.
 function normalizeBudgetCommitmentsAsCheckingAccounts() {
     if (!Array.isArray(budgetCommitments) || !budgetCommitments.length) return;
@@ -5476,7 +5592,7 @@ function renderBudgetContractsTable() {
     rows.sort((a, b) => String(a.number || '').localeCompare(String(b.number || ''), 'pt-BR'));
 
     if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="loading">Nenhum contrato cadastrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="loading">Nenhum contrato cadastrado.</td></tr>`;
         return;
     }
 
@@ -5493,6 +5609,7 @@ function renderBudgetContractsTable() {
                 <td><strong class="${saldoClass(t.toCommit)}">${budgetMoney(t.toCommit)}</strong></td>
                 <td><strong class="${saldoClass(t.balance)}">${budgetMoney(t.balance)}</strong></td>
                 <td><span class="badge ${getBudgetStatusBadge(c.status)}">${escapeHTML(c.status || 'N/A')}</span></td>
+                <td>${renderBudgetContractLastMovementMarker(c.id)}</td>
                 <td>
                     <div class="actions">
                         <button class="btn-icon" onclick="openBudgetDetailModal(decodeURIComponent('${id}'))" title="Ver contrato, aditivos, empenhos e extrato">👁️</button>

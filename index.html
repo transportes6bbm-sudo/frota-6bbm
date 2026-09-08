@@ -1528,7 +1528,7 @@ table{
                     <button class="btn btn-secondary" onclick="openOnlineDatabaseSheet()">📄 Abrir Planilha do Banco</button>
                     <button class="btn btn-secondary" onclick="loadOnlineBudgetData(true)">⬇️ Carregar Dados Online</button>
                     <button class="btn btn-primary" onclick="migrateLocalBudgetDataToOnline()">⬆️ Enviar Dados Locais para o Banco Online</button>
-                    <div id="onlineDbSyncStatus" style="margin-top:.8rem; color: var(--text-muted); font-size:.9rem;">Banco online configurado para uso compartilhado. Se a outra máquina aparecer vazia, envie os dados locais da máquina onde os cadastros existem.</div>
+                    <div id="onlineDbSyncStatus" style="margin-top:.8rem; color: var(--text-muted); font-size:.9rem;">Banco online centralizado: alterações autenticadas são gravadas no Google Sheets e distribuídas aos demais computadores. O armazenamento local funciona apenas como cache/fila temporária.</div>
                 </div>
 
                 <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--secondary);">
@@ -5554,7 +5554,7 @@ function exportMgmtDashboardPDF() {
 // =========================
 // MÓDULO ORÇAMENTÁRIO AVANÇADO
 // Contrato -> Aditivos/Prorrogações -> Empenhos -> Extrato -> Orçamentos/NFs
-// Dados persistidos em localStorage nesta versão do index.
+// Banco online = fonte central. localStorage é apenas cache/fila temporária para resiliência.
 // =========================
 const BUDGET_STORAGE_KEYS = {
     contracts: 'budget-contracts-6bbm',
@@ -8463,6 +8463,521 @@ window.checkAuth = function checkAuthV2() {
     }
     legacyCheckAuthV1();
 };
+
+
+// ==============================================================
+// AUTENTICAÇÃO + SINCRONIZAÇÃO V3 — BANCO ONLINE CENTRALIZADO
+// Google Sheets/Apps Script = fonte central; localStorage = cache/fila.
+// ==============================================================
+const ONLINE_MUTATION_QUEUE_KEY_V3 = 'budget-online-mutation-queue-6bbm-v3';
+const ONLINE_LEGACY_PENDING_KEY_V3 = 'budget-online-sync-pending-6bbm';
+
+const ONLINE_DATASET_CFG_V3 = {
+    contracts: { sheet: 'CONTRATOS', idField: 'id_contrato', source: () => budgetContracts || [], toDb: localContractToDb },
+    addenda: { sheet: 'ADITIVOS_CONTRATO', idField: 'id_aditivo', source: () => budgetAddenda || [], toDb: localAddendumToDb },
+    commitments: { sheet: 'EMPENHOS', idField: 'id_empenho', source: () => budgetCommitments || [], toDb: localCommitmentToDb },
+    movements: { sheet: 'EXTRATO_ORCAMENTARIO', idField: 'id_extrato', source: () => budgetMovements || [], toDb: localMovementToDb },
+    quotes: { sheet: 'ORCAMENTOS_MANUTENCOES', idField: 'id_orcamento', source: () => budgetQuotes || [], toDb: localQuoteToDb },
+    history: { sheet: 'HISTORICO_ALTERACOES', idField: 'id_historico', source: () => budgetHistory || [], toDb: localHistoryToDb }
+};
+
+function getOnlineMutationQueueV3() {
+    try {
+        const arr = JSON.parse(localStorage.getItem(ONLINE_MUTATION_QUEUE_KEY_V3) || '[]');
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+        console.warn('Falha ao ler fila online:', e);
+        return [];
+    }
+}
+
+function persistOnlineMutationQueueV3(queue) {
+    const arr = Array.isArray(queue) ? queue : [];
+    localStorage.setItem(ONLINE_MUTATION_QUEUE_KEY_V3, JSON.stringify(arr));
+    if (arr.length) {
+        localStorage.setItem(ONLINE_LEGACY_PENDING_KEY_V3, JSON.stringify({ v: 3, count: arr.length, queuedAt: new Date().toISOString() }));
+    } else {
+        localStorage.removeItem(ONLINE_LEGACY_PENDING_KEY_V3);
+    }
+}
+
+function enqueueOnlineMutationsV3(items) {
+    const current = getOnlineMutationQueueV3();
+    const merged = new Map();
+    [...current, ...(items || [])].forEach(item => {
+        if (!item || !item.dataset || !item.id) return;
+        merged.set(`${item.dataset}::${item.id}`, Object.assign({}, item, { queuedAt: new Date().toISOString() }));
+    });
+    const queue = Array.from(merged.values());
+    persistOnlineMutationQueueV3(queue);
+    return queue;
+}
+
+function readPersistedBudgetSnapshotV3() {
+    return {
+        contracts: loadFromStorage(BUDGET_STORAGE_KEYS.contracts) || [],
+        commitments: loadFromStorage(BUDGET_STORAGE_KEYS.commitments) || [],
+        movements: loadFromStorage(BUDGET_STORAGE_KEYS.movements) || [],
+        addenda: loadFromStorage(BUDGET_STORAGE_KEYS.addenda) || [],
+        quotes: loadFromStorage(BUDGET_STORAGE_KEYS.quotes) || [],
+        history: loadFromStorage(BUDGET_STORAGE_KEYS.history) || []
+    };
+}
+
+function currentBudgetSnapshotV3() {
+    return {
+        contracts: budgetContracts || [],
+        commitments: budgetCommitments || [],
+        movements: budgetMovements || [],
+        addenda: budgetAddenda || [],
+        quotes: budgetQuotes || [],
+        history: budgetHistory || []
+    };
+}
+
+function stableRecordJsonV3(record) {
+    try { return JSON.stringify(record || {}); } catch (e) { return String(record || ''); }
+}
+
+function diffBudgetSnapshotsV3(previous, next) {
+    const mutations = [];
+    Object.keys(ONLINE_DATASET_CFG_V3).forEach(dataset => {
+        const oldArr = Array.isArray(previous?.[dataset]) ? previous[dataset] : [];
+        const newArr = Array.isArray(next?.[dataset]) ? next[dataset] : [];
+        const oldMap = new Map(oldArr.filter(x => x && x.id).map(x => [String(x.id), x]));
+        const newMap = new Map(newArr.filter(x => x && x.id).map(x => [String(x.id), x]));
+
+        newMap.forEach((record, id) => {
+            const before = oldMap.get(id);
+            if (!before || stableRecordJsonV3(before) !== stableRecordJsonV3(record)) {
+                mutations.push({ op: 'upsert', dataset, id });
+            }
+        });
+        oldMap.forEach((record, id) => {
+            if (!newMap.has(id)) mutations.push({ op: 'delete', dataset, id });
+        });
+    });
+    return mutations;
+}
+
+function queueAllBudgetRecordsV3() {
+    const items = [];
+    Object.keys(ONLINE_DATASET_CFG_V3).forEach(dataset => {
+        ONLINE_DATASET_CFG_V3[dataset].source().forEach(record => {
+            if (record && record.id) items.push({ op: 'upsert', dataset, id: String(record.id) });
+        });
+    });
+    enqueueOnlineMutationsV3(items);
+    return items.length;
+}
+
+// Substitui o salvamento local-only por cache local + fila incremental para o banco central.
+saveBudgetStorage = function saveBudgetStorageOnlineV3() {
+    const previous = readPersistedBudgetSnapshotV3();
+    backupBudgetStorage('antes-de-salvar-alteracao-online-v3');
+
+    saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
+    saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
+    saveToStorage(BUDGET_STORAGE_KEYS.movements, budgetMovements);
+    saveToStorage(BUDGET_STORAGE_KEYS.addenda, budgetAddenda);
+    saveToStorage(BUDGET_STORAGE_KEYS.quotes, budgetQuotes);
+    saveToStorage(BUDGET_STORAGE_KEYS.history, budgetHistory);
+
+    const mutations = diffBudgetSnapshotsV3(previous, currentBudgetSnapshotV3());
+    if (mutations.length) enqueueOnlineMutationsV3(mutations);
+    queueOnlineBudgetSync();
+};
+
+queueOnlineBudgetSync = function queueOnlineBudgetSyncV3() {
+    if (!isOnlineDatabaseReady()) {
+        setOnlineDbSyncStatus('Alteração mantida em fila local. Banco online indisponível.', true);
+        return;
+    }
+    scheduleOnlineBudgetSync(60);
+};
+
+scheduleOnlineBudgetSync = function scheduleOnlineBudgetSyncV3(delayMs = 60) {
+    if (!isOnlineDatabaseReady()) return;
+    if (onlineBudgetSyncTimer) clearTimeout(onlineBudgetSyncTimer);
+    onlineBudgetSyncTimer = setTimeout(() => {
+        syncBudgetDataOnline({ silent: true }).catch(err => console.warn('Falha na sincronização online V3:', err));
+    }, delayMs);
+};
+
+function hasCentralOnlineSessionV3() {
+    const user = getCurrentSystemUser();
+    return !!(user && user.authToken && String(user.status || '').toUpperCase() === 'ATIVO' && String(user.authMode || 'ONLINE').toUpperCase() !== 'LOCAL');
+}
+
+hasValidOnlineSession = hasCentralOnlineSessionV3;
+window.hasValidOnlineSession = hasCentralOnlineSessionV3;
+
+syncBudgetDataOnline = async function syncBudgetDataOnlineV3(options = {}) {
+    if (onlineBudgetSyncRunning || !isOnlineDatabaseReady()) return false;
+    if (!hasCentralOnlineSessionV3()) {
+        setOnlineDbSyncStatus('Sincronização pendente: faça login para enviar as alterações ao banco central.');
+        return false;
+    }
+
+    if (options.forceGestor === true || options.forceAll === true || (options.silent === false && getOnlineMutationQueueV3().length === 0)) {
+        queueAllBudgetRecordsV3();
+    }
+
+    let queue = getOnlineMutationQueueV3();
+    if (!queue.length) {
+        setOnlineDbSyncStatus('Banco online sincronizado. Nenhuma alteração pendente.');
+        return true;
+    }
+
+    onlineBudgetSyncRunning = true;
+    const silent = options.silent === true;
+    let processed = 0;
+    try {
+        if (!silent) setOnlineDbSyncStatus(`Enviando ${queue.length} alteração(ões) ao banco central...`);
+        while (queue.length) {
+            const mutation = queue[0];
+            const cfg = ONLINE_DATASET_CFG_V3[mutation.dataset];
+            if (!cfg) {
+                queue.shift();
+                persistOnlineMutationQueueV3(queue);
+                continue;
+            }
+
+            if (mutation.op === 'delete') {
+                const res = await onlineDbRequest({
+                    action: 'delete',
+                    sheet: cfg.sheet,
+                    idField: cfg.idField,
+                    id: mutation.id
+                }, 3, 30000);
+                if (!res || res.success !== true) throw new Error(res?.message || `Falha ao excluir ${cfg.sheet} no banco online.`);
+            } else {
+                const localRecord = cfg.source().find(x => String(x?.id || '') === String(mutation.id));
+                if (!localRecord) {
+                    const res = await onlineDbRequest({
+                        action: 'delete', sheet: cfg.sheet, idField: cfg.idField, id: mutation.id
+                    }, 3, 30000);
+                    if (!res || res.success !== true) throw new Error(res?.message || `Falha ao conciliar exclusão em ${cfg.sheet}.`);
+                } else {
+                    const dbRecord = cfg.toDb(localRecord);
+                    const profile = normalizeSystemProfile(getCurrentSystemUser()?.perfil);
+                    const action = profile === 'GESTOR' ? 'upsert' : 'insertIfMissing';
+                    const res = await onlineDbRequest({
+                        action,
+                        sheet: cfg.sheet,
+                        idField: cfg.idField,
+                        id: dbRecord[cfg.idField],
+                        recordJson: JSON.stringify(dbRecord)
+                    }, 3, 30000);
+                    if (!res || res.success !== true) throw new Error(res?.message || `Falha ao sincronizar ${cfg.sheet}.`);
+                }
+            }
+
+            queue.shift();
+            processed += 1;
+            persistOnlineMutationQueueV3(queue);
+        }
+
+        setOnlineDbSyncStatus(`Banco central atualizado: ${processed} alteração(ões) enviada(s).`);
+        if (!silent) showAlert('Dados enviados ao banco online. As outras máquinas receberão as alterações automaticamente.');
+        return true;
+    } catch (err) {
+        persistOnlineMutationQueueV3(queue);
+        setOnlineDbSyncStatus('Falha no envio ao banco central: ' + (err.message || err), true);
+        if (!silent) showBudgetError('Falha ao enviar dados ao banco central: ' + (err.message || err));
+        return false;
+    } finally {
+        onlineBudgetSyncRunning = false;
+    }
+};
+window.syncBudgetDataOnline = syncBudgetDataOnline;
+
+migrateLocalBudgetDataToOnline = async function migrateLocalBudgetDataToOnlineV3() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'migrar dados locais para o banco online')) return;
+    if (!localBudgetHasData()) {
+        showBudgetError('Não há contratos, empenhos ou orçamentos locais para migrar nesta máquina.');
+        return;
+    }
+    if (!isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) {
+        showBudgetError('Faça login como GESTOR com o banco online ativo antes da migração.');
+        return;
+    }
+    if (!confirm('Enviar todos os dados existentes nesta máquina ao banco central? Use esta opção uma única vez na máquina que possui os cadastros mais completos.')) return;
+    queueAllBudgetRecordsV3();
+    await syncBudgetDataOnline({ silent: false });
+    await loadOnlineBudgetData(false);
+};
+window.migrateLocalBudgetDataToOnline = migrateLocalBudgetDataToOnline;
+
+// ---------- Autenticação V3: todos os usuários passam a existir no banco online ----------
+const applyOnlineUserBaseV3 = applyOnlineUser;
+applyOnlineUser = function applyOnlineUserCentralV3(user) {
+    applyOnlineUserBaseV3(user);
+    currentSystemUser.authMode = 'ONLINE';
+    currentSystemUser.cadastro_incompleto = user?.cadastro_incompleto || 'NAO';
+};
+window.applyOnlineUser = applyOnlineUser;
+
+loadSystemUserSession = function loadSystemUserSessionCentralV3() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(SYSTEM_USER_STORAGE_KEY) || 'null');
+        if (!saved || !saved.perfil) return;
+        // Sessões da versão local anterior não são mais aceitas: o usuário precisa autenticar no banco central.
+        if (String(saved.authMode || '').toUpperCase() === 'LOCAL') {
+            clearSystemUserSession();
+            return;
+        }
+        applyOnlineUser(saved);
+    } catch (e) {
+        console.warn('Não foi possível carregar a sessão online:', e);
+        clearSystemUserSession();
+    }
+};
+window.loadSystemUserSession = loadSystemUserSession;
+
+async function afterOnlineLoginV3() {
+    // Primeiro envia qualquer fila deixada por esta máquina; depois recarrega a fonte central.
+    if (getOnlineMutationQueueV3().length) await syncBudgetDataOnline({ silent: true });
+    await loadOnlineBudgetData(false);
+}
+
+doSystemLogin = async function doSystemLoginCentralV3() {
+    loadOnlineDatabaseSettings();
+    const usuario = validateBombeiroLogin(document.getElementById('systemLoginEmail')?.value || '');
+    const password = String(document.getElementById('systemLoginPassword')?.value || '');
+    if (!usuario || !password) {
+        showBudgetError('Informe o BM com 6 números e a senha.');
+        return;
+    }
+    if (!isOnlineDatabaseReady()) {
+        showBudgetError('Banco online indisponível. O login desta versão depende do banco central.');
+        return;
+    }
+    try {
+        const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'login', usuario, password, _: Date.now() });
+        const res = await jsonpRequestWithRetry(url, 3, 30000);
+        if (!res || res.success !== true || !res.user) throw new Error(res?.message || 'Resposta inválida do banco online.');
+        applyOnlineUser(res.user);
+        saveSystemUserSession(getCurrentSystemUser());
+        updateSystemUserInterface();
+        closeLoginModal();
+
+        if (String(currentSystemUser.cadastro_incompleto || '').toUpperCase() === 'SIM') {
+            pendingForcedPasswordChangeOldPassword = password;
+            openManagerProfileCompletionModalV2();
+            return;
+        }
+        if (String(currentSystemUser.precisa_trocar_senha || '').toUpperCase() === 'SIM') {
+            pendingForcedPasswordChangeOldPassword = password;
+            openForcePasswordChangeModal(true, password);
+            showAlert('Primeiro acesso identificado. Crie sua senha pessoal.');
+            return;
+        }
+
+        await afterOnlineLoginV3();
+        showAlert(`Login online realizado como ${currentSystemUser.nome || currentSystemUser.usuario} (${currentSystemUser.perfil}).`);
+    } catch (err) {
+        showBudgetError('Falha no login online: ' + (err.message || err));
+    }
+};
+window.doSystemLogin = doSystemLogin;
+
+completeBootstrapManagerProfile = async function completeBootstrapManagerProfileOnlineV3(event) {
+    if (event) event.preventDefault();
+    if (!hasCentralOnlineSessionV3()) {
+        showBudgetError('Sessão online inválida. Faça login novamente com o BM 155258.');
+        return;
+    }
+    const email = String(document.getElementById('bootstrapManagerEmail')?.value || '').trim().toLowerCase();
+    const cpf = normalizeCpf(document.getElementById('bootstrapManagerCpf')?.value || '');
+    const bm = validateBombeiroLogin(document.getElementById('bootstrapManagerBm')?.value || DEFAULT_GESTOR_LOGIN);
+    if (!email.endsWith('@gmail.com')) { showBudgetError('Informe um Gmail válido.'); return; }
+    if (!/^\d{11}$/.test(cpf)) { showBudgetError('Informe CPF com 11 números.'); return; }
+    if (bm !== DEFAULT_GESTOR_LOGIN) { showBudgetError(`O gestor inicial deve utilizar o BM ${DEFAULT_GESTOR_LOGIN}.`); return; }
+    try {
+        const res = await onlineDbRequest({ action: 'completeBootstrapManager', email, cpf, numero_bombeiro: bm }, 3, 30000);
+        if (!res || res.success !== true || !res.user) throw new Error(res?.message || 'Falha ao concluir cadastro do gestor.');
+        applyOnlineUser(res.user);
+        saveSystemUserSession(getCurrentSystemUser());
+        updateSystemUserInterface();
+        document.getElementById('managerProfileCompletionModal')?.classList.remove('active');
+        pendingForcedPasswordChangeOldPassword = DEFAULT_INITIAL_USER_PASSWORD;
+        openForcePasswordChangeModal(true, DEFAULT_INITIAL_USER_PASSWORD);
+        showAlert('Cadastro online do gestor concluído. Agora crie sua senha pessoal.');
+    } catch (err) {
+        showBudgetError('Falha ao concluir cadastro online: ' + (err.message || err));
+    }
+};
+window.completeBootstrapManagerProfile = completeBootstrapManagerProfile;
+
+const submitForcedPasswordChangeBaseV3 = window.submitForcedPasswordChange;
+submitForcedPasswordChange = async function submitForcedPasswordChangeOnlineV3(event) {
+    await submitForcedPasswordChangeBaseV3(event);
+    const user = getCurrentSystemUser();
+    if (hasCentralOnlineSessionV3() && String(user?.precisa_trocar_senha || '').toUpperCase() !== 'SIM') {
+        try { await afterOnlineLoginV3(); } catch (e) { console.warn(e); }
+    }
+};
+window.submitForcedPasswordChange = submitForcedPasswordChange;
+
+hasBudgetPermission = function hasBudgetPermissionCentralV3(permission) {
+    const user = getCurrentSystemUser();
+    if (!user || String(user.status || '').toUpperCase() !== 'ATIVO') return false;
+    if (isOnlineDatabaseReady() && !hasCentralOnlineSessionV3()) return false;
+    const profile = normalizeSystemProfile(user.perfil || 'VISITANTE');
+    return (USER_PROFILE_RULES[profile] || USER_PROFILE_RULES.VISITANTE)[permission] === true;
+};
+window.hasBudgetPermission = hasBudgetPermission;
+
+// Cadastro de usuários passa a gravar diretamente na aba USUARIOS do banco central.
+createUserFromCadastro = async function createUserFromCadastroOnlineV3() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'criar usuários')) return;
+    const nome = String(document.getElementById('cadastroNewUserName')?.value || '').trim();
+    const email = String(document.getElementById('cadastroNewUserEmail')?.value || '').trim().toLowerCase();
+    const cpf = normalizeCpf(document.getElementById('cadastroNewUserCpf')?.value || '');
+    const numero_bombeiro = validateBombeiroLogin(document.getElementById('cadastroNewUserBombeiro')?.value || '');
+    const perfil = normalizeSystemProfile(document.getElementById('cadastroNewUserProfile')?.value || 'OPERADOR');
+    if (!nome || !email || !cpf || !numero_bombeiro) { showBudgetError('Informe nome, Gmail, CPF e nº BM com 6 números.'); return; }
+    if (!email.endsWith('@gmail.com')) { showBudgetError('O e-mail deve ser um Gmail válido.'); return; }
+    if (!/^\d{11}$/.test(cpf)) { showBudgetError('CPF inválido. Informe os 11 números.'); return; }
+    try {
+        const record = { nome, email, cpf, numero_bombeiro, usuario: numero_bombeiro, perfil, status: 'ATIVO' };
+        const res = await onlineDbRequest({ action: 'createUser', userJson: JSON.stringify(record), password: DEFAULT_INITIAL_USER_PASSWORD }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao criar usuário online.');
+        clearCadastroUserForm();
+        await loadCadastroUsers();
+        showAlert(`Acesso online criado para ${numero_bombeiro}. Senha inicial: ${DEFAULT_INITIAL_USER_PASSWORD}.`);
+    } catch (err) {
+        showBudgetError('Falha ao criar usuário: ' + (err.message || err));
+    }
+};
+window.createUserFromCadastro = createUserFromCadastro;
+
+function cadastroProfileOptionsOnlineV3(user) {
+    const p = normalizeSystemProfile(user.perfil);
+    return ['GESTOR','OPERADOR','VISITANTE'].map(x => `<option value="${x}" ${x === p ? 'selected' : ''}>${x}</option>`).join('');
+}
+
+loadCadastroUsers = async function loadCadastroUsersOnlineV3() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'visualizar cadastro de usuários')) return;
+    const content = document.getElementById('cadastroUserManagementContent');
+    if (!content) return;
+    content.innerHTML = '<div class="loading">Carregando usuários do banco online...</div>';
+    try {
+        const res = await onlineDbRequest({ action: 'adminData' }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao carregar usuários.');
+        const users = (res.usuarios || []).sort((a,b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+        if (!users.length) { content.innerHTML = '<div class="empty-state">Nenhum usuário cadastrado.</div>'; return; }
+        content.innerHTML = `<div style="overflow:auto;"><table class="budget-table" style="width:100%; min-width:900px;">
+            <thead><tr><th>Nome</th><th>BM / Login</th><th>Gmail</th><th>CPF</th><th>Perfil</th><th>Status</th><th>Trocar senha?</th><th>Último login</th><th>Ações</th></tr></thead>
+            <tbody>${users.map(u => {
+                const login = escapeHTML(u.usuario || u.numero_bombeiro || '');
+                return `<tr>
+                    <td>${escapeHTML(u.nome || '')}</td>
+                    <td><strong>${login}</strong></td>
+                    <td>${escapeHTML(u.email || '')}</td>
+                    <td>${escapeHTML(u.cpf || '')}</td>
+                    <td><select id="cad_profile_${login}">${cadastroProfileOptionsOnlineV3(u)}</select></td>
+                    <td><select id="cad_status_${login}"><option value="ATIVO" ${String(u.status).toUpperCase()==='ATIVO'?'selected':''}>ATIVO</option><option value="INATIVO" ${String(u.status).toUpperCase()==='INATIVO'?'selected':''}>INATIVO</option></select></td>
+                    <td>${escapeHTML(u.precisa_trocar_senha || 'NAO')}</td>
+                    <td>${escapeHTML(u.ultimo_login || '—')}</td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn btn-primary" style="padding:.35rem .6rem;" onclick="saveCadastroUser('${login}', '${escapeHTML(u.id_usuario || '')}')">Salvar</button>
+                        <button class="btn btn-secondary" style="padding:.35rem .6rem;" onclick="resetCadastroPassword('${login}')">Senha inicial</button>
+                    </td>
+                </tr>`;
+            }).join('')}</tbody></table></div>`;
+    } catch (err) {
+        content.innerHTML = `<div style="color:crimson;">${escapeHTML(err.message || err)}</div>`;
+    }
+};
+window.loadCadastroUsers = loadCadastroUsers;
+
+saveCadastroUser = async function saveCadastroUserOnlineV3(usuario, idUsuario = '') {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'alterar nível de acesso')) return;
+    const perfil = normalizeSystemProfile(document.getElementById(`cad_profile_${usuario}`)?.value || 'VISITANTE');
+    const status = String(document.getElementById(`cad_status_${usuario}`)?.value || 'ATIVO').toUpperCase();
+    if (usuario === DEFAULT_GESTOR_LOGIN && (perfil !== 'GESTOR' || status !== 'ATIVO')) {
+        showBudgetError('O gestor inicial 155258 não pode ser rebaixado nem inativado.');
+        await loadCadastroUsers();
+        return;
+    }
+    try {
+        const res = await onlineDbRequest({ action: 'updateUser', id: idUsuario, usuario, patchJson: JSON.stringify({ perfil, status }) }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao atualizar usuário.');
+        await loadCadastroUsers();
+        showAlert('Nível de acesso atualizado no banco online.');
+    } catch (err) { showBudgetError('Falha ao atualizar usuário: ' + (err.message || err)); }
+};
+window.saveCadastroUser = saveCadastroUser;
+
+resetCadastroPassword = async function resetCadastroPasswordOnlineV3(usuario) {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'redefinir senha')) return;
+    if (!confirm(`Redefinir a senha de ${usuario} para ${DEFAULT_INITIAL_USER_PASSWORD}?`)) return;
+    try {
+        const res = await onlineDbRequest({ action: 'resetUserPassword', usuario, password: DEFAULT_INITIAL_USER_PASSWORD }, 3, 30000);
+        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao redefinir senha.');
+        await loadCadastroUsers();
+        showAlert(`Senha temporária redefinida para ${DEFAULT_INITIAL_USER_PASSWORD}.`);
+    } catch (err) { showBudgetError('Falha ao redefinir senha: ' + (err.message || err)); }
+};
+window.resetCadastroPassword = resetCadastroPassword;
+
+openUserManagementModal = function openUserManagementOnlineV3() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'gerenciar usuários')) return;
+    const btn = document.getElementById('cadastroTab');
+    switchTab('cadastro', btn || null);
+    loadCadastroUsers();
+};
+window.openUserManagementModal = openUserManagementModal;
+
+checkAuth = function checkAuthOnlineV3() {
+    loadOnlineDatabaseSettings();
+    loadSystemUserSession();
+    const user = getCurrentSystemUser();
+    updateSystemUserInterface();
+    if (hasCentralOnlineSessionV3()) {
+        if (String(user.cadastro_incompleto || '').toUpperCase() === 'SIM') {
+            setTimeout(openManagerProfileCompletionModalV2, 250);
+            return;
+        }
+        if (String(user.precisa_trocar_senha || '').toUpperCase() === 'SIM') {
+            setTimeout(() => openForcePasswordChangeModal(true, ''), 250);
+        }
+    }
+};
+window.checkAuth = checkAuth;
+
+// Atualização automática entre computadores: 20 s, ao retornar à aba e ao focar a janela.
+async function refreshCentralDataV3() {
+    try {
+        if (!isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) return;
+        if (getOnlineMutationQueueV3().length) {
+            await syncBudgetDataOnline({ silent: true });
+            return;
+        }
+        const editing = document.querySelector('#budgetContractModal.active, #budgetDetailModal.active, #budgetQuoteModal.active');
+        if (editing) return;
+        await loadOnlineBudgetData(false);
+    } catch (e) {
+        console.warn('Atualização central automática falhou:', e);
+    }
+}
+setInterval(refreshCentralDataV3, 20000);
+window.addEventListener('focus', refreshCentralDataV3);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshCentralDataV3(); });
+
+function installCentralOnlineBadgeV3() {
+    const host = document.getElementById('syncStatus');
+    if (!host || document.getElementById('centralOnlineBadge')) return;
+    const badge = document.createElement('span');
+    badge.id = 'centralOnlineBadge';
+    badge.style.marginLeft = '8px';
+    badge.style.fontWeight = '700';
+    badge.textContent = '🌐 Banco central';
+    host.appendChild(badge);
+}
+setTimeout(installCentralOnlineBadgeV3, 0);
 
 
 initializeData();

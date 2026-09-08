@@ -6166,15 +6166,29 @@ function requireBudgetPermission(permission, actionLabel = 'executar esta ação
 
 function askBudgetChangeIdentity(actionLabel) {
     const user = getCurrentSystemUser();
-    if (user && user.email && (!isOnlineDatabaseReady() || user.authToken) && String(user.status || '').toUpperCase() === 'ATIVO') {
+    const status = String(user?.status || '').toUpperCase();
+    const authMode = String(user?.authMode || '').toUpperCase();
+    const hasIdentifier = !!(user && (user.usuario || user.numero_bombeiro || user.email || user.id_usuario));
+
+    // Sessões locais criadas pelo novo fluxo de login (ex.: gestor BM 155258)
+    // são válidas para registrar autoria das alterações, mesmo quando o banco
+    // online está configurado e não existe authToken do Apps Script.
+    const localSessionOk = authMode === 'LOCAL' && status === 'ATIVO' && hasIdentifier;
+
+    // Sessões do backend continuam exigindo token quando o banco online está ativo.
+    const onlineSessionOk = authMode !== 'LOCAL' && status === 'ATIVO' && hasIdentifier &&
+        (!isOnlineDatabaseReady() || !!user.authToken);
+
+    if (localSessionOk || onlineSessionOk) {
         return {
-            name: user.nome || user.email || 'Usuário',
-            matricula: user.numero_bombeiro || user.usuario || user.email || user.id_usuario || 'LOGIN',
+            name: user.nome || user.email || user.usuario || user.numero_bombeiro || 'Usuário',
+            matricula: user.numero_bombeiro || user.usuario || user.id_usuario || user.email || 'LOGIN',
             email: user.email || '',
-            perfil: user.perfil || 'VISITANTE'
+            perfil: normalizeSystemProfile(user.perfil || 'VISITANTE')
         };
     }
-    showBudgetError(`Alteração bloqueada: faça login antes de ${actionLabel}.`);
+
+    showBudgetError(`Alteração bloqueada: sessão de usuário inválida para ${actionLabel}. Faça login novamente.`);
     return null;
 }
 
@@ -6755,7 +6769,7 @@ function saveBudgetContract(event) {
     if (existingIndex >= 0) budgetContracts[existingIndex] = contract;
     else budgetContracts.push(contract);
 
-    const identity = existingIndex >= 0 ? askBudgetChangeIdentity('editando o contrato') : null;
+    const identity = existingIndex >= 0 ? askBudgetChangeIdentity('editar o contrato') : null;
     if (existingIndex >= 0 && !identity) {
         if (before) budgetContracts[existingIndex] = before;
         return;

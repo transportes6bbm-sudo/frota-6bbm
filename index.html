@@ -1448,7 +1448,7 @@ table{
                 <div class="google-sheets-config" style="margin-top: 1.5rem;">
                     <h3>🔐 Banco Online e Login de Usuários</h3>
                     <p style="color: var(--text-muted); margin: 1rem 0;">
-                        Use este campo para conectar o sistema ao Apps Script publicado. O login validará o usuário na aba USUARIOS e aplicará os perfis GESTOR, OPERADOR ou VISITANTE.
+                        Use este campo para conectar o sistema ao Apps Script publicado. O login validará o nº de Bombeiro e a senha pessoal. O perfil será aplicado a partir da aba USUARIOS.
                     </p>
                     <div class="form-group">
                         <label>URL do Web App / Apps Script</label>
@@ -1478,7 +1478,7 @@ table{
                         <li>Cole o código fornecido</li>
                         <li>Implante como Web App e copie a URL terminada em /exec</li>
                         <li>Cole a URL no campo Banco Online e Login de Usuários</li>
-                        <li>Cadastre/aprove usuários pelo botão Gerenciar Usuários; senhas ficam em hash no banco, nunca em texto puro</li>
+                        <li>Cadastre usuários pelo botão Gerenciar Usuários; informe Gmail, CPF e nº de Bombeiro. Senhas ficam em hash no banco, nunca em texto puro</li>
                     </ol>
                 </div>
             </div>
@@ -1498,29 +1498,29 @@ table{
             </div>
 
             <div class="login-info-box">
-                O acesso agora é feito por <strong>e-mail e senha</strong>. O perfil é carregado do banco online. Usuários sem cadastro ativo devem solicitar acesso e aguardar aprovação do gestor.
+                O acesso é feito por <strong>usuário e senha</strong>. O usuário é o <strong>número de Bombeiro, com 6 números e sem dígito</strong>. O perfil é definido previamente pelo gestor.
                 <div class="login-status-line" id="loginConnectionInfo">Banco online: não configurado.</div>
             </div>
 
             <div class="login-profile-card">
                 <div class="login-grid">
                     <div class="form-group">
-                        <label>E-mail do usuário *</label>
-                        <input type="email" id="systemLoginEmail" placeholder="usuario@dominio.com" autocomplete="username">
+                        <label>Usuário *</label>
+                        <input type="text" id="systemLoginEmail" placeholder="Nº Bombeiro sem dígito. Ex: 123456" autocomplete="username" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)">
+                        <small class="login-small-note">Use somente os 6 números do Bombeiro, sem o dígito.</small>
                     </div>
                     <div class="form-group">
                         <label>Senha *</label>
                         <input type="password" id="systemLoginPassword" placeholder="Digite sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') doSystemLogin();">
-                        <small class="login-small-note">O perfil não é escolhido no login. Ele é definido previamente pelo gestor.</small>
+                        <small class="login-small-note">O perfil é carregado automaticamente do cadastro liberado pelo gestor.</small>
                     </div>
                 </div>
                 <div class="login-actions">
                     <button type="button" class="btn btn-primary" onclick="doSystemLogin()">Entrar</button>
                     <button type="button" class="btn btn-secondary" onclick="changeOwnPassword()">Alterar minha senha</button>
-                    <button type="button" class="btn btn-secondary" onclick="openSignupRequestModal()">Solicitar cadastro</button>
                     <button type="button" class="btn btn-secondary" onclick="doSystemLogout()">Sair</button>
                 </div>
-                <small class="login-small-note">Senha inicial do gestor, somente no primeiro acesso: <strong>Frota6BBM@2026!</strong>. Após entrar, altere a senha.</small>
+                <small class="login-small-note">Gestor inicial: usuário <strong>000001</strong> e senha inicial <strong>Frota6BBM@2026!</strong>. Após o primeiro login, o sistema exigirá a criação de uma senha pessoal.</small>
             </div>
 
             <div class="login-profile-card" id="onlineConfigCardInLogin">
@@ -1546,6 +1546,41 @@ table{
         </div>
     </div>
 
+    <!-- Modal Alteração Obrigatória de Senha -->
+    <div class="modal" id="forcePasswordChangeModal">
+        <div class="modal-content" style="max-width: 720px;">
+            <div class="modal-header">
+                <h2>🔑 Criar Nova Senha</h2>
+                <button class="close-modal" id="forcePasswordCloseButton" onclick="closeForcePasswordChangeModal()">✕</button>
+            </div>
+            <div class="login-info-box" id="forcePasswordInfo">
+                Seu acesso está com senha inicial temporária. Para continuar usando o sistema, crie uma senha pessoal.
+            </div>
+            <form onsubmit="submitForcedPasswordChange(event)">
+                <input type="hidden" id="forcePasswordRequired" value="SIM">
+                <div class="login-grid">
+                    <div class="form-group">
+                        <label>Senha atual *</label>
+                        <input type="password" id="forceOldPassword" required autocomplete="current-password" placeholder="Senha inicial ou senha atual">
+                    </div>
+                    <div class="form-group">
+                        <label>Nova senha *</label>
+                        <input type="password" id="forceNewPassword" required autocomplete="new-password" placeholder="Mínimo 8 caracteres, com letras e números">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirmar nova senha *</label>
+                        <input type="password" id="forceNewPasswordConfirm" required autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="login-actions">
+                    <button type="submit" class="btn btn-primary">Salvar nova senha</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeForcePasswordChangeModal()">Cancelar</button>
+                </div>
+                <small class="login-small-note">A nova senha deve ter no mínimo 8 caracteres, contendo letras e números.</small>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal Solicitação de Cadastro -->
     <div class="modal" id="signupRequestModal">
         <div class="modal-content" style="max-width: 820px;">
@@ -1554,7 +1589,7 @@ table{
                 <button class="close-modal" onclick="closeSignupRequestModal()">✕</button>
             </div>
             <div class="login-info-box">
-                O usuário cria uma senha pessoal e a solicitação fica pendente. Somente um gestor pode aprovar e definir o perfil final.
+                O cadastro de acesso deve ser feito pelo gestor. Esta tela foi mantida apenas para compatibilidade com versões anteriores.
             </div>
             <form onsubmit="submitSignupRequest(event)">
                 <div class="login-grid">
@@ -1608,12 +1643,15 @@ table{
             <div class="login-profile-card">
                 <h3 style="color: var(--secondary); margin-bottom:.8rem;">Cadastrar usuário manualmente</h3>
                 <div class="login-grid">
-                    <div class="form-group"><label>Nome</label><input type="text" id="adminNewUserName" placeholder="Nome completo"></div>
-                    <div class="form-group"><label>E-mail</label><input type="email" id="adminNewUserEmail" placeholder="usuario@dominio.com"></div>
+                    <div class="form-group"><label>Nome completo *</label><input type="text" id="adminNewUserName" placeholder="Nome completo"></div>
+                    <div class="form-group"><label>Gmail *</label><input type="email" id="adminNewUserEmail" placeholder="usuario@gmail.com"></div>
+                    <div class="form-group"><label>CPF *</label><input type="text" id="adminNewUserCpf" placeholder="000.000.000-00" maxlength="14" oninput="formatCpfInput(this)"></div>
+                    <div class="form-group"><label>Nº de Bombeiro *</label><input type="text" id="adminNewUserBombeiro" placeholder="6 números, sem dígito" maxlength="6" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"></div>
                     <div class="form-group"><label>Perfil</label><select id="adminNewUserProfile"><option>OPERADOR</option><option>VISITANTE</option><option>GESTOR</option></select></div>
-                    <div class="form-group"><label>Senha inicial</label><input type="password" id="adminNewUserPassword" placeholder="Mínimo 8 caracteres, letras e números"></div>
+                    <div class="form-group"><label>Senha inicial padrão</label><input type="text" id="adminNewUserPassword" value="Frota6BBM@2026!" placeholder="Senha inicial padrão"></div>
                 </div>
-                <button class="btn btn-primary" onclick="createUserFromAdmin()">Criar usuário</button>
+                <small class="login-small-note">O usuário será o nº de Bombeiro sem dígito. No primeiro login, ele será obrigado a criar uma senha pessoal.</small><br><br>
+                <button class="btn btn-primary" onclick="createUserFromAdmin()">Criar acesso</button>
                 <button class="btn btn-secondary" onclick="loadUserManagementData()">Atualizar lista</button>
             </div>
             <div id="userManagementContent" style="margin-top:1rem;">Carregue os dados de usuários.</div>
@@ -2111,6 +2149,9 @@ const ONLINE_DATABASE_CONFIG = {
 
 let currentSystemUser = {
     email: '',
+    usuario: '',
+    numero_bombeiro: '',
+    cpf: '',
     nome: 'Visitante',
     perfil: 'VISITANTE',
     status: 'LOCAL'
@@ -2119,6 +2160,10 @@ let currentSystemUser = {
 const SYSTEM_USER_STORAGE_KEY = 'system-current-user-6bbm';
 const ONLINE_DATABASE_STORAGE_KEY = 'online-database-config-6bbm';
 const DEFAULT_GESTOR_EMAIL = 'transportes6bbm@gmail.com';
+const DEFAULT_GESTOR_LOGIN = '000001';
+const DEFAULT_INITIAL_USER_PASSWORD = 'Frota6BBM@2026!';
+const MIN_PASSWORD_LENGTH = 8;
+let pendingForcedPasswordChangeOldPassword = '';
 
 const USER_PROFILE_RULES = {
     GESTOR: { level: 3, visualizar: true, incluir: true, alterar: true, excluir_cancelar: true, gerenciar_usuarios: true },
@@ -2136,6 +2181,39 @@ function getProfileHint(profile) {
     if (p === 'GESTOR') return 'GESTOR: visualiza, inclui, altera, cancela/exclui e gerencia usuários.';
     if (p === 'OPERADOR') return 'OPERADOR: visualiza e inclui novos lançamentos, mas não altera registros já salvos.';
     return 'VISITANTE: somente visualiza os lançamentos.';
+}
+
+function onlyDigits(value) {
+    return String(value || '').replace(/\D/g, '');
+}
+
+function normalizeBombeiroLogin(value) {
+    return onlyDigits(value).slice(0, 6);
+}
+
+function validateBombeiroLogin(value) {
+    const usuario = normalizeBombeiroLogin(value);
+    return /^\d{6}$/.test(usuario) ? usuario : '';
+}
+
+function normalizeCpf(value) {
+    return onlyDigits(value).slice(0, 11);
+}
+
+function formatCpfInput(input) {
+    const d = normalizeCpf(input?.value || '');
+    let out = d;
+    if (d.length > 9) out = d.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, '$1.$2.$3-$4');
+    else if (d.length > 6) out = d.replace(/(\d{3})(\d{3})(\d{0,3}).*/, '$1.$2.$3');
+    else if (d.length > 3) out = d.replace(/(\d{3})(\d{0,3}).*/, '$1.$2');
+    if (input) input.value = out;
+}
+
+function validateSystemPassword(password) {
+    const p = String(password || '');
+    if (p.length < MIN_PASSWORD_LENGTH) return `A senha deve ter no mínimo ${MIN_PASSWORD_LENGTH} caracteres.`;
+    if (!/[A-Za-zÀ-ÿ]/.test(p) || !/\d/.test(p)) return 'A senha deve conter letras e números.';
+    return '';
 }
 
 function loadOnlineDatabaseSettings() {
@@ -2221,7 +2299,7 @@ function updateSystemUserInterface() {
     const badge = document.getElementById('userBadge');
     const loginBtn = document.getElementById('loginHeaderButton');
     const configTab = document.getElementById('configTab');
-    const name = user.nome || user.email || 'Visitante';
+    const name = user.nome || user.usuario || user.email || 'Visitante';
 
     if (badge) {
         const icon = profile === 'GESTOR' ? '👨‍💼' : (profile === 'OPERADOR' ? '🧑‍🔧' : '👤');
@@ -2293,7 +2371,7 @@ function openLoginModal() {
     const user = getCurrentSystemUser();
     const emailInput = document.getElementById('systemLoginEmail');
     const passwordInput = document.getElementById('systemLoginPassword');
-    if (emailInput) emailInput.value = user.email || DEFAULT_GESTOR_EMAIL;
+    if (emailInput) emailInput.value = user.usuario || user.numero_bombeiro || DEFAULT_GESTOR_LOGIN;
     if (passwordInput) passwordInput.value = '';
     updateLoginConnectionInfo();
     if (modal) modal.classList.add('active');
@@ -2315,10 +2393,11 @@ function hasValidOnlineSession() {
 
 async function doSystemLogin() {
     loadOnlineDatabaseSettings();
-    const email = String(document.getElementById('systemLoginEmail')?.value || '').trim().toLowerCase();
+    const rawLogin = String(document.getElementById('systemLoginEmail')?.value || '').trim();
+    const usuario = validateBombeiroLogin(rawLogin);
     const password = String(document.getElementById('systemLoginPassword')?.value || '');
-    if (!email || !password) {
-        showBudgetError('Login bloqueado: informe e-mail e senha.');
+    if (!usuario || !password) {
+        showBudgetError('Login bloqueado: informe o usuário com 6 números do Bombeiro, sem dígito, e a senha.');
         return;
     }
     if (!isOnlineDatabaseReady()) {
@@ -2326,7 +2405,7 @@ async function doSystemLogin() {
         return;
     }
     try {
-        const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'login', email, password, _: Date.now() });
+        const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'login', usuario, password, _: Date.now() });
         const res = await jsonpRequestWithRetry(url, 3, 25000);
         if (!res || res.success !== true || !res.user) {
             throw new Error((res && res.message) ? res.message : 'Resposta inválida do banco online.');
@@ -2334,13 +2413,17 @@ async function doSystemLogin() {
         applyOnlineUser(res.user);
         saveSystemUserSession(getCurrentSystemUser());
         updateSystemUserInterface();
-        closeLoginModal();
         await loadOnlineBudgetData(false);
         const mustChange = String(res.user.precisa_trocar_senha || '').toUpperCase() === 'SIM';
-        showAlert(`Login realizado como ${currentSystemUser.nome || currentSystemUser.email} (${currentSystemUser.perfil}).`);
         if (mustChange) {
-            setTimeout(() => showBudgetError('Senha temporária detectada. Use “Alterar minha senha” para criar uma senha definitiva.'), 300);
+            pendingForcedPasswordChangeOldPassword = password;
+            closeLoginModal();
+            openForcePasswordChangeModal(true, password);
+            showAlert('Primeiro acesso identificado. Crie sua senha pessoal para continuar.');
+            return;
         }
+        closeLoginModal();
+        showAlert(`Login realizado como ${currentSystemUser.nome || currentSystemUser.usuario || currentSystemUser.email} (${currentSystemUser.perfil}).`);
     } catch (err) {
         showBudgetError('Falha no login: ' + (err.message || err));
     }
@@ -2355,14 +2438,14 @@ async function doSystemLogout() {
         console.warn('Falha ao encerrar sessão no backend:', e);
     }
     clearSystemUserSession();
-    currentSystemUser = { email: '', nome: 'Visitante', perfil: 'VISITANTE', status: 'LOCAL', authToken: '' };
+    currentSystemUser = { email: '', usuario: '', numero_bombeiro: '', nome: 'Visitante', perfil: 'VISITANTE', status: 'LOCAL', authToken: '' };
     updateSystemUserInterface();
     closeLoginModal();
     showAlert('Usuário desconectado. Faça login para acessar os dados online.');
 }
 
 function loginAsVisitor() {
-    showBudgetError('Acesso visitante também deve ser cadastrado e aprovado pelo gestor. Use e-mail e senha de um usuário VISITANTE ou solicite cadastro.');
+    showBudgetError('Acesso visitante também deve ser cadastrado pelo gestor. Use usuário de 6 números e senha de um perfil VISITANTE.');
 }
 
 async function testOnlineDatabaseLogin() {
@@ -2432,24 +2515,70 @@ async function submitSignupRequest(event) {
     }
 }
 
-async function changeOwnPassword() {
+function openForcePasswordChangeModal(required = false, oldPassword = '') {
     if (!hasValidOnlineSession()) {
         showBudgetError('Faça login antes de alterar a senha.');
         return;
     }
-    const oldPassword = prompt('Informe a senha atual:');
-    if (!oldPassword) return;
-    const newPassword = prompt('Informe a nova senha (mínimo 8 caracteres, letras e números):');
-    if (!newPassword) return;
-    const confirmPassword = prompt('Confirme a nova senha:');
+    const modal = document.getElementById('forcePasswordChangeModal');
+    const requiredInput = document.getElementById('forcePasswordRequired');
+    const oldInput = document.getElementById('forceOldPassword');
+    const newInput = document.getElementById('forceNewPassword');
+    const confirmInput = document.getElementById('forceNewPasswordConfirm');
+    const closeButton = document.getElementById('forcePasswordCloseButton');
+    const info = document.getElementById('forcePasswordInfo');
+    if (requiredInput) requiredInput.value = required ? 'SIM' : 'NAO';
+    if (oldInput) oldInput.value = oldPassword || '';
+    if (newInput) newInput.value = '';
+    if (confirmInput) confirmInput.value = '';
+    if (closeButton) closeButton.style.display = required ? 'none' : 'inline-flex';
+    if (info) info.innerHTML = required
+        ? 'Seu acesso está com senha inicial temporária. Para continuar usando o sistema, crie uma senha pessoal.'
+        : 'Informe a senha atual e cadastre uma nova senha pessoal.';
+    if (modal) modal.classList.add('active');
+}
+
+function closeForcePasswordChangeModal() {
+    const required = String(document.getElementById('forcePasswordRequired')?.value || '').toUpperCase() === 'SIM';
+    if (required) {
+        showBudgetError('A alteração da senha é obrigatória no primeiro acesso.');
+        return;
+    }
+    const modal = document.getElementById('forcePasswordChangeModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function submitForcedPasswordChange(event) {
+    if (event) event.preventDefault();
+    if (!hasValidOnlineSession()) {
+        showBudgetError('Sessão inválida. Faça login novamente.');
+        return;
+    }
+    const oldPassword = String(document.getElementById('forceOldPassword')?.value || pendingForcedPasswordChangeOldPassword || '');
+    const newPassword = String(document.getElementById('forceNewPassword')?.value || '');
+    const confirmPassword = String(document.getElementById('forceNewPasswordConfirm')?.value || '');
+    if (!oldPassword || !newPassword || !confirmPassword) { showBudgetError('Preencha a senha atual, a nova senha e a confirmação.'); return; }
     if (newPassword !== confirmPassword) { showBudgetError('As senhas não conferem.'); return; }
+    const validationError = validateSystemPassword(newPassword);
+    if (validationError) { showBudgetError(validationError); return; }
+    if (oldPassword === newPassword) { showBudgetError('A nova senha deve ser diferente da senha inicial/atual.'); return; }
     try {
         const res = await onlineDbRequest({ action: 'changePassword', oldPassword, newPassword }, 3, 30000);
         if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao alterar senha.');
+        pendingForcedPasswordChangeOldPassword = '';
+        currentSystemUser.precisa_trocar_senha = 'NAO';
+        saveSystemUserSession(getCurrentSystemUser());
+        const modal = document.getElementById('forcePasswordChangeModal');
+        if (modal) modal.classList.remove('active');
+        updateSystemUserInterface();
         showAlert('Senha alterada com sucesso.');
     } catch (err) {
         showBudgetError('Falha ao alterar senha: ' + (err.message || err));
     }
+}
+
+function changeOwnPassword() {
+    openForcePasswordChangeModal(false, '');
 }
 
 function openUserManagementModal() {
@@ -2485,17 +2614,21 @@ function renderUserManagementPanel(users, requests) {
         <tr>
             <td>${escapeHTML(r.nome)}</td>
             <td>${escapeHTML(r.email)}</td>
+            <td>${escapeHTML(r.numero_bombeiro || r.usuario || '')}</td>
+            <td>${escapeHTML(r.cpf || '')}</td>
             <td>${escapeHTML(r.perfil_solicitado)}</td>
             <td>${escapeHTML(r.justificativa || '')}</td>
             <td>
                 <button class="btn btn-primary" style="padding:.35rem .6rem;" onclick="approveSignupRequest('${escapeHTML(r.id_solicitacao)}')">Aprovar</button>
                 <button class="btn btn-secondary" style="padding:.35rem .6rem;" onclick="rejectSignupRequest('${escapeHTML(r.id_solicitacao)}')">Rejeitar</button>
             </td>
-        </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Nenhuma solicitação pendente.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Nenhuma solicitação pendente.</td></tr>';
     const usersHtml = (users || []).length ? users.map(u => `
         <tr>
             <td>${escapeHTML(u.nome)}</td>
+            <td>${escapeHTML(u.usuario || u.numero_bombeiro || '')}</td>
             <td>${escapeHTML(u.email)}</td>
+            <td>${escapeHTML(u.cpf || '')}</td>
             <td>
                 <select id="profile_${escapeHTML(u.id_usuario)}"><option ${u.perfil==='GESTOR'?'selected':''}>GESTOR</option><option ${u.perfil==='OPERADOR'?'selected':''}>OPERADOR</option><option ${u.perfil==='VISITANTE'?'selected':''}>VISITANTE</option></select>
             </td>
@@ -2503,20 +2636,22 @@ function renderUserManagementPanel(users, requests) {
                 <select id="status_${escapeHTML(u.id_usuario)}"><option ${String(u.status).toUpperCase()==='ATIVO'?'selected':''}>ATIVO</option><option ${String(u.status).toUpperCase()==='INATIVO'?'selected':''}>INATIVO</option></select>
             </td>
             <td>${escapeHTML(u.senha_configurada || '')}</td>
+            <td>${escapeHTML(u.precisa_trocar_senha || '')}</td>
             <td>${escapeHTML(u.ultimo_login || '')}</td>
             <td>
                 <button class="btn btn-primary" style="padding:.35rem .6rem;" onclick="updateUserFromAdmin('${escapeHTML(u.id_usuario)}')">Salvar</button>
                 <button class="btn btn-secondary" style="padding:.35rem .6rem;" onclick="resetPasswordFromAdmin('${escapeHTML(u.email)}')">Senha</button>
             </td>
-        </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Nenhum usuário cadastrado.</td></tr>';
+        </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);">Nenhum usuário cadastrado.</td></tr>';
     content.innerHTML = `
         <div class="login-profile-card">
             <h3 style="color:var(--secondary);margin-bottom:.8rem;">Solicitações pendentes</h3>
-            <div style="overflow:auto;"><table class="budget-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil solicitado</th><th>Justificativa</th><th>Ações</th></tr></thead><tbody>${reqHtml}</tbody></table></div>
+            <small class="login-small-note">Fluxo principal: acessos criados diretamente pelo gestor. Solicitações antigas continuam visíveis se existirem.</small>
+            <div style="overflow:auto;"><table class="budget-table"><thead><tr><th>Nome</th><th>Gmail</th><th>Usuário/Nº BM</th><th>CPF</th><th>Perfil solicitado</th><th>Justificativa</th><th>Ações</th></tr></thead><tbody>${reqHtml}</tbody></table></div>
         </div>
         <div class="login-profile-card" style="margin-top:1rem;">
             <h3 style="color:var(--secondary);margin-bottom:.8rem;">Usuários cadastrados</h3>
-            <div style="overflow:auto;"><table class="budget-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Senha</th><th>Último login</th><th>Ações</th></tr></thead><tbody>${usersHtml}</tbody></table></div>
+            <div style="overflow:auto;"><table class="budget-table"><thead><tr><th>Nome</th><th>Usuário</th><th>Gmail</th><th>CPF</th><th>Perfil</th><th>Status</th><th>Senha</th><th>Trocar senha?</th><th>Último login</th><th>Ações</th></tr></thead><tbody>${usersHtml}</tbody></table></div>
         </div>`;
 }
 
@@ -2548,14 +2683,23 @@ async function createUserFromAdmin() {
     if (!requireBudgetPermission('gerenciar_usuarios', 'criar usuários')) return;
     const nome = String(document.getElementById('adminNewUserName')?.value || '').trim();
     const email = String(document.getElementById('adminNewUserEmail')?.value || '').trim().toLowerCase();
+    const cpf = normalizeCpf(document.getElementById('adminNewUserCpf')?.value || '');
+    const numero_bombeiro = validateBombeiroLogin(document.getElementById('adminNewUserBombeiro')?.value || '');
     const perfil = String(document.getElementById('adminNewUserProfile')?.value || 'OPERADOR').toUpperCase();
-    const password = String(document.getElementById('adminNewUserPassword')?.value || '');
-    if (!nome || !email || !password) { showBudgetError('Informe nome, e-mail e senha inicial.'); return; }
+    const password = String(document.getElementById('adminNewUserPassword')?.value || DEFAULT_INITIAL_USER_PASSWORD);
+    if (!nome || !email || !cpf || !numero_bombeiro) { showBudgetError('Informe nome, Gmail, CPF e nº de Bombeiro com 6 números.'); return; }
+    if (!email.endsWith('@gmail.com')) { showBudgetError('O e-mail informado deve ser um Gmail válido.'); return; }
+    if (!/^\d{11}$/.test(cpf)) { showBudgetError('CPF inválido. Informe os 11 números do CPF.'); return; }
+    const validationError = validateSystemPassword(password);
+    if (validationError) { showBudgetError(validationError); return; }
     try {
-        const res = await onlineDbRequest({ action: 'createUser', userJson: JSON.stringify({ nome, email, perfil, status: 'ATIVO' }), password }, 3, 30000);
+        const userRecord = { nome, email, cpf, numero_bombeiro, usuario: numero_bombeiro, perfil, status: 'ATIVO' };
+        const res = await onlineDbRequest({ action: 'createUser', userJson: JSON.stringify(userRecord), password }, 3, 30000);
         if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao criar usuário.');
-        showAlert('Usuário criado.');
-        ['adminNewUserName','adminNewUserEmail','adminNewUserPassword'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        showAlert('Acesso criado. O usuário deverá entrar com o nº de Bombeiro e alterar a senha no primeiro login.');
+        ['adminNewUserName','adminNewUserEmail','adminNewUserCpf','adminNewUserBombeiro'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        const pwd = document.getElementById('adminNewUserPassword');
+        if (pwd) pwd.value = DEFAULT_INITIAL_USER_PASSWORD;
         await loadUserManagementData();
     } catch (err) { showBudgetError('Falha ao criar usuário: ' + (err.message || err)); }
 }
@@ -2574,8 +2718,10 @@ async function updateUserFromAdmin(id) {
 
 async function resetPasswordFromAdmin(email) {
     if (!requireBudgetPermission('gerenciar_usuarios', 'redefinir senhas')) return;
-    const password = prompt(`Nova senha temporária para ${email}:`);
+    const password = prompt(`Nova senha temporária para ${email}:`, DEFAULT_INITIAL_USER_PASSWORD);
     if (!password) return;
+    const validationError = validateSystemPassword(password);
+    if (validationError) { showBudgetError(validationError); return; }
     try {
         const res = await onlineDbRequest({ action: 'resetUserPassword', email, password }, 3, 30000);
         if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao redefinir senha.');
@@ -3067,6 +3213,10 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
             loadOnlineDatabaseSettings();
             loadSystemUserSession();
             updateSystemUserInterface();
+            const user = getCurrentSystemUser();
+            if (user && user.authToken && String(user.precisa_trocar_senha || '').toUpperCase() === 'SIM') {
+                setTimeout(() => openForcePasswordChangeModal(true, ''), 350);
+            }
         }
 
         function becomeManager() {
@@ -5320,6 +5470,7 @@ const BUDGET_STORAGE_KEYS = {
 };
 
 function saveBudgetStorage() {
+    backupBudgetStorage('antes-de-salvar-alteracao-local');
     saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
     saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
     saveToStorage(BUDGET_STORAGE_KEYS.movements, budgetMovements);
@@ -5379,6 +5530,7 @@ async function onlineDbRequest(params, tries = 3, timeoutMs = 30000) {
     const payload = Object.assign({
         email: user?.email || '',
         authToken: user?.authToken || '',
+        usuario: user?.usuario || user?.numero_bombeiro || '',
         _: Date.now()
     }, params || {});
     const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, payload);
@@ -5411,8 +5563,48 @@ function localBudgetHasData() {
     return (budgetContracts?.length || 0) + (budgetCommitments?.length || 0) + (budgetMovements?.length || 0) + (budgetAddenda?.length || 0) + (budgetQuotes?.length || 0) > 0;
 }
 
+function onlineRowsHaveValidId(rows, fields) {
+    const arr = Array.isArray(rows) ? rows : [];
+    const keys = Array.isArray(fields) ? fields : [fields];
+    return arr.some(row => row && keys.some(k => String(row[k] || '').trim() !== ''));
+}
+
 function onlineBudgetResponseHasData(res) {
-    return (res?.contratos?.length || 0) + (res?.empenhos?.length || 0) + (res?.extrato?.length || 0) + (res?.aditivos?.length || 0) + (res?.orcamentos?.length || 0) > 0;
+    // Não considerar linhas vazias como dados reais. Isso evita que uma planilha com
+    // registros sem ID apague os dados locais do navegador ao sincronizar.
+    return onlineRowsHaveValidId(res?.contratos, ['id_contrato', 'id'])
+        || onlineRowsHaveValidId(res?.empenhos, ['id_empenho', 'id'])
+        || onlineRowsHaveValidId(res?.extrato, ['id_extrato', 'id'])
+        || onlineRowsHaveValidId(res?.aditivos, ['id_aditivo', 'id'])
+        || onlineRowsHaveValidId(res?.orcamentos, ['id_orcamento', 'id'])
+        || onlineRowsHaveValidId(res?.historico, ['id_historico', 'id']);
+}
+
+function getBudgetStorageSnapshot() {
+    return {
+        contracts: budgetContracts || [],
+        commitments: budgetCommitments || [],
+        movements: budgetMovements || [],
+        addenda: budgetAddenda || [],
+        quotes: budgetQuotes || [],
+        history: budgetHistory || [],
+        capturedAt: new Date().toISOString()
+    };
+}
+
+function backupBudgetStorage(reason = 'backup') {
+    try {
+        if (!localBudgetHasData()) return false;
+        const snapshot = getBudgetStorageSnapshot();
+        snapshot.reason = reason;
+        const payload = JSON.stringify(snapshot);
+        localStorage.setItem('budget-backup-6bbm-last-valid', payload);
+        localStorage.setItem(`budget-backup-6bbm-${Date.now()}`, payload);
+        return true;
+    } catch (e) {
+        console.warn('Falha ao gerar backup local do módulo orçamentário:', e);
+        return false;
+    }
 }
 
 function dbContractToLocal(r) {
@@ -5678,7 +5870,7 @@ async function loadOnlineBudgetData(showUserMessage = false) {
     }
     if (!hasValidOnlineSession()) {
         setOnlineDbSyncStatus('Faça login para carregar os dados online.');
-        if (showUserMessage) showBudgetError('Faça login com e-mail e senha para carregar os dados online.');
+        if (showUserMessage) showBudgetError('Faça login com usuário de 6 números e senha para carregar os dados online.');
         return false;
     }
     try {
@@ -5705,12 +5897,27 @@ async function loadOnlineBudgetData(showUserMessage = false) {
             return false;
         }
 
-        budgetContracts = sanitizeOnlineArray(res.contratos, dbContractToLocal);
-        budgetAddenda = sanitizeOnlineArray(res.aditivos, dbAddendumToLocal);
-        budgetCommitments = sanitizeOnlineArray(res.empenhos, dbCommitmentToLocal);
-        budgetMovements = sanitizeOnlineArray(res.extrato, dbMovementToLocal).filter(m => m.type !== 'ORÇAMENTO' && m.type !== 'ORCAMENTO');
-        budgetQuotes = sanitizeOnlineArray(res.orcamentos, dbQuoteToLocal);
-        budgetHistory = sanitizeOnlineArray(res.historico || [], dbHistoryToLocal);
+        const nextContracts = sanitizeOnlineArray(res.contratos, dbContractToLocal);
+        const nextAddenda = sanitizeOnlineArray(res.aditivos, dbAddendumToLocal);
+        const nextCommitments = sanitizeOnlineArray(res.empenhos, dbCommitmentToLocal);
+        const nextMovements = sanitizeOnlineArray(res.extrato, dbMovementToLocal).filter(m => m.type !== 'ORÇAMENTO' && m.type !== 'ORCAMENTO');
+        const nextQuotes = sanitizeOnlineArray(res.orcamentos, dbQuoteToLocal);
+        const nextHistory = sanitizeOnlineArray(res.historico || [], dbHistoryToLocal);
+        const nextHasValidData = nextContracts.length + nextAddenda.length + nextCommitments.length + nextMovements.length + nextQuotes.length + nextHistory.length > 0;
+
+        if (!nextHasValidData && localBudgetHasData()) {
+            setOnlineDbSyncStatus('O banco online retornou vazio ou inválido. Dados locais preservados. Use a recuperação/migração antes de sincronizar novamente.', true);
+            if (showUserMessage) showBudgetError('O banco online retornou vazio ou inválido. Os dados locais foram preservados nesta máquina.');
+            return false;
+        }
+
+        backupBudgetStorage('antes-de-substituir-por-dados-online');
+        budgetContracts = nextContracts;
+        budgetAddenda = nextAddenda;
+        budgetCommitments = nextCommitments;
+        budgetMovements = nextMovements;
+        budgetQuotes = nextQuotes;
+        budgetHistory = nextHistory;
         normalizeBudgetCommitmentsAsCheckingAccounts();
         saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
         saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
@@ -5805,7 +6012,10 @@ function applyOnlineUser(user) {
     if (!user) return;
     currentSystemUser = {
         id_usuario: user.id_usuario || user.id || '',
-        email: user.email || '',
+        usuario: user.usuario || user.numero_bombeiro || user.login || '',
+        numero_bombeiro: user.numero_bombeiro || user.usuario || user.login || '',
+        cpf: user.cpf || '',
+        email: user.email || user.gmail || '',
         nome: user.nome || user.name || user.email || 'Usuário',
         perfil: String(user.perfil || user.profile || 'VISITANTE').toUpperCase(),
         status: user.status || 'ATIVO',
@@ -5834,7 +6044,7 @@ function showBudgetError(message) {
 }
 
 function getCurrentSystemUser() {
-    return currentSystemUser || { nome: 'Visitante', email: '', perfil: 'VISITANTE', status: 'LOCAL' };
+    return currentSystemUser || { nome: 'Visitante', email: '', usuario: '', numero_bombeiro: '', perfil: 'VISITANTE', status: 'LOCAL' };
 }
 
 function getCurrentUserProfile() {
@@ -5863,7 +6073,7 @@ function askBudgetChangeIdentity(actionLabel) {
     if (user && user.email && (!isOnlineDatabaseReady() || user.authToken) && String(user.status || '').toUpperCase() === 'ATIVO') {
         return {
             name: user.nome || user.email || 'Usuário',
-            matricula: user.email || user.id_usuario || 'LOGIN',
+            matricula: user.numero_bombeiro || user.usuario || user.email || user.id_usuario || 'LOGIN',
             email: user.email || '',
             perfil: user.perfil || 'VISITANTE'
         };

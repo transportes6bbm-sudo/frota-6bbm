@@ -1137,6 +1137,7 @@ table{
         <!-- Tabs de Navegação -->
         <div class="tabs">
             <button class="tab active" onclick="switchTab('frota', this)">🚒 Frota</button>
+<button class="tab" id="cadastroTab" onclick="switchTab('cadastro', this)" style="display:none;">👥 Cadastro</button>
 <button class="tab" onclick="switchTab('graficos', this)">🚒 Tipos de Viatura</button>
 <button class="tab" onclick="switchTab('gestao', this)">📌 Gestão</button>
 <button class="tab" onclick="switchTab('orcamentario', this)">📑 Contratos</button>
@@ -1411,6 +1412,66 @@ table{
         </div>
         <!-- Fim Tab Relatórios -->
 
+
+        <!-- Tab Cadastro de Usuários (exclusiva para GESTOR) -->
+        <div id="cadastro" class="tab-content">
+            <div class="report-section">
+                <div class="report-header">
+                    <div>
+                        <div class="report-title">👥 Cadastro de Usuários</div>
+                        <div class="budget-note">Área exclusiva do perfil GESTOR para criar acessos e controlar os níveis GESTOR, OPERADOR e VISITANTE.</div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="loadCadastroUsers()">🔄 Atualizar lista</button>
+                </div>
+
+                <div class="login-profile-card">
+                    <h3 style="color: var(--secondary); margin-bottom:.8rem;">Criar novo usuário</h3>
+                    <div class="login-grid">
+                        <div class="form-group">
+                            <label>Nome completo *</label>
+                            <input type="text" id="cadastroNewUserName" placeholder="Nome completo">
+                        </div>
+                        <div class="form-group">
+                            <label>Gmail *</label>
+                            <input type="email" id="cadastroNewUserEmail" placeholder="usuario@gmail.com">
+                        </div>
+                        <div class="form-group">
+                            <label>CPF *</label>
+                            <input type="text" id="cadastroNewUserCpf" placeholder="000.000.000-00" maxlength="14" oninput="formatCpfInput(this)">
+                        </div>
+                        <div class="form-group">
+                            <label>Nº BM / Login *</label>
+                            <input type="text" id="cadastroNewUserBombeiro" placeholder="6 números, sem ponto e sem dígito" maxlength="6" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)">
+                            <small class="login-small-note">O login será exatamente os seis primeiros números do BM, sem ponto e sem o dígito verificador.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Nível de acesso *</label>
+                            <select id="cadastroNewUserProfile">
+                                <option value="OPERADOR">OPERADOR</option>
+                                <option value="VISITANTE">VISITANTE</option>
+                                <option value="GESTOR">GESTOR</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Senha inicial</label>
+                            <input type="text" id="cadastroNewUserPassword" value="snhrcf" readonly>
+                            <small class="login-small-note">A senha temporária <strong>snhrcf</strong> não diferencia maiúsculas e minúsculas. No primeiro acesso o usuário deverá criar uma senha pessoal.</small>
+                        </div>
+                    </div>
+                    <div class="login-actions">
+                        <button class="btn btn-primary" onclick="createUserFromCadastro()">➕ Criar acesso</button>
+                        <button class="btn btn-secondary" onclick="clearCadastroUserForm()">Limpar</button>
+                    </div>
+                </div>
+
+                <div class="login-profile-card" style="margin-top:1rem;">
+                    <h3 style="color: var(--secondary); margin-bottom:.8rem;">Usuários cadastrados</h3>
+                    <div id="cadastroUserManagementContent" style="overflow:auto; color:var(--text-muted);">Clique em “Atualizar lista” para carregar os usuários.</div>
+                </div>
+            </div>
+        </div>
+        <!-- Fim Tab Cadastro -->
+
         <!-- Tab Configurações (apenas para gestor) -->
         <div id="config" class="tab-content">
             <div class="report-section">
@@ -1520,7 +1581,7 @@ table{
                     <button type="button" class="btn btn-secondary" onclick="changeOwnPassword()">Alterar minha senha</button>
                     <button type="button" class="btn btn-secondary" onclick="doSystemLogout()">Sair</button>
                 </div>
-                <small class="login-small-note">Gestor inicial: usuário <strong>000001</strong> e senha inicial <strong>Frota6BBM@2026!</strong>. Após o primeiro login, o sistema exigirá a criação de uma senha pessoal.</small>
+                <small class="login-small-note">Gestor inicial: usuário <strong>155258</strong> e senha temporária <strong>snhrcf</strong> (sem distinção entre maiúsculas e minúsculas). No primeiro acesso, o gestor deverá completar Gmail, CPF e nº BM e, em seguida, criar a senha pessoal.</small>
             </div>
 
             <div class="login-profile-card" id="onlineConfigCardInLogin">
@@ -1543,6 +1604,40 @@ table{
                     <button type="button" class="btn btn-secondary" onclick="openOnlineDatabaseSheet()">Abrir planilha do banco</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+
+    <!-- Modal de conclusão do cadastro do Gestor Inicial -->
+    <div class="modal" id="managerProfileCompletionModal">
+        <div class="modal-content" style="max-width: 760px;">
+            <div class="modal-header">
+                <h2>👨‍💼 Completar Cadastro do Gestor</h2>
+            </div>
+            <div class="login-info-box">
+                Primeiro acesso do gestor identificado. Complete os dados abaixo antes de utilizar o sistema. O nº BM será a identificação do usuário e o login.
+            </div>
+            <form onsubmit="completeBootstrapManagerProfile(event)">
+                <div class="login-grid" style="margin-top:1rem;">
+                    <div class="form-group">
+                        <label>Gmail *</label>
+                        <input type="email" id="bootstrapManagerEmail" required placeholder="usuario@gmail.com" autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label>CPF *</label>
+                        <input type="text" id="bootstrapManagerCpf" required placeholder="000.000.000-00" maxlength="14" oninput="formatCpfInput(this)">
+                    </div>
+                    <div class="form-group">
+                        <label>Nº BM / Login *</label>
+                        <input type="text" id="bootstrapManagerBm" value="155258" readonly maxlength="6" inputmode="numeric">
+                        <small class="login-small-note">Login: seis números, sem ponto e sem o dígito verificador.</small>
+                    </div>
+                </div>
+                <div class="login-actions">
+                    <button type="submit" class="btn btn-primary">Salvar cadastro e continuar</button>
+                </div>
+                <small class="login-small-note">Após salvar estes dados, será aberta a tela obrigatória para criação da sua senha pessoal.</small>
+            </form>
         </div>
     </div>
 
@@ -1648,7 +1743,7 @@ table{
                     <div class="form-group"><label>CPF *</label><input type="text" id="adminNewUserCpf" placeholder="000.000.000-00" maxlength="14" oninput="formatCpfInput(this)"></div>
                     <div class="form-group"><label>Nº de Bombeiro *</label><input type="text" id="adminNewUserBombeiro" placeholder="6 números, sem dígito" maxlength="6" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"></div>
                     <div class="form-group"><label>Perfil</label><select id="adminNewUserProfile"><option>OPERADOR</option><option>VISITANTE</option><option>GESTOR</option></select></div>
-                    <div class="form-group"><label>Senha inicial padrão</label><input type="text" id="adminNewUserPassword" value="Frota6BBM@2026!" placeholder="Senha inicial padrão"></div>
+                    <div class="form-group"><label>Senha inicial padrão</label><input type="text" id="adminNewUserPassword" value="snhrcf" placeholder="Senha inicial padrão"></div>
                 </div>
                 <small class="login-small-note">O usuário será o nº de Bombeiro sem dígito. No primeiro login, ele será obrigado a criar uma senha pessoal.</small><br><br>
                 <button class="btn btn-primary" onclick="createUserFromAdmin()">Criar acesso</button>
@@ -2160,8 +2255,8 @@ let currentSystemUser = {
 const SYSTEM_USER_STORAGE_KEY = 'system-current-user-6bbm';
 const ONLINE_DATABASE_STORAGE_KEY = 'online-database-config-6bbm';
 const DEFAULT_GESTOR_EMAIL = 'transportes6bbm@gmail.com';
-const DEFAULT_GESTOR_LOGIN = '000001';
-const DEFAULT_INITIAL_USER_PASSWORD = 'Frota6BBM@2026!';
+const DEFAULT_GESTOR_LOGIN = '155258';
+const DEFAULT_INITIAL_USER_PASSWORD = 'snhrcf';
 const MIN_PASSWORD_LENGTH = 8;
 let pendingForcedPasswordChangeOldPassword = '';
 
@@ -3262,6 +3357,7 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
   if (tabName === 'gestao') { try { renderMgmtDashboard(); } catch(e){ console.error(e);} }
   if (tabName === 'orcamentario') { try { renderBudgetModule(); } catch(e){ console.error(e);} }
   if (tabName === 'orcamentos') { try { renderBudgetQuotesModule(); } catch(e){ console.error(e);} }
+  if (tabName === 'cadastro') { try { loadCadastroUsers(); } catch(e){ console.error(e);} }
 }
 
 
@@ -7862,6 +7958,498 @@ function deleteBudgetQuote(quoteId) {
     }
     showAlert('Orçamento/manutenção excluído.');
 }
+
+
+
+// ==============================================================
+// AUTENTICAÇÃO V2 - Gestor inicial 155258 / snhrcf
+// ==============================================================
+const LOCAL_SYSTEM_USERS_KEY = 'system-users-local-6bbm-v2';
+const BOOTSTRAP_MANAGER_COMPLETED_KEY = 'bootstrap-manager-completed-6bbm-v2';
+
+
+// Mantém sessões locais V2 íntegras após recarregar a página.
+const legacyLoadSystemUserSessionV1 = loadSystemUserSession;
+window.loadSystemUserSession = function loadSystemUserSessionV2() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(SYSTEM_USER_STORAGE_KEY) || 'null');
+        if (!saved || !saved.perfil) return;
+        if (String(saved.authMode || '').toUpperCase() === 'LOCAL') {
+            currentSystemUser = Object.assign({
+                email: '', usuario: '', numero_bombeiro: '', cpf: '', nome: 'Usuário',
+                perfil: 'VISITANTE', status: 'ATIVO', authToken: '', authMode: 'LOCAL',
+                precisa_trocar_senha: 'NAO', cadastro_incompleto: 'NAO'
+            }, saved);
+            currentSystemUser.perfil = normalizeSystemProfile(currentSystemUser.perfil);
+            return;
+        }
+        legacyLoadSystemUserSessionV1();
+    } catch (e) {
+        console.warn('Não foi possível carregar sessão de usuário:', e);
+    }
+};
+
+// A tela antiga exigia token do Apps Script; a V2 também aceita sessão local autenticada.
+const legacyOpenForcePasswordChangeModalV1 = openForcePasswordChangeModal;
+window.openForcePasswordChangeModal = function openForcePasswordChangeModalV2(required = false, oldPassword = '') {
+    const user = getCurrentSystemUser();
+    const isLocal = String(user?.authMode || '').toUpperCase() === 'LOCAL' && String(user?.status || '').toUpperCase() === 'ATIVO';
+    if (!isLocal) return legacyOpenForcePasswordChangeModalV1(required, oldPassword);
+
+    const modal = document.getElementById('forcePasswordChangeModal');
+    const requiredInput = document.getElementById('forcePasswordRequired');
+    const oldInput = document.getElementById('forceOldPassword');
+    const newInput = document.getElementById('forceNewPassword');
+    const confirmInput = document.getElementById('forceNewPasswordConfirm');
+    const closeButton = document.getElementById('forcePasswordCloseButton');
+    const info = document.getElementById('forcePasswordInfo');
+    if (requiredInput) requiredInput.value = required ? 'SIM' : 'NAO';
+    if (oldInput) oldInput.value = oldPassword || '';
+    if (newInput) newInput.value = '';
+    if (confirmInput) confirmInput.value = '';
+    if (closeButton) closeButton.style.display = required ? 'none' : 'inline-flex';
+    if (info) info.innerHTML = required
+        ? 'Seu acesso está com a senha inicial temporária. Para continuar, crie uma senha pessoal.'
+        : 'Informe a senha atual e cadastre uma nova senha pessoal.';
+    if (modal) modal.classList.add('active');
+};
+
+function loadLocalSystemUsersV2() {
+    try {
+        const arr = JSON.parse(localStorage.getItem(LOCAL_SYSTEM_USERS_KEY) || '[]');
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+        console.warn('Falha ao carregar usuários locais:', e);
+        return [];
+    }
+}
+
+function saveLocalSystemUsersV2(users) {
+    localStorage.setItem(LOCAL_SYSTEM_USERS_KEY, JSON.stringify(Array.isArray(users) ? users : []));
+}
+
+function localPasswordCanonicalV2(password, mode) {
+    const raw = String(password || '');
+    return String(mode || '').toUpperCase() === 'INITIAL' ? raw.toLowerCase() : raw;
+}
+
+async function passwordDigestV2(value) {
+    const txt = String(value || '');
+    try {
+        if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+            const data = new TextEncoder().encode(txt);
+            const digest = await window.crypto.subtle.digest('SHA-256', data);
+            return 'sha256:' + Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+    } catch (e) {
+        console.warn('SHA-256 indisponível; usando fallback local.', e);
+    }
+    let h = 2166136261;
+    for (let i = 0; i < txt.length; i++) {
+        h ^= txt.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return 'local:' + (h >>> 0).toString(16).padStart(8, '0');
+}
+
+function getLocalSystemUserV2(usuario) {
+    const login = validateBombeiroLogin(usuario);
+    if (!login) return null;
+    return loadLocalSystemUsersV2().find(u => String(u.usuario || u.numero_bombeiro || '') === login) || null;
+}
+
+async function verifyLocalPasswordV2(user, password) {
+    if (!user) return false;
+    const mode = String(user.password_mode || (String(user.precisa_trocar_senha || '').toUpperCase() === 'SIM' ? 'INITIAL' : 'PERSONAL')).toUpperCase();
+    const canonical = localPasswordCanonicalV2(password, mode);
+    const digest = await passwordDigestV2(canonical);
+    return digest === String(user.password_hash || '');
+}
+
+async function upsertLocalSystemUserV2(user, password, passwordMode = 'INITIAL') {
+    const login = validateBombeiroLogin(user?.usuario || user?.numero_bombeiro || '');
+    if (!login) throw new Error('Nº BM inválido. Use exatamente 6 números.');
+    const users = loadLocalSystemUsersV2();
+    const idx = users.findIndex(u => String(u.usuario || u.numero_bombeiro || '') === login);
+    const mode = String(passwordMode || 'INITIAL').toUpperCase();
+    const record = Object.assign({}, idx >= 0 ? users[idx] : {}, user, {
+        id_usuario: user?.id_usuario || (idx >= 0 ? users[idx].id_usuario : `LOCAL_${login}`),
+        usuario: login,
+        numero_bombeiro: login,
+        perfil: normalizeSystemProfile(user?.perfil || 'VISITANTE'),
+        status: String(user?.status || 'ATIVO').toUpperCase(),
+        password_mode: mode,
+        password_hash: await passwordDigestV2(localPasswordCanonicalV2(password, mode)),
+        precisa_trocar_senha: mode === 'INITIAL' ? 'SIM' : 'NAO',
+        atualizado_em: new Date().toISOString()
+    });
+    if (idx >= 0) users[idx] = record; else users.push(record);
+    saveLocalSystemUsersV2(users);
+    return record;
+}
+
+function applyLocalSystemUserV2(user) {
+    currentSystemUser = {
+        id_usuario: user.id_usuario || `LOCAL_${user.usuario || ''}`,
+        usuario: user.usuario || user.numero_bombeiro || '',
+        numero_bombeiro: user.numero_bombeiro || user.usuario || '',
+        cpf: user.cpf || '',
+        email: user.email || '',
+        nome: user.nome || `Usuário ${user.usuario || ''}`,
+        perfil: normalizeSystemProfile(user.perfil || 'VISITANTE'),
+        status: String(user.status || 'ATIVO').toUpperCase(),
+        authToken: '',
+        authMode: 'LOCAL',
+        precisa_trocar_senha: user.precisa_trocar_senha || 'NAO',
+        cadastro_incompleto: user.cadastro_incompleto || 'NAO'
+    };
+}
+
+function isBootstrapInitialPasswordV2(password) {
+    return String(password || '').toLowerCase() === String(DEFAULT_INITIAL_USER_PASSWORD || '').toLowerCase();
+}
+
+function isBootstrapManagerCompletedV2() {
+    return localStorage.getItem(BOOTSTRAP_MANAGER_COMPLETED_KEY) === 'SIM' || !!getLocalSystemUserV2(DEFAULT_GESTOR_LOGIN);
+}
+
+function openManagerProfileCompletionModalV2() {
+    const modal = document.getElementById('managerProfileCompletionModal');
+    const bm = document.getElementById('bootstrapManagerBm');
+    if (bm) bm.value = DEFAULT_GESTOR_LOGIN;
+    if (modal) modal.classList.add('active');
+}
+
+async function completeBootstrapManagerProfileV2(event) {
+    if (event) event.preventDefault();
+    const email = String(document.getElementById('bootstrapManagerEmail')?.value || '').trim().toLowerCase();
+    const cpf = normalizeCpf(document.getElementById('bootstrapManagerCpf')?.value || '');
+    const bm = validateBombeiroLogin(document.getElementById('bootstrapManagerBm')?.value || DEFAULT_GESTOR_LOGIN);
+
+    if (!email.endsWith('@gmail.com')) {
+        showBudgetError('Informe um endereço Gmail válido para concluir o cadastro do gestor.');
+        return;
+    }
+    if (!/^\d{11}$/.test(cpf)) {
+        showBudgetError('Informe o CPF com 11 números.');
+        return;
+    }
+    if (bm !== DEFAULT_GESTOR_LOGIN) {
+        showBudgetError(`O gestor inicial deve utilizar o BM ${DEFAULT_GESTOR_LOGIN}.`);
+        return;
+    }
+
+    const record = await upsertLocalSystemUserV2({
+        usuario: bm,
+        numero_bombeiro: bm,
+        cpf,
+        email,
+        nome: `Gestor ${bm}`,
+        perfil: 'GESTOR',
+        status: 'ATIVO'
+    }, DEFAULT_INITIAL_USER_PASSWORD, 'INITIAL');
+
+    localStorage.setItem(BOOTSTRAP_MANAGER_COMPLETED_KEY, 'SIM');
+    applyLocalSystemUserV2(record);
+    saveSystemUserSession(getCurrentSystemUser());
+    updateSystemUserInterface();
+
+    const modal = document.getElementById('managerProfileCompletionModal');
+    if (modal) modal.classList.remove('active');
+    pendingForcedPasswordChangeOldPassword = DEFAULT_INITIAL_USER_PASSWORD;
+    openForcePasswordChangeModal(true, DEFAULT_INITIAL_USER_PASSWORD);
+    showAlert('Cadastro do gestor concluído. Agora crie sua senha pessoal.');
+}
+window.completeBootstrapManagerProfile = completeBootstrapManagerProfileV2;
+
+// Captura as implementações anteriores para manter compatibilidade com o backend online existente.
+const legacyDoSystemLoginV1 = doSystemLogin;
+const legacySubmitForcedPasswordChangeV1 = submitForcedPasswordChange;
+const legacyUpdateSystemUserInterfaceV1 = updateSystemUserInterface;
+const legacyDoSystemLogoutV1 = doSystemLogout;
+
+window.doSystemLogin = async function doSystemLoginV2() {
+    loadOnlineDatabaseSettings();
+    const rawLogin = String(document.getElementById('systemLoginEmail')?.value || '').trim();
+    const usuario = validateBombeiroLogin(rawLogin);
+    const typedPassword = String(document.getElementById('systemLoginPassword')?.value || '');
+
+    if (!usuario || !typedPassword) {
+        showBudgetError('Informe o usuário com 6 números do BM e a senha.');
+        return;
+    }
+
+    // Primeiro acesso do gestor inicial: independe do cadastro anterior no backend.
+    if (usuario === DEFAULT_GESTOR_LOGIN && !isBootstrapManagerCompletedV2() && isBootstrapInitialPasswordV2(typedPassword)) {
+        currentSystemUser = {
+            email: '',
+            usuario: DEFAULT_GESTOR_LOGIN,
+            numero_bombeiro: DEFAULT_GESTOR_LOGIN,
+            cpf: '',
+            nome: `Gestor ${DEFAULT_GESTOR_LOGIN}`,
+            perfil: 'GESTOR',
+            status: 'ATIVO',
+            authToken: '',
+            authMode: 'LOCAL',
+            precisa_trocar_senha: 'SIM',
+            cadastro_incompleto: 'SIM'
+        };
+        saveSystemUserSession(getCurrentSystemUser());
+        closeLoginModal();
+        updateSystemUserInterface();
+        openManagerProfileCompletionModalV2();
+        return;
+    }
+
+    // Usuários cadastrados pelo gestor nesta versão.
+    const localUser = getLocalSystemUserV2(usuario);
+    if (localUser) {
+        if (String(localUser.status || '').toUpperCase() !== 'ATIVO') {
+            showBudgetError('Acesso bloqueado: usuário inativo. Procure um gestor.');
+            return;
+        }
+        const ok = await verifyLocalPasswordV2(localUser, typedPassword);
+        if (!ok) {
+            showBudgetError('Usuário ou senha inválidos.');
+            return;
+        }
+        applyLocalSystemUserV2(localUser);
+        saveSystemUserSession(getCurrentSystemUser());
+        updateSystemUserInterface();
+        closeLoginModal();
+        if (String(localUser.precisa_trocar_senha || '').toUpperCase() === 'SIM') {
+            pendingForcedPasswordChangeOldPassword = typedPassword;
+            openForcePasswordChangeModal(true, typedPassword);
+            showAlert('Primeiro acesso identificado. Crie sua senha pessoal.');
+            return;
+        }
+        showAlert(`Login realizado como ${currentSystemUser.nome} (${currentSystemUser.perfil}).`);
+        return;
+    }
+
+    // Fallback para usuários já existentes no banco online.
+    if (isOnlineDatabaseReady()) {
+        const passwordInput = document.getElementById('systemLoginPassword');
+        const original = typedPassword;
+        if (passwordInput && isBootstrapInitialPasswordV2(typedPassword)) passwordInput.value = DEFAULT_INITIAL_USER_PASSWORD;
+        try {
+            await legacyDoSystemLoginV1();
+            return;
+        } finally {
+            if (passwordInput && !document.getElementById('systemLoginModal')?.classList.contains('active')) {
+                passwordInput.value = '';
+            } else if (passwordInput) {
+                passwordInput.value = original;
+            }
+        }
+    }
+
+    showBudgetError('Usuário não cadastrado. Procure um gestor para criar o acesso na aba Cadastro.');
+};
+
+window.submitForcedPasswordChange = async function submitForcedPasswordChangeV2(event) {
+    if (event) event.preventDefault();
+    const user = getCurrentSystemUser();
+    if (String(user?.authMode || '').toUpperCase() !== 'LOCAL') {
+        return legacySubmitForcedPasswordChangeV1(event);
+    }
+
+    const oldPassword = String(document.getElementById('forceOldPassword')?.value || pendingForcedPasswordChangeOldPassword || '');
+    const newPassword = String(document.getElementById('forceNewPassword')?.value || '');
+    const confirmPassword = String(document.getElementById('forceNewPasswordConfirm')?.value || '');
+    if (!oldPassword || !newPassword || !confirmPassword) { showBudgetError('Preencha a senha atual, a nova senha e a confirmação.'); return; }
+    if (newPassword !== confirmPassword) { showBudgetError('As senhas não conferem.'); return; }
+    const validationError = validateSystemPassword(newPassword);
+    if (validationError) { showBudgetError(validationError); return; }
+    if (newPassword === oldPassword) { showBudgetError('A nova senha deve ser diferente da senha temporária/atual.'); return; }
+
+    const localUser = getLocalSystemUserV2(user.usuario || user.numero_bombeiro);
+    if (!localUser || !(await verifyLocalPasswordV2(localUser, oldPassword))) {
+        showBudgetError('Senha atual incorreta.');
+        return;
+    }
+
+    const updated = await upsertLocalSystemUserV2(Object.assign({}, localUser, {
+        precisa_trocar_senha: 'NAO'
+    }), newPassword, 'PERSONAL');
+    applyLocalSystemUserV2(updated);
+    pendingForcedPasswordChangeOldPassword = '';
+    saveSystemUserSession(getCurrentSystemUser());
+    document.getElementById('forcePasswordChangeModal')?.classList.remove('active');
+    updateSystemUserInterface();
+    showAlert('Senha pessoal criada com sucesso.');
+};
+
+window.hasBudgetPermission = function hasBudgetPermissionV2(permission) {
+    const user = getCurrentSystemUser();
+    const status = String(user?.status || '').toUpperCase();
+    if (!user || status !== 'ATIVO') return false;
+    if (String(user.authMode || '').toUpperCase() !== 'LOCAL' && isOnlineDatabaseReady() && (!user.email || !user.authToken)) return false;
+    const profile = normalizeSystemProfile(user.perfil || 'VISITANTE');
+    const rules = USER_PROFILE_RULES[profile] || USER_PROFILE_RULES.VISITANTE;
+    return rules[permission] === true;
+};
+
+window.updateSystemUserInterface = function updateSystemUserInterfaceV2() {
+    legacyUpdateSystemUserInterfaceV1();
+    const user = getCurrentSystemUser();
+    const isGestor = normalizeSystemProfile(user?.perfil) === 'GESTOR' && String(user?.status || '').toUpperCase() === 'ATIVO' && String(user?.cadastro_incompleto || '').toUpperCase() !== 'SIM';
+    const cadastroTab = document.getElementById('cadastroTab');
+    if (cadastroTab) cadastroTab.style.display = isGestor ? 'block' : 'none';
+    if (!isGestor && document.getElementById('cadastro')?.classList.contains('active')) {
+        const frotaBtn = Array.from(document.querySelectorAll('.tab')).find(b => (b.getAttribute('onclick') || '').includes("'frota'"));
+        switchTab('frota', frotaBtn || null);
+    }
+};
+
+window.doSystemLogout = async function doSystemLogoutV2() {
+    const user = getCurrentSystemUser();
+    if (String(user?.authMode || '').toUpperCase() === 'LOCAL') {
+        clearSystemUserSession();
+        currentSystemUser = { email: '', usuario: '', numero_bombeiro: '', cpf: '', nome: 'Visitante', perfil: 'VISITANTE', status: 'LOCAL', authToken: '', authMode: '' };
+        updateSystemUserInterface();
+        closeLoginModal();
+        document.getElementById('managerProfileCompletionModal')?.classList.remove('active');
+        document.getElementById('forcePasswordChangeModal')?.classList.remove('active');
+        showAlert('Usuário desconectado.');
+        return;
+    }
+    return legacyDoSystemLogoutV1();
+};
+
+window.changeOwnPassword = function changeOwnPasswordV2() {
+    const user = getCurrentSystemUser();
+    if (!user || String(user.status || '').toUpperCase() !== 'ATIVO' || !(user.usuario || user.numero_bombeiro)) {
+        showBudgetError('Faça login antes de alterar a senha.');
+        return;
+    }
+    openForcePasswordChangeModal(false, '');
+};
+
+function clearCadastroUserForm() {
+    ['cadastroNewUserName','cadastroNewUserEmail','cadastroNewUserCpf','cadastroNewUserBombeiro'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    const profile = document.getElementById('cadastroNewUserProfile');
+    if (profile) profile.value = 'OPERADOR';
+}
+
+async function createUserFromCadastro() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'criar usuários')) return;
+    const nome = String(document.getElementById('cadastroNewUserName')?.value || '').trim();
+    const email = String(document.getElementById('cadastroNewUserEmail')?.value || '').trim().toLowerCase();
+    const cpf = normalizeCpf(document.getElementById('cadastroNewUserCpf')?.value || '');
+    const numero_bombeiro = validateBombeiroLogin(document.getElementById('cadastroNewUserBombeiro')?.value || '');
+    const perfil = normalizeSystemProfile(document.getElementById('cadastroNewUserProfile')?.value || 'OPERADOR');
+
+    if (!nome || !email || !cpf || !numero_bombeiro) {
+        showBudgetError('Informe nome, Gmail, CPF e nº BM com 6 números.');
+        return;
+    }
+    if (!email.endsWith('@gmail.com')) { showBudgetError('O e-mail deve ser um Gmail válido.'); return; }
+    if (!/^\d{11}$/.test(cpf)) { showBudgetError('CPF inválido. Informe os 11 números.'); return; }
+    if (getLocalSystemUserV2(numero_bombeiro)) { showBudgetError('Já existe usuário cadastrado com este nº BM.'); return; }
+
+    await upsertLocalSystemUserV2({ nome, email, cpf, numero_bombeiro, usuario: numero_bombeiro, perfil, status: 'ATIVO' }, DEFAULT_INITIAL_USER_PASSWORD, 'INITIAL');
+    clearCadastroUserForm();
+    await loadCadastroUsers();
+    showAlert(`Acesso criado para ${numero_bombeiro}. Senha inicial: ${DEFAULT_INITIAL_USER_PASSWORD}.`);
+}
+window.createUserFromCadastro = createUserFromCadastro;
+window.clearCadastroUserForm = clearCadastroUserForm;
+
+function cadastroProfileOptionsV2(user) {
+    const p = normalizeSystemProfile(user.perfil);
+    return ['GESTOR','OPERADOR','VISITANTE'].map(x => `<option value="${x}" ${x === p ? 'selected' : ''}>${x}</option>`).join('');
+}
+
+async function loadCadastroUsers() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'visualizar cadastro de usuários')) return;
+    const content = document.getElementById('cadastroUserManagementContent');
+    if (!content) return;
+    const users = loadLocalSystemUsersV2().sort((a,b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+    if (!users.length) {
+        content.innerHTML = '<div class="empty-state">Nenhum usuário cadastrado nesta versão.</div>';
+        return;
+    }
+    content.innerHTML = `<table class="budget-table" style="width:100%; min-width:900px;">
+        <thead><tr><th>Nome</th><th>BM / Login</th><th>Gmail</th><th>CPF</th><th>Perfil</th><th>Status</th><th>Trocar senha?</th><th>Ações</th></tr></thead>
+        <tbody>${users.map(u => `<tr>
+            <td>${escapeHTML(u.nome || '')}</td>
+            <td><strong>${escapeHTML(u.usuario || u.numero_bombeiro || '')}</strong></td>
+            <td>${escapeHTML(u.email || '')}</td>
+            <td>${escapeHTML(u.cpf || '')}</td>
+            <td><select id="cad_profile_${escapeHTML(u.usuario)}">${cadastroProfileOptionsV2(u)}</select></td>
+            <td><select id="cad_status_${escapeHTML(u.usuario)}"><option value="ATIVO" ${String(u.status).toUpperCase()==='ATIVO'?'selected':''}>ATIVO</option><option value="INATIVO" ${String(u.status).toUpperCase()==='INATIVO'?'selected':''}>INATIVO</option></select></td>
+            <td>${escapeHTML(u.precisa_trocar_senha || 'NAO')}</td>
+            <td style="white-space:nowrap;">
+                <button class="btn btn-primary" style="padding:.35rem .6rem;" onclick="saveCadastroUser('${escapeHTML(u.usuario)}')">Salvar</button>
+                <button class="btn btn-secondary" style="padding:.35rem .6rem;" onclick="resetCadastroPassword('${escapeHTML(u.usuario)}')">Senha inicial</button>
+            </td>
+        </tr>`).join('')}</tbody></table>`;
+}
+window.loadCadastroUsers = loadCadastroUsers;
+
+async function saveCadastroUser(usuario) {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'alterar nível de acesso')) return;
+    const user = getLocalSystemUserV2(usuario);
+    if (!user) { showBudgetError('Usuário não localizado.'); return; }
+    const perfil = normalizeSystemProfile(document.getElementById(`cad_profile_${usuario}`)?.value || user.perfil);
+    const status = String(document.getElementById(`cad_status_${usuario}`)?.value || user.status || 'ATIVO').toUpperCase();
+
+    if (usuario === DEFAULT_GESTOR_LOGIN && (perfil !== 'GESTOR' || status !== 'ATIVO')) {
+        showBudgetError('O gestor inicial 155258 não pode ser rebaixado nem inativado por esta tela.');
+        await loadCadastroUsers();
+        return;
+    }
+
+    const users = loadLocalSystemUsersV2();
+    const idx = users.findIndex(u => String(u.usuario || u.numero_bombeiro || '') === String(usuario));
+    if (idx < 0) return;
+    users[idx] = Object.assign({}, users[idx], { perfil, status, atualizado_em: new Date().toISOString() });
+    saveLocalSystemUsersV2(users);
+    await loadCadastroUsers();
+    showAlert('Nível de acesso atualizado.');
+}
+window.saveCadastroUser = saveCadastroUser;
+
+async function resetCadastroPassword(usuario) {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'redefinir senha')) return;
+    const user = getLocalSystemUserV2(usuario);
+    if (!user) { showBudgetError('Usuário não localizado.'); return; }
+    if (!confirm(`Redefinir a senha de ${usuario} para ${DEFAULT_INITIAL_USER_PASSWORD}?`)) return;
+    await upsertLocalSystemUserV2(user, DEFAULT_INITIAL_USER_PASSWORD, 'INITIAL');
+    await loadCadastroUsers();
+    showAlert(`Senha temporária redefinida para ${DEFAULT_INITIAL_USER_PASSWORD}.`);
+}
+window.resetCadastroPassword = resetCadastroPassword;
+
+window.openUserManagementModal = function openUserManagementModalV2() {
+    if (!requireBudgetPermission('gerenciar_usuarios', 'gerenciar usuários')) return;
+    const btn = document.getElementById('cadastroTab');
+    switchTab('cadastro', btn || null);
+};
+
+// Ajusta o carregamento de sessão local e obriga a conclusão de cadastro/troca de senha quando necessário.
+const legacyCheckAuthV1 = checkAuth;
+window.checkAuth = function checkAuthV2() {
+    loadOnlineDatabaseSettings();
+    loadSystemUserSession();
+    const user = getCurrentSystemUser();
+    updateSystemUserInterface();
+    if (String(user?.authMode || '').toUpperCase() === 'LOCAL') {
+        if (String(user.cadastro_incompleto || '').toUpperCase() === 'SIM') {
+            setTimeout(openManagerProfileCompletionModalV2, 250);
+            return;
+        }
+        if (String(user.precisa_trocar_senha || '').toUpperCase() === 'SIM') {
+            setTimeout(() => openForcePasswordChangeModal(true, ''), 250);
+        }
+        return;
+    }
+    legacyCheckAuthV1();
+};
+
 
 initializeData();
         bootSyncPlanilhaVerdade();

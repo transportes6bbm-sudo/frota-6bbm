@@ -4377,13 +4377,15 @@ ${marker}` : marker;
   try {
     const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
     await syncMaintenanceToTransportSheet(maintenance, vehicle);
+    await syncMaintenanceToOnlineDatabaseV4(maintenance, vehicle);
 
-    // recarrega do Sheets (agora a lista é 100% verdade)
+    // recarrega da planilha operacional e encerra a janela de edição.
     await loadMaintenancesFromSheet();
     renderVehicles();
     renderMaintenanceList();
 
     hideAddMaintenance();
+    closeMaintenanceModal();
     showAlert('Manutenção registrada com sucesso!');
   } catch (err) {
     console.error(err);
@@ -6731,7 +6733,7 @@ function closeBudgetContractForm() {
     if (modal) modal.classList.remove('active');
 }
 
-function saveBudgetContract(event) {
+async function saveBudgetContract(event) {
     event.preventDefault();
     const isEditingContract = !!document.getElementById('budgetContractId').value;
     if (!requireBudgetPermission(isEditingContract ? 'alterar' : 'incluir', isEditingContract ? 'alterar contratos' : 'incluir contratos')) return;
@@ -6781,7 +6783,8 @@ function saveBudgetContract(event) {
     }
     if (identity) recordBudgetHistory('CONTRATOS', id, existingIndex >= 0 ? 'EDIÇÃO' : 'CADASTRO', before, contract, identity);
 
-    saveBudgetStorage();
+    const onlineOk = await flushBudgetSaveV4();
+    if (!onlineOk && isOnlineDatabaseReady()) return;
     renderBudgetModule();
     closeBudgetContractForm();
     showAlert('Contrato salvo com sucesso!');
@@ -6945,7 +6948,7 @@ function updateBudgetAddendumLabels() {
     label.textContent = type === 'SUPRESSÃO DE VALOR' ? 'Valor suprimido (R$)' : 'Valor acrescido (R$)';
 }
 
-function saveBudgetAddendum(event) {
+async function saveBudgetAddendum(event) {
     event.preventDefault();
     const isEditingAddendum = !!document.getElementById('budgetAddendumId').value;
     if (!requireBudgetPermission(isEditingAddendum ? 'alterar' : 'incluir', isEditingAddendum ? 'alterar aditivos' : 'incluir aditivos')) return;
@@ -7010,7 +7013,8 @@ function saveBudgetAddendum(event) {
     else budgetAddenda.push(addendum);
     recordBudgetHistory('ADITIVOS_CONTRATO', id, existingIndex >= 0 ? 'EDIÇÃO' : 'CADASTRO', before, addendum, identity);
 
-    saveBudgetStorage();
+    const onlineOk = await flushBudgetSaveV4();
+    if (!onlineOk && isOnlineDatabaseReady()) return;
     hideBudgetAddendumForm();
     renderBudgetModule();
     showAlert('Aditivo/prorrogação salvo com sucesso!');
@@ -7066,7 +7070,7 @@ function hideBudgetCommitmentForm() {
     if (box) box.classList.remove('active');
 }
 
-function saveBudgetCommitment(event) {
+async function saveBudgetCommitment(event) {
     event.preventDefault();
     const isEditingCommitment = !!document.getElementById('budgetCommitmentId').value;
     if (!requireBudgetPermission(isEditingCommitment ? 'alterar' : 'incluir', isEditingCommitment ? 'alterar empenhos' : 'incluir empenhos')) return;
@@ -7128,7 +7132,8 @@ function saveBudgetCommitment(event) {
         recordBudgetHistory('EMPENHOS', id, 'EDIÇÃO', before, commitment, identity);
     }
 
-    saveBudgetStorage();
+    const onlineOk = await flushBudgetSaveV4();
+    if (!onlineOk && isOnlineDatabaseReady()) return;
     hideBudgetCommitmentForm();
     renderBudgetModule();
     showAlert('Empenho inicial salvo com sucesso!');
@@ -7219,7 +7224,7 @@ function updateBudgetMovementLabels() {
     }
 }
 
-function saveBudgetMovement(event) {
+async function saveBudgetMovement(event) {
     event.preventDefault();
     const isEditingMovement = !!document.getElementById('budgetMovementId').value;
     if (!requireBudgetPermission(isEditingMovement ? 'alterar' : 'incluir', isEditingMovement ? 'alterar movimentações' : 'incluir movimentações')) return;
@@ -7279,7 +7284,8 @@ function saveBudgetMovement(event) {
 
     budgetMovements.push(movement);
     recordBudgetHistory('EXTRATO_ORCAMENTARIO', movement.id, 'CADASTRO', null, movement, identity);
-    saveBudgetStorage();
+    const onlineOk = await flushBudgetSaveV4();
+    if (!onlineOk && isOnlineDatabaseReady()) return;
     hideBudgetMovementForm();
     renderBudgetModule();
     showAlert(isReinforcement ? 'Reforço de empenho lançado com sucesso!' : (movementType === 'CANCELAMENTO DE RESTOS A PAGAR' ? 'Cancelamento de restos a pagar lançado com sucesso!' : 'Movimentação lançada com sucesso!'));
@@ -7828,7 +7834,7 @@ function closeBudgetQuoteForm() {
     if (modal) modal.classList.remove('active');
 }
 
-function saveBudgetQuote(event) {
+async function saveBudgetQuote(event) {
     event.preventDefault();
     const isEditingQuote = !!document.getElementById('budgetQuoteId').value;
     if (!requireBudgetPermission(isEditingQuote ? 'alterar' : 'incluir', isEditingQuote ? 'alterar orçamentos/manutenções' : 'incluir orçamentos/manutenções')) return;
@@ -7947,7 +7953,8 @@ ${marker}` : marker;
     else budgetQuotes.push(quote);
     recordBudgetHistory('ORCAMENTOS', id, existingIndex >= 0 ? 'EDIÇÃO' : 'CADASTRO', before, quote, identity);
 
-    saveBudgetStorage();
+    const onlineOk = await flushBudgetSaveV4();
+    if (!onlineOk && isOnlineDatabaseReady()) return;
     closeBudgetQuoteForm();
     renderBudgetQuotesModule();
     renderBudgetModule();
@@ -7988,6 +7995,72 @@ function openManagerProfileCompletionModal() {
     const bm = document.getElementById('bootstrapManagerBm');
     if (bm) bm.value = DEFAULT_GESTOR_LOGIN;
     if (modal) modal.classList.add('active');
+}
+
+// ==============================================================
+// V4 — PERSISTÊNCIA CENTRAL IMEDIATA + FECHAMENTO DO EDITOR
+// ==============================================================
+async function flushBudgetSaveV4() {
+    // saveBudgetStorageV3 grava no cache e coloca somente os registros alterados na fila.
+    // Aqui esperamos a confirmação do banco central antes de fechar o editor.
+    const result = saveBudgetStorage();
+    if (result && typeof result.then === 'function') {
+        const ok = await result;
+        if (ok === false && isOnlineDatabaseReady()) {
+            showBudgetError('O registro foi preparado localmente, mas o banco central não confirmou a gravação. A janela permanecerá aberta para nova tentativa.');
+            return false;
+        }
+        return ok !== false;
+    }
+    return true;
+}
+
+function localMaintenanceToOnlineDb(maintenance, vehicle) {
+    const v = vehicle || currentMaintenanceVehicle || {};
+    const id = String(maintenance.id || `${Date.now()}_${Math.random().toString(36).slice(2,8)}`);
+    return {
+        id_manutencao: id,
+        data_manutencao: maintenance.date || maintenance.data || '',
+        id_viatura: v.id || maintenance.vehicleId || '',
+        placa: maintenance.placa || v.placa || v.id || '',
+        prefixo: maintenance.prefixo || v.prefixo || '',
+        cidade: maintenance.cidade || v.cidadeLotacaoPadrao || v.cidadeLotacao || v.cidade || '',
+        tipo_viatura: maintenance.tipoViatura || v.subclasse || v.tipo || '',
+        tipo_manutencao: maintenance.type || maintenance.tipo || '',
+        categoria_sistema: maintenance.systemCategory || maintenance.categoriaSistema || '',
+        descricao: maintenance.description || maintenance.descricao || '',
+        hodometro: Number(maintenance.km || maintenance.hodometro || 0),
+        custo: Number(maintenance.cost || maintenance.custo || 0),
+        responsavel: maintenance.responsible || maintenance.responsavel || '',
+        matricula: String(maintenance.matricula || '').replace(/\D/g,''),
+        observacoes: maintenance.notes || maintenance.observacoes || '',
+        troca_oleo_motor: (maintenance.systemCategory || maintenance.categoriaSistema) === ENGINE_OIL_SYSTEM_CATEGORY ? 'SIM' : 'NAO',
+        criado_em: maintenance.createdAt || new Date().toISOString(),
+        atualizado_em: new Date().toISOString(),
+        usuario: getOnlineUserEmail()
+    };
+}
+
+async function syncMaintenanceToOnlineDatabaseV4(maintenance, vehicle) {
+    if (!isOnlineDatabaseReady()) {
+        setOnlineDbSyncStatus('Banco central não configurado para registrar a manutenção.', true);
+        return true; // mantém compatibilidade com a planilha operacional legada
+    }
+    if (!hasCentralOnlineSessionV3()) {
+        throw new Error('Faça login com usuário autorizado antes de registrar a manutenção no banco central.');
+    }
+    const record = localMaintenanceToOnlineDb(maintenance, vehicle);
+    const res = await onlineDbRequest({
+        action: 'upsert',
+        sheet: 'MANUTENCOES',
+        idField: 'id_manutencao',
+        id: record.id_manutencao,
+        recordJson: JSON.stringify(record)
+    }, 3, 30000);
+    if (!res || res.success !== true) {
+        throw new Error(res?.message || 'Falha ao gravar a manutenção no banco central.');
+    }
+    return true;
 }
 
 // AUTENTICAÇÃO + SINCRONIZAÇÃO V3 — BANCO ONLINE CENTRALIZADO
@@ -8096,9 +8169,9 @@ function queueAllBudgetRecordsV3() {
 }
 
 // Substitui o salvamento local-only por cache local + fila incremental para o banco central.
-saveBudgetStorage = function saveBudgetStorageOnlineV3() {
+saveBudgetStorage = async function saveBudgetStorageOnlineV4() {
     const previous = readPersistedBudgetSnapshotV3();
-    backupBudgetStorage('antes-de-salvar-alteracao-online-v3');
+    backupBudgetStorage('antes-de-salvar-alteracao-online-v4');
 
     saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
     saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
@@ -8110,6 +8183,16 @@ saveBudgetStorage = function saveBudgetStorageOnlineV3() {
     const mutations = diffBudgetSnapshotsV3(previous, currentBudgetSnapshotV3());
     if (mutations.length) enqueueOnlineMutationsV3(mutations);
     queueOnlineBudgetSync();
+
+    if (!isOnlineDatabaseReady()) {
+        setOnlineDbSyncStatus('Alteração mantida localmente. Banco central não configurado.', true);
+        return true;
+    }
+    if (!hasCentralOnlineSessionV3()) {
+        setOnlineDbSyncStatus('Alteração mantida na fila. Faça login para enviar ao banco central.', true);
+        return false;
+    }
+    return await syncBudgetDataOnline({ silent: true });
 };
 
 queueOnlineBudgetSync = function queueOnlineBudgetSyncV3() {
@@ -8124,7 +8207,7 @@ scheduleOnlineBudgetSync = function scheduleOnlineBudgetSyncV3(delayMs = 60) {
     if (!isOnlineDatabaseReady()) return;
     if (onlineBudgetSyncTimer) clearTimeout(onlineBudgetSyncTimer);
     onlineBudgetSyncTimer = setTimeout(() => {
-        syncBudgetDataOnline({ silent: true }).catch(err => console.warn('Falha na sincronização online V3:', err));
+        syncBudgetDataOnline({ silent: true }).catch(err => console.warn('Falha na sincronização online V4:', err));
     }, delayMs);
 };
 

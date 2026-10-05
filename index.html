@@ -4377,7 +4377,7 @@ ${marker}` : marker;
   try {
     const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
     await syncMaintenanceToTransportSheet(maintenance, vehicle);
-    await syncMaintenanceToOnlineDatabaseV4(maintenance, vehicle);
+    await syncMaintenanceToOnlineDatabaseV5(maintenance, vehicle);
 
     // recarrega da planilha operacional e encerra a janela de edição.
     await loadMaintenancesFromSheet();
@@ -6783,7 +6783,7 @@ async function saveBudgetContract(event) {
     }
     if (identity) recordBudgetHistory('CONTRATOS', id, existingIndex >= 0 ? 'EDIÇÃO' : 'CADASTRO', before, contract, identity);
 
-    const onlineOk = await flushBudgetSaveV4();
+    const onlineOk = await flushBudgetSaveV5();
     if (!onlineOk && isOnlineDatabaseReady()) return;
     renderBudgetModule();
     closeBudgetContractForm();
@@ -7013,9 +7013,10 @@ async function saveBudgetAddendum(event) {
     else budgetAddenda.push(addendum);
     recordBudgetHistory('ADITIVOS_CONTRATO', id, existingIndex >= 0 ? 'EDIÇÃO' : 'CADASTRO', before, addendum, identity);
 
-    const onlineOk = await flushBudgetSaveV4();
+    const onlineOk = await flushBudgetSaveV5();
     if (!onlineOk && isOnlineDatabaseReady()) return;
     hideBudgetAddendumForm();
+    if (typeof closeBudgetDetailModal === 'function') closeBudgetDetailModal();
     renderBudgetModule();
     showAlert('Aditivo/prorrogação salvo com sucesso!');
 }
@@ -7132,9 +7133,10 @@ async function saveBudgetCommitment(event) {
         recordBudgetHistory('EMPENHOS', id, 'EDIÇÃO', before, commitment, identity);
     }
 
-    const onlineOk = await flushBudgetSaveV4();
+    const onlineOk = await flushBudgetSaveV5();
     if (!onlineOk && isOnlineDatabaseReady()) return;
     hideBudgetCommitmentForm();
+    if (typeof closeBudgetDetailModal === 'function') closeBudgetDetailModal();
     renderBudgetModule();
     showAlert('Empenho inicial salvo com sucesso!');
 }
@@ -7284,9 +7286,10 @@ async function saveBudgetMovement(event) {
 
     budgetMovements.push(movement);
     recordBudgetHistory('EXTRATO_ORCAMENTARIO', movement.id, 'CADASTRO', null, movement, identity);
-    const onlineOk = await flushBudgetSaveV4();
+    const onlineOk = await flushBudgetSaveV5();
     if (!onlineOk && isOnlineDatabaseReady()) return;
     hideBudgetMovementForm();
+    if (typeof closeBudgetDetailModal === 'function') closeBudgetDetailModal();
     renderBudgetModule();
     showAlert(isReinforcement ? 'Reforço de empenho lançado com sucesso!' : (movementType === 'CANCELAMENTO DE RESTOS A PAGAR' ? 'Cancelamento de restos a pagar lançado com sucesso!' : 'Movimentação lançada com sucesso!'));
 }
@@ -7953,7 +7956,7 @@ ${marker}` : marker;
     else budgetQuotes.push(quote);
     recordBudgetHistory('ORCAMENTOS', id, existingIndex >= 0 ? 'EDIÇÃO' : 'CADASTRO', before, quote, identity);
 
-    const onlineOk = await flushBudgetSaveV4();
+    const onlineOk = await flushBudgetSaveV5();
     if (!onlineOk && isOnlineDatabaseReady()) return;
     closeBudgetQuoteForm();
     renderBudgetQuotesModule();
@@ -7998,9 +8001,9 @@ function openManagerProfileCompletionModal() {
 }
 
 // ==============================================================
-// V4 — PERSISTÊNCIA CENTRAL IMEDIATA + FECHAMENTO DO EDITOR
+// V5 — PERSISTÊNCIA CENTRAL IMEDIATA + FECHAMENTO DO EDITOR
 // ==============================================================
-async function flushBudgetSaveV4() {
+async function flushBudgetSaveV5() {
     // saveBudgetStorageV3 grava no cache e coloca somente os registros alterados na fila.
     // Aqui esperamos a confirmação do banco central antes de fechar o editor.
     const result = saveBudgetStorage();
@@ -8041,7 +8044,7 @@ function localMaintenanceToOnlineDb(maintenance, vehicle) {
     };
 }
 
-async function syncMaintenanceToOnlineDatabaseV4(maintenance, vehicle) {
+async function syncMaintenanceToOnlineDatabaseV5(maintenance, vehicle) {
     if (!isOnlineDatabaseReady()) {
         setOnlineDbSyncStatus('Banco central não configurado para registrar a manutenção.', true);
         return true; // mantém compatibilidade com a planilha operacional legada
@@ -8169,7 +8172,7 @@ function queueAllBudgetRecordsV3() {
 }
 
 // Substitui o salvamento local-only por cache local + fila incremental para o banco central.
-saveBudgetStorage = async function saveBudgetStorageOnlineV4() {
+saveBudgetStorage = async function saveBudgetStorageOnlineV5() {
     const previous = readPersistedBudgetSnapshotV3();
     backupBudgetStorage('antes-de-salvar-alteracao-online-v4');
 
@@ -8207,7 +8210,7 @@ scheduleOnlineBudgetSync = function scheduleOnlineBudgetSyncV3(delayMs = 60) {
     if (!isOnlineDatabaseReady()) return;
     if (onlineBudgetSyncTimer) clearTimeout(onlineBudgetSyncTimer);
     onlineBudgetSyncTimer = setTimeout(() => {
-        syncBudgetDataOnline({ silent: true }).catch(err => console.warn('Falha na sincronização online V4:', err));
+        syncBudgetDataOnline({ silent: true }).catch(err => console.warn('Falha na sincronização online V5:', err));
     }, delayMs);
 };
 
@@ -8603,6 +8606,382 @@ function installCentralOnlineBadgeV3() {
 }
 setTimeout(installCentralOnlineBadgeV3, 0);
 
+
+
+// ================================================================
+// V5 — BANCO CENTRAL ÚNICO / MANUTENÇÕES CENTRALIZADAS
+// Este bloco é a camada final de compatibilidade do index.
+// Não usa mais o Web App legado de manutenção para ler/gravar.
+// ================================================================
+(function installCentralOnlineV5() {
+    const CENTRAL_WEBAPP_URL_V5 = 'https://script.google.com/macros/s/AKfycbxv4VcS7qAfKyQygQpKvwSfNaS5rojq8LpScwAYnviDPRr2zknWJStNccDdr9YlrcrG9A/exec';
+
+    try {
+        ONLINE_DATABASE_CONFIG.webAppUrl = CENTRAL_WEBAPP_URL_V5;
+        ONLINE_DATABASE_CONFIG.enabled = true;
+        localStorage.setItem(ONLINE_DATABASE_STORAGE_KEY, JSON.stringify(ONLINE_DATABASE_CONFIG));
+    } catch (e) {
+        console.warn('[V5] Não foi possível persistir a URL central:', e);
+    }
+
+    function centralSessionRequired() {
+        if (!isOnlineDatabaseReady()) throw new Error('Banco central V5 não configurado.');
+        if (!hasCentralOnlineSessionV3()) throw new Error('Sessão online inválida. Faça login novamente.');
+    }
+
+    // Toda consulta/gravação do banco central passa pelo mesmo endpoint.
+    onlineDbRequest = async function onlineDbRequestV5(params, tries = 3, timeoutMs = 30000) {
+        if (!isOnlineDatabaseReady()) throw new Error('Banco central V5 não configurado.');
+        const user = getCurrentSystemUser();
+        const payload = Object.assign({
+            email: user?.email || '',
+            authToken: user?.authToken || '',
+            usuario: user?.usuario || user?.numero_bombeiro || '',
+            _: Date.now()
+        }, params || {});
+        const url = buildUrl(CENTRAL_WEBAPP_URL_V5, payload);
+        const response = await jsonpRequestWithRetry(url, tries, timeoutMs);
+
+        if (!response || response.success !== true) {
+            throw new Error(response?.message || 'O banco central não confirmou a operação.');
+        }
+        return response;
+    };
+    window.onlineDbRequest = onlineDbRequest;
+
+    // A resposta online agora considera também a base central de manutenções.
+    onlineBudgetResponseHasData = function onlineBudgetResponseHasDataV5(res) {
+        return onlineRowsHaveValidId(res?.contratos, ['id_contrato', 'id'])
+            || onlineRowsHaveValidId(res?.empenhos, ['id_empenho', 'id'])
+            || onlineRowsHaveValidId(res?.extrato, ['id_extrato', 'id'])
+            || onlineRowsHaveValidId(res?.aditivos, ['id_aditivo', 'id'])
+            || onlineRowsHaveValidId(res?.orcamentos, ['id_orcamento', 'id'])
+            || onlineRowsHaveValidId(res?.manutencoes, ['id_manutencao', 'id'])
+            || onlineRowsHaveValidId(res?.historico, ['id_historico', 'id']);
+    };
+    window.onlineBudgetResponseHasData = onlineBudgetResponseHasData;
+
+    // Converte a estrutura central para o formato utilizado pela interface.
+    function centralMaintenanceToLocal(item) {
+        return {
+            id: item.id_manutencao || item.id || '',
+            timestamp: item.id_manutencao || item.timestamp || item.id || '',
+            data: item.data_manutencao || item.data || item.date || '',
+            dataManutencao: item.data_manutencao || item.data || item.date || '',
+            date: item.data_manutencao || item.data || item.date || '',
+            id_viatura: item.id_viatura || '',
+            vehicleId: item.id_viatura || item.placa || item.prefixo || '',
+            placa: item.placa || '',
+            prefixo: item.prefixo || '',
+            cidade: item.cidade || '',
+            tipoViatura: item.tipo_viatura || '',
+            tipo: item.tipo_manutencao || '',
+            type: item.tipo_manutencao || '',
+            categoriaSistema: item.categoria_sistema || '',
+            systemCategory: item.categoria_sistema || '',
+            descricao: item.descricao || '',
+            description: item.descricao || '',
+            km: Number(item.hodometro || 0),
+            hodometro: Number(item.hodometro || 0),
+            custo: Number(item.custo || 0),
+            cost: Number(item.custo || 0),
+            responsavel: item.responsavel || '',
+            responsible: item.responsavel || '',
+            matricula: item.matricula || '',
+            observacoes: item.observacoes || '',
+            notes: item.observacoes || '',
+            troca_oleo_motor: item.troca_oleo_motor || 'NAO',
+            criado_em: item.criado_em || '',
+            atualizado_em: item.atualizado_em || '',
+            usuario: item.usuario || ''
+        };
+    }
+
+    function indexMaintenanceItems(items) {
+        const map = {};
+        (Array.isArray(items) ? items : []).forEach(raw => {
+            const item = centralMaintenanceToLocal(raw);
+            if (!item.id) return;
+            const keys = getMaintenanceKeyCandidates(item);
+            keys.forEach(k => {
+                if (!map[k]) map[k] = [];
+                map[k].push(item);
+            });
+        });
+        Object.keys(map).forEach(k => {
+            map[k].sort((a, b) => {
+                const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
+                const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
+                return db.getTime() - da.getTime();
+            });
+        });
+        return map;
+    }
+
+    // Fonte central de manutenções.
+    loadMaintenancesFromSheet = async function loadMaintenancesFromCentralV5() {
+        try {
+            centralSessionRequired();
+            setOnlineDbSyncStatus('Carregando manutenções do banco central...');
+            const res = await onlineDbRequest({ action: 'listMaint' }, 3, 30000);
+            maintenances = indexMaintenanceItems(res.items || []);
+            window.maintenances = maintenances;
+            syncGate.maintReady = true;
+            try { localStorage.setItem('maintenances-central-cache-6bbm', JSON.stringify(maintenances)); } catch (e) {}
+            return true;
+        } catch (err) {
+            console.warn('[V5] Falha ao carregar manutenções centrais:', err);
+            syncGate.maintReady = false;
+            return false;
+        }
+    };
+    window.loadMaintenancesFromSheet = loadMaintenancesFromSheet;
+
+    // A autorização de manutenção passa a usar a sessão online atual.
+    ensureMaintenanceAuthorization = async function ensureMaintenanceAuthorizationV5(actionLabel = 'executar esta ação') {
+        try {
+            centralSessionRequired();
+            const user = getCurrentSystemUser();
+            const matricula = String(user?.numero_bombeiro || user?.usuario || '').replace(/\D/g, '').slice(0, 6);
+            if (!/^\d{6}$/.test(matricula)) {
+                throw new Error('O usuário autenticado não possui BM válido.');
+            }
+            const res = await onlineDbRequest({
+                action: 'validateUser',
+                matricula
+            }, 3, 15000);
+            if (!res?.valid) throw new Error('Usuário não autorizado.');
+            maintenanceAuth = { matricula, expiresAt: Date.now() + MAINT_AUTH_TTL_MS };
+            maintenanceUserMatricula = matricula;
+            return matricula;
+        } catch (err) {
+            clearMaintenanceAuthorization();
+            showAlert(`Ação não autorizada para ${actionLabel}: ${err.message || err}`, 'error');
+            return null;
+        }
+    };
+    window.ensureMaintenanceAuthorization = ensureMaintenanceAuthorization;
+
+    validateMaintenanceMatricula = async function validateMaintenanceMatriculaV5(matriculaDigits) {
+        const clean = String(matriculaDigits || '').replace(/\D/g, '').slice(0, 6);
+        if (!/^\d{6}$/.test(clean)) return false;
+        try {
+            const res = await onlineDbRequest({ action: 'validateUser', matricula: clean }, 3, 15000);
+            return !!res?.valid;
+        } catch (e) {
+            return false;
+        }
+    };
+    window.validateMaintenanceMatricula = validateMaintenanceMatricula;
+
+    // Não existe mais gravação em uma segunda planilha.
+    syncMaintenanceToTransportSheet = async function syncMaintenanceToCentralV5(maintenance, vehicle) {
+        centralSessionRequired();
+        const v = vehicle || currentMaintenanceVehicle || (window.vehicles || vehicles || []).find(x => x.id === currentMaintenanceVehicleId) || {};
+        const record = {
+            id_manutencao: String(maintenance.id || generateBudgetId('MAN')),
+            data_manutencao: maintenance.date || maintenance.data || '',
+            id_viatura: maintenance.vehicleId || v.id || maintenance.placa || v.placa || '',
+            placa: maintenance.placa || v.placa || v.id || '',
+            prefixo: maintenance.prefixo || v.prefixo || '',
+            cidade: maintenance.cidade || v.cidade || v.cidadeLotacaoPadrao || v.cidadeLotacao || '',
+            tipo_viatura: maintenance.tipoViatura || v.subclasse || v.tipo || '',
+            tipo_manutencao: maintenance.type || maintenance.tipo || '',
+            categoria_sistema: maintenance.systemCategory || maintenance.categoriaSistema || '',
+            descricao: maintenance.description || maintenance.descricao || '',
+            hodometro: Number(maintenance.km || maintenance.hodometro || 0),
+            custo: Number(maintenance.cost || maintenance.custo || 0),
+            responsavel: maintenance.responsible || maintenance.responsavel || '',
+            matricula: String(maintenance.matricula || getCurrentSystemUser()?.numero_bombeiro || '').replace(/\D/g, '').slice(0, 6),
+            observacoes: maintenance.notes || maintenance.observacoes || '',
+            troca_oleo_motor: (maintenance.systemCategory || maintenance.categoriaSistema) === ENGINE_OIL_SYSTEM_CATEGORY ? 'SIM' : 'NAO',
+            criado_em: maintenance.createdAt || new Date().toISOString(),
+            atualizado_em: new Date().toISOString(),
+            usuario: getOnlineUserEmail()
+        };
+        const res = await onlineDbRequest({
+            action: 'upsert',
+            sheet: 'MANUTENCOES',
+            idField: 'id_manutencao',
+            id: record.id_manutencao,
+            recordJson: JSON.stringify(record),
+            motivo: 'Registro de manutenção'
+        }, 3, 30000);
+        if (!res?.success) throw new Error(res?.message || 'Banco central não confirmou a manutenção.');
+        return res;
+    };
+    window.syncMaintenanceToTransportSheet = syncMaintenanceToTransportSheet;
+
+    // Evita a segunda gravação que existia na V4.
+    syncMaintenanceToOnlineDatabaseV4 = async function syncMaintenanceToOnlineDatabaseV5() {
+        return true;
+    };
+    window.syncMaintenanceToOnlineDatabaseV4 = syncMaintenanceToOnlineDatabaseV4;
+
+    deleteMaintenanceFromTransportSheet = async function deleteMaintenanceFromCentralV5(maintenanceKey, matriculaDigits) {
+        centralSessionRequired();
+        const res = await onlineDbRequest({
+            action: 'deleteMaintenance',
+            id: String(maintenanceKey || ''),
+            matricula: String(matriculaDigits || '').replace(/\D/g, '')
+        }, 3, 30000);
+        if (!res?.success) throw new Error(res?.message || 'Banco central não confirmou a exclusão.');
+        return res;
+    };
+    window.deleteMaintenanceFromTransportSheet = deleteMaintenanceFromTransportSheet;
+
+    // O carregamento geral agora também atualiza as manutenções centrais.
+    const loadOnlineBudgetDataBaseV5 = loadOnlineBudgetData;
+    loadOnlineBudgetData = async function loadOnlineBudgetDataCentralV5(showUserMessage = false) {
+        const ok = await loadOnlineBudgetDataBaseV5(showUserMessage);
+        if (hasCentralOnlineSessionV3()) {
+            await loadMaintenancesFromSheet();
+            try { renderVehicles(); } catch (e) {}
+            try { if (currentMaintenanceVehicleId) renderMaintenanceList(); } catch (e) {}
+        }
+        return ok;
+    };
+    window.loadOnlineBudgetData = loadOnlineBudgetData;
+
+    // A função de teste da tela Configurações agora testa o banco central V5.
+    testConnection = async function testConnectionCentralV5() {
+        try {
+            loadOnlineDatabaseSettings();
+            if (!isOnlineDatabaseReady()) throw new Error('Banco online desativado ou sem URL /exec.');
+            const res = await jsonpRequestWithRetry(
+                buildUrl(CENTRAL_WEBAPP_URL_V5, { action: 'ping', _: Date.now() }),
+                3,
+                20000
+            );
+            if (!res?.success) throw new Error(res?.message || 'Resposta inválida.');
+            const status = document.getElementById('connectionStatus');
+            const text = document.getElementById('connectionText');
+            if (status) status.classList.add('connected');
+            if (text) text.textContent = `Banco central V5 conectado — ${res.spreadsheetName || 'Google Sheets'}`;
+            setOnlineDbSyncStatus(`Banco central V5 conectado. Planilha: ${res.spreadsheetName || 'N/D'}.`);
+            showAlert(`Conexão OK. Backend ${res.version || 'V5'} respondendo.`);
+            return true;
+        } catch (err) {
+            setOnlineDbSyncStatus('Falha na conexão com o banco central: ' + (err.message || err), true);
+            showBudgetError('Falha na conexão com o banco central: ' + (err.message || err));
+            return false;
+        }
+    };
+    window.testConnection = testConnection;
+
+    // Oculta a antiga caixa de integração Google Sheets, que apontava para outro backend.
+    try {
+        const legacyPanel = document.querySelector('#config .google-sheets-config');
+        if (legacyPanel) legacyPanel.style.display = 'none';
+    } catch (e) {}
+
+    // Adiciona identificação visual do backend.
+    setTimeout(() => {
+        try {
+            const host = document.getElementById('onlineDbSyncStatus');
+            if (!host || document.getElementById('centralV5Info')) return;
+            const info = document.createElement('div');
+            info.id = 'centralV5Info';
+            info.style.marginTop = '8px';
+            info.style.fontSize = '.82rem';
+            info.style.opacity = '.8';
+            info.textContent = 'Backend central: V5 | Fonte: Google Sheets | Manutenções: banco central';
+            host.appendChild(info);
+        } catch (e) {}
+    }, 0);
+
+    // Migração opcional dos dados de manutenção que ainda estejam somente no backend legado.
+    window.migrateLegacyMaintenancesToCentralV5 = async function migrateLegacyMaintenancesToCentralV5() {
+        if (!requireBudgetPermission('gerenciar_usuarios', 'migrar manutenções legadas')) return;
+        centralSessionRequired();
+
+        const legacyUrl = String(MAINT_WEBAPP_URL || '').trim();
+        if (!legacyUrl) {
+            showBudgetError('URL legada de manutenção não configurada.');
+            return;
+        }
+
+        if (!confirm('Importar as manutenções do banco legado para o banco central V5? Os dados legados não serão apagados.')) return;
+
+        try {
+            const legacyRes = await jsonpRequestWithRetry(
+                buildUrl(legacyUrl, { action: 'listMaint', _: Date.now() }),
+                3,
+                30000
+            );
+            const raw = legacyRes?.items || legacyRes?.maintenances || legacyRes?.records || legacyRes?.data || [];
+            if (!Array.isArray(raw)) throw new Error('O banco legado não retornou uma lista de manutenções.');
+
+            let count = 0;
+            for (const item of raw) {
+                const local = centralMaintenanceToLocal(item);
+                if (!local.id) continue;
+                const record = {
+                    id_manutencao: local.id,
+                    data_manutencao: local.dataManutencao || '',
+                    id_viatura: local.vehicleId || local.placa || local.prefixo || '',
+                    placa: local.placa || '',
+                    prefixo: local.prefixo || '',
+                    cidade: local.cidade || '',
+                    tipo_viatura: local.tipoViatura || '',
+                    tipo_manutencao: local.type || '',
+                    categoria_sistema: local.systemCategory || '',
+                    descricao: local.description || '',
+                    hodometro: Number(local.km || 0),
+                    custo: Number(local.cost || 0),
+                    responsavel: local.responsible || '',
+                    matricula: String(local.matricula || '').replace(/\D/g, '').slice(0, 6),
+                    observacoes: local.notes || '',
+                    troca_oleo_motor: String(local.troca_oleo_motor || 'NAO').toUpperCase() === 'SIM' ? 'SIM' : 'NAO',
+                    criado_em: local.criado_em || new Date().toISOString(),
+                    atualizado_em: local.atualizado_em || new Date().toISOString(),
+                    usuario: local.usuario || ''
+                };
+                const res = await onlineDbRequest({
+                    action: 'upsert',
+                    sheet: 'MANUTENCOES',
+                    idField: 'id_manutencao',
+                    id: record.id_manutencao,
+                    recordJson: JSON.stringify(record),
+                    motivo: 'Migração do banco legado'
+                }, 3, 30000);
+                if (res?.success) count++;
+            }
+
+            await loadMaintenancesFromSheet();
+            renderVehicles();
+            if (currentMaintenanceVehicleId) renderMaintenanceList();
+            showAlert(`${count} manutenção(ões) importada(s) para o banco central V5. O banco legado não foi apagado.`);
+        } catch (err) {
+            showBudgetError('Falha na migração das manutenções legadas: ' + (err.message || err));
+        }
+    };
+
+    // Salvar/editar orçamento, contrato, aditivo, empenho e movimentação:
+    // após confirmação do banco, a janela de edição deve desaparecer.
+    // As funções V4 já aguardam flushBudgetSaveV4; apenas reforçamos o fechamento
+    // das sub-janelas que permaneciam abertas.
+    const closeDetailAfterSave = (fn, name) => async function(...args) {
+        const result = await fn(...args);
+        // Se o fluxo chegou até aqui sem retornar por erro, o formulário foi salvo.
+        if (name !== 'quote' && typeof closeBudgetDetailModal === 'function') {
+            const active = document.getElementById('budgetDetailModal');
+            if (active?.classList.contains('active')) {
+                // O fechamento só ocorre se não houver um formulário de edição ainda visível.
+                const formIds = ['budgetAddendumForm', 'budgetCommitmentForm', 'budgetMovementForm'];
+                const visible = formIds.some(id => {
+                    const el = document.getElementById(id);
+                    return el && getComputedStyle(el).display !== 'none';
+                });
+                if (!visible) closeBudgetDetailModal();
+            }
+        }
+        return result;
+    };
+
+    // Salvar manutenção usa a função existente, mas com o backend central V5.
+    // O fluxo de sucesso já fecha addMaintenance e o modal principal.
+})();
 
 initializeData();
         bootSyncPlanilhaVerdade();

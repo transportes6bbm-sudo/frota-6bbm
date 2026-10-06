@@ -3643,13 +3643,50 @@ async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigi
         }
 
         // Armazenamento persistente
-        
-        
-        function saveToStorage(key, data) {
+        // O banco central é a fonte de verdade. O localStorage serve apenas como
+        // cache temporário e fila de resiliência. Backups completos do módulo
+        // orçamentário foram desativados porque duplicavam a base e causavam
+        // "Storage quota exceeded" após vários lançamentos.
+        function cleanupBudgetLocalStorageV4() {
+            let removed = 0;
             try {
-                localStorage.setItem(key, JSON.stringify(data));
+                const keys = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (!key) continue;
+                    if (/^budget-backup-6bbm(?:-|$)/.test(key) || key === 'budget-online-sync-pending-6bbm') {
+                        keys.push(key);
+                    }
+                }
+                keys.forEach(key => {
+                    try { localStorage.removeItem(key); removed += 1; } catch (e) {}
+                });
             } catch (e) {
-                console.error('Erro ao salvar:', e);
+                console.warn('Falha ao limpar backups redundantes do localStorage:', e);
+            }
+            return removed;
+        }
+
+        // Recupera espaço ocupado por versões anteriores. Esta limpeza NÃO toca
+        // nas chaves oficiais budget-* nem na fila V3.
+        try { cleanupBudgetLocalStorageV4(); } catch (e) {}
+
+        function saveToStorage(key, data) {
+            const payload = JSON.stringify(data);
+            try {
+                localStorage.setItem(key, payload);
+                return true;
+            } catch (e) {
+                // Se versões antigas deixaram backups grandes, libera somente o
+                // conteúdo redundante e tenta uma segunda vez.
+                try { cleanupBudgetLocalStorageV4(); } catch (cleanupError) {}
+                try {
+                    localStorage.setItem(key, payload);
+                    return true;
+                } catch (retryError) {
+                    console.error('Erro ao salvar no localStorage:', retryError);
+                    return false;
+                }
             }
         }
 
@@ -3714,7 +3751,7 @@ function jsonpRequest(url, timeoutMs = 30000) {
 
         const timer = setTimeout(() => {
             cleanup();
-            reject(new Error("Timeout JSONP: o banco online não respondeu dentro do prazo."));
+            reject(new Error("Timeout JSONP: " + fullUrl));
         }, timeoutMs);
 
         window[cbName] = (data) => {
@@ -3726,7 +3763,7 @@ function jsonpRequest(url, timeoutMs = 30000) {
         script.onerror = () => {
             clearTimeout(timer);
             cleanup();
-            reject(new Error("Erro ao carregar o banco online. Verifique a conexão e a publicação do Apps Script."));
+            reject(new Error("Erro ao carregar JSONP: " + fullUrl));
         };
 
         document.head.appendChild(script);
@@ -5797,7 +5834,9 @@ const BUDGET_STORAGE_KEYS = {
 };
 
 function saveBudgetStorage(syncRecords = null) {
-    backupBudgetStorage('antes-de-salvar-alteracao-local');
+    // Nunca criar cópias completas do banco no navegador. O banco central é a
+    // fonte de verdade e o cache local deve permanecer pequeno.
+    cleanupBudgetLocalStorageV4();
     saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
     saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
     saveToStorage(BUDGET_STORAGE_KEYS.movements, budgetMovements);
@@ -5845,21 +5884,14 @@ async function awaitBudgetSave(syncRecords, operationLabel = 'salvamento') {
 }
 
 function queueOnlineBudgetSync() {
-    // Mantém uma fila local e tenta enviar os registros ao banco online.
+    // A fila incremental V3 é a única fila válida. A antiga chave
+    // budget-online-sync-pending-6bbm armazenava a base inteira e foi removida.
     if (!ONLINE_DATABASE_CONFIG.enabled || !ONLINE_DATABASE_CONFIG.webAppUrl) return;
     try {
-        localStorage.setItem('budget-online-sync-pending-6bbm', JSON.stringify({
-            contracts: budgetContracts,
-            commitments: budgetCommitments,
-            movements: budgetMovements,
-            addenda: budgetAddenda,
-            quotes: budgetQuotes,
-            history: budgetHistory,
-            queuedAt: new Date().toISOString()
-        }));
+        cleanupBudgetLocalStorageV4();
         scheduleOnlineBudgetSync();
     } catch (e) {
-        console.warn('Não foi possível enfileirar sincronização online:', e);
+        console.warn('Não foi possível agendar sincronização online:', e);
     }
 }
 
@@ -5958,18 +5990,10 @@ function getBudgetStorageSnapshot() {
 }
 
 function backupBudgetStorage(reason = 'backup') {
-    try {
-        if (!localBudgetHasData()) return false;
-        const snapshot = getBudgetStorageSnapshot();
-        snapshot.reason = reason;
-        const payload = JSON.stringify(snapshot);
-        localStorage.setItem('budget-backup-6bbm-last-valid', payload);
-        localStorage.setItem(`budget-backup-6bbm-${Date.now()}`, payload);
-        return true;
-    } catch (e) {
-        console.warn('Falha ao gerar backup local do módulo orçamentário:', e);
-        return false;
-    }
+    // Mantido apenas para compatibilidade com chamadas antigas. Não cria mais
+    // snapshots completos no navegador, pois isso provoca estouro de quota.
+    try { cleanupBudgetLocalStorageV4(); } catch (e) {}
+    return false;
 }
 
 function dbContractToLocal(r) {
@@ -6357,8 +6381,8 @@ function syncBudgetDataOnline(options = {}) {
                 await onlineUpsertRecord(sheet, idField, rec, profile);
                 count += 1;
             }
-            localStorage.removeItem('budget-online-sync-pending-6bbm');
-            if (!requestedRecords.length) localStorage.removeItem(ONLINE_LEGACY_PENDING_KEY_V3);
+            cleanupBudgetLocalStorageV4();
+            if (!requestedRecords.length) cleanupBudgetLocalStorageV4();
             setOnlineDbSyncStatus(`Banco online atualizado com ${count} registro(s).`);
             if (!silent) showAlert('Dados locais enviados ao banco online com sucesso.');
             return true;
@@ -8370,7 +8394,7 @@ function openManagerProfileCompletionModal() {
 // Google Sheets/Apps Script = fonte central; localStorage = cache/fila.
 // ==============================================================
 const ONLINE_MUTATION_QUEUE_KEY_V3 = 'budget-online-mutation-queue-6bbm-v3';
-const ONLINE_LEGACY_PENDING_KEY_V3 = 'budget-online-sync-pending-6bbm';
+// ONLINE_LEGACY_PENDING_KEY_V3 removida: a chave antiga nunca mais é gravada.
 
 const ONLINE_DATASET_CFG_V3 = {
     contracts: { sheet: 'CONTRATOS', idField: 'id_contrato', source: () => budgetContracts || [], toDb: localContractToDb },
@@ -8384,20 +8408,30 @@ const ONLINE_DATASET_CFG_V3 = {
 function getOnlineMutationQueueV3() {
     try {
         const arr = JSON.parse(localStorage.getItem(ONLINE_MUTATION_QUEUE_KEY_V3) || '[]');
-        return Array.isArray(arr) ? arr : [];
+        if (Array.isArray(arr)) return arr;
     } catch (e) {
-        console.warn('Falha ao ler fila online:', e);
-        return [];
+        console.warn('Falha ao ler fila online persistida:', e);
     }
+    const fallback = window.__budgetMutationQueueFallbackV4;
+    return Array.isArray(fallback) ? fallback.slice() : [];
 }
 
 function persistOnlineMutationQueueV3(queue) {
     const arr = Array.isArray(queue) ? queue : [];
-    localStorage.setItem(ONLINE_MUTATION_QUEUE_KEY_V3, JSON.stringify(arr));
-    if (arr.length) {
-        localStorage.setItem(ONLINE_LEGACY_PENDING_KEY_V3, JSON.stringify({ v: 3, count: arr.length, queuedAt: new Date().toISOString() }));
-    } else {
-        localStorage.removeItem(ONLINE_LEGACY_PENDING_KEY_V3);
+    const payload = JSON.stringify(arr);
+    cleanupBudgetLocalStorageV4();
+    try {
+        localStorage.setItem(ONLINE_MUTATION_QUEUE_KEY_V3, payload);
+        window.__budgetMutationQueueFallbackV4 = arr.slice();
+        // O marcador legado nunca mais é gravado.
+        return true;
+    } catch (e) {
+        // Se o navegador ainda estiver sem espaço, não interromper o lançamento.
+        // A fila fica em memória e o cache oficial continua disponível.
+        window.__budgetMutationQueueFallbackV4 = arr.slice();
+        try { localStorage.removeItem(ONLINE_MUTATION_QUEUE_KEY_V3); } catch (ignore) {}
+        console.warn('Quota do localStorage atingida; fila online mantida em memória.', e);
+        return false;
     }
 }
 
@@ -8715,15 +8749,11 @@ doSystemLogin = async function doSystemLoginCentralV3() {
         showBudgetError('Banco online indisponível. O login desta versão depende do banco central.');
         return;
     }
-    beginAppLoading('Entrando no sistema', 'Validando usuário e senha no banco central.');
     try {
         const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'login', usuario, password, _: Date.now() });
-        // LOGIN NÃO DEVE SER REPETIDO AUTOMATICAMENTE. Uma primeira requisição pode
-        // ter sido processada pelo Apps Script mesmo que a conexão demore. Repetir
-        // o login poderia criar múltiplas sessões.
-        const res = await jsonpRequest(url, 45000);
+        const res = await jsonpRequestWithRetry(url, 3, 30000);
         if (!res || res.success !== true || !res.user) throw new Error(res?.message || 'Resposta inválida do banco online.');
-        if (!res.user.authToken) throw new Error('O banco central não devolveu o token de sessão. Publique a versão atualizada do Apps Script e tente novamente.');
+        if (!res.user.authToken) throw new Error('O banco central não devolveu o token de sessão. Faça login novamente ou verifique a versão publicada do Apps Script.');
         applyOnlineUser(res.user);
         saveSystemUserSession(getCurrentSystemUser());
         updateSystemUserInterface();
@@ -8745,8 +8775,6 @@ doSystemLogin = async function doSystemLoginCentralV3() {
         showAlert(`Login online realizado como ${currentSystemUser.nome || currentSystemUser.usuario} (${currentSystemUser.perfil}).`);
     } catch (err) {
         showBudgetError('Falha no login online: ' + (err.message || err));
-    } finally {
-        hideAppLoading();
     }
 };
 window.doSystemLogin = doSystemLogin;
@@ -8961,6 +8989,8 @@ function installCentralOnlineBadgeV3() {
 }
 setTimeout(installCentralOnlineBadgeV3, 0);
 
+
+try { cleanupBudgetLocalStorageV4(); } catch (e) {}
 
 async function bootApplicationV4() {
     beginAppLoading('Carregando sistema', 'Sincronizando frota, manutenções e banco orçamentário.');

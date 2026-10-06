@@ -482,6 +482,26 @@
             font-weight: 600;
         }
 
+        #appLoadingMini {
+            position: fixed;
+            top: 14px;
+            right: 18px;
+            z-index: 100000;
+            display: none;
+            align-items: center;
+            gap: .45rem;
+            padding: .42rem .7rem;
+            border-radius: 999px;
+            background: rgba(21,27,61,.96);
+            border: 1px solid rgba(25,118,210,.65);
+            box-shadow: 0 8px 30px rgba(0,0,0,.35);
+            color: var(--text);
+            font-size: .78rem;
+            font-weight: 700;
+        }
+        #appLoadingMini.active { display: inline-flex; }
+        #appLoadingMini .mini-hourglass { display:inline-block; animation: hourglassSpin .9s linear infinite; }
+
         body.app-is-loading {
             overflow: hidden;
         }
@@ -1279,6 +1299,8 @@ table{
         <div class="alert alert-success" id="alertSuccess"></div>
 
         <!-- Indicador global: impede novos cliques enquanto o sistema grava/sincroniza. -->
+        <div id="appLoadingMini" aria-hidden="true"><span class="mini-hourglass">⌛</span><span id="appLoadingMiniText">Processando...</span></div>
+
         <div id="appLoadingOverlay" class="app-loading-overlay" aria-hidden="true" role="status" aria-live="polite">
             <div class="app-loading-card">
                 <div class="app-loading-hourglass" aria-hidden="true">⌛</div>
@@ -1899,7 +1921,7 @@ table{
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">💾 Salvar Contrato</button>
+                    <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Contrato</button>
                     <button type="button" class="btn btn-secondary" onclick="closeBudgetContractForm()">Cancelar</button>
                 </div>
             </form>
@@ -1956,7 +1978,7 @@ table{
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">💾 Salvar Aditivo</button>
+                        <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Aditivo</button>
                         <button type="button" class="btn btn-secondary" onclick="hideBudgetAddendumForm()">Cancelar</button>
                     </div>
                 </form>
@@ -2005,7 +2027,7 @@ table{
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">💾 Salvar Empenho</button>
+                        <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Empenho</button>
                         <button type="button" class="btn btn-secondary" onclick="hideBudgetCommitmentForm()">Cancelar</button>
                     </div>
                 </form>
@@ -2048,7 +2070,7 @@ table{
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">💾 Salvar Movimentação</button>
+                        <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Movimentação</button>
                         <button type="button" class="btn btn-secondary" onclick="hideBudgetMovementForm()">Cancelar</button>
                     </div>
                 </form>
@@ -2204,7 +2226,7 @@ table{
                     Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O mesmo lançamento alimenta a manutenção da viatura e o controle de contratos: debita uma única vez o saldo do empenho, primeiro como nota branca, depois como orçamento oficial e, por fim, como NF vinculada ao documento SEI do lançamento, sem duplicidade no extrato.
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">💾 Salvar Orçamento/Manutenção</button>
+                    <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Orçamento/Manutenção</button>
                     <button type="button" class="btn btn-secondary" onclick="closeBudgetQuoteForm()">Cancelar</button>
                 </div>
             </form>
@@ -2286,7 +2308,7 @@ table{
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">💾 Salvar Manutenção</button>
+                        <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Manutenção</button>
                         <button type="button" class="btn btn-secondary" onclick="hideAddMaintenance()">Cancelar</button>
                     </div>
                 </form>
@@ -2335,18 +2357,28 @@ let appLoadingWatchdog = null;
 function setAppLoadingMessage(title, message) {
     const titleEl = document.getElementById('appLoadingTitle');
     const messageEl = document.getElementById('appLoadingMessage');
+    const miniText = document.getElementById('appLoadingMiniText');
     if (titleEl) titleEl.textContent = title || 'Processando';
     if (messageEl) messageEl.textContent = message || 'Aguarde a conclusão da operação.';
+    if (miniText) miniText.textContent = title || 'Processando...';
 }
 
 function beginAppLoading(title = 'Processando', message = 'Aguarde a conclusão da operação.') {
     appLoadingDepth += 1;
     const overlay = document.getElementById('appLoadingOverlay');
+    document.querySelectorAll('.app-save-action').forEach(function(btn) {
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        if (!btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
+        btn.innerHTML = '⌛ Processando...';
+    });
     if (overlay) {
         setAppLoadingMessage(title, message);
         overlay.classList.add('active');
         overlay.setAttribute('aria-hidden', 'false');
     }
+    const mini = document.getElementById('appLoadingMini');
+    if (mini) mini.classList.add('active');
     document.body.classList.add('app-is-loading');
 
     // Proteção contra uma operação que, por erro externo, nunca conclua.
@@ -2376,7 +2408,17 @@ function hideAppLoading() {
         overlay.classList.remove('active');
         overlay.setAttribute('aria-hidden', 'true');
     }
+    const mini = document.getElementById('appLoadingMini');
+    if (mini) mini.classList.remove('active');
     document.body.classList.remove('app-is-loading');
+    document.querySelectorAll('.app-save-action').forEach(function(btn) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        if (btn.dataset.originalText) {
+            btn.innerHTML = btn.dataset.originalText;
+            delete btn.dataset.originalText;
+        }
+    });
 }
 
 function forceHideAppLoading() {
@@ -2390,7 +2432,17 @@ function forceHideAppLoading() {
         overlay.classList.remove('active');
         overlay.setAttribute('aria-hidden', 'true');
     }
+    const mini = document.getElementById('appLoadingMini');
+    if (mini) mini.classList.remove('active');
     document.body.classList.remove('app-is-loading');
+    document.querySelectorAll('.app-save-action').forEach(function(btn) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        if (btn.dataset.originalText) {
+            btn.innerHTML = btn.dataset.originalText;
+            delete btn.dataset.originalText;
+        }
+    });
 }
 
 // Evita que Enter/Espaço dispare outro submit enquanto uma gravação está em curso.
@@ -2652,7 +2704,10 @@ function updateLoginProfileHint() {
 
 function hasValidOnlineSession() {
     const user = getCurrentSystemUser();
-    return !!(user && user.email && user.authToken && String(user.status || '').toUpperCase() === 'ATIVO');
+    // A autenticação é baseada no token emitido pelo Apps Script e no status
+    // ativo do usuário. O Gmail é dado cadastral, não requisito de autorização.
+    return !!(user && user.authToken && String(user.status || '').toUpperCase() === 'ATIVO' &&
+        (user.usuario || user.numero_bombeiro));
 }
 
 async function doSystemLogin() {
@@ -6381,9 +6436,14 @@ function getCurrentUserProfile() {
 
 function hasBudgetPermission(permission) {
     const user = getCurrentSystemUser();
-    if (isOnlineDatabaseReady() && (!user || !user.email || !user.authToken || String(user.status || '').toUpperCase() !== 'ATIVO')) {
-        return false;
-    }
+    const status = String(user?.status || '').toUpperCase();
+    if (!user || status !== 'ATIVO') return false;
+
+    // No banco online, a autorização para gravar depende da sessão central
+    // (token + BM), e não da existência do Gmail no objeto de sessão.
+    if (isOnlineDatabaseReady() && !user.authToken) return false;
+    if (isOnlineDatabaseReady() && !(user.usuario || user.numero_bombeiro)) return false;
+
     const profile = getCurrentUserProfile();
     const rules = USER_PROFILE_RULES[profile] || USER_PROFILE_RULES.VISITANTE;
     return rules[permission] === true;
@@ -6391,7 +6451,19 @@ function hasBudgetPermission(permission) {
 
 function requireBudgetPermission(permission, actionLabel = 'executar esta ação') {
     if (hasBudgetPermission(permission)) return true;
-    showBudgetError(`Permissão negada: faça login com usuário autorizado. Perfil atual: ${getCurrentUserProfile()}. Ação bloqueada: ${actionLabel}.`);
+
+    const user = getCurrentSystemUser();
+    const onlineReady = isOnlineDatabaseReady();
+    const hasToken = !!user?.authToken;
+    const status = String(user?.status || '').toUpperCase();
+
+    if (onlineReady && (status !== 'ATIVO' || !hasToken)) {
+        showBudgetError(`Sessão online inválida ou expirada. Faça login novamente para ${actionLabel}. Perfil atual: ${getCurrentUserProfile()}.`);
+        try { openLoginModal(); } catch (e) { console.warn('Não foi possível abrir o login:', e); }
+        return false;
+    }
+
+    showBudgetError(`Permissão negada. Perfil atual: ${getCurrentUserProfile()}. Ação bloqueada: ${actionLabel}.`);
     return false;
 }
 
@@ -8467,7 +8539,11 @@ scheduleOnlineBudgetSync = function scheduleOnlineBudgetSyncV3(delayMs = 60) {
 
 function hasCentralOnlineSessionV3() {
     const user = getCurrentSystemUser();
-    return !!(user && user.authToken && String(user.status || '').toUpperCase() === 'ATIVO' && String(user.authMode || 'ONLINE').toUpperCase() !== 'LOCAL');
+    // Sessão central válida = token emitido pelo Apps Script + usuário ativo.
+    // O e-mail não é usado como credencial e, portanto, não pode bloquear
+    // um OPERADOR autenticado.
+    return !!(user && user.authToken && String(user.status || '').toUpperCase() === 'ATIVO' &&
+        (user.usuario || user.numero_bombeiro) && String(user.authMode || 'ONLINE').toUpperCase() !== 'LOCAL');
 }
 
 hasValidOnlineSession = hasCentralOnlineSessionV3;
@@ -8643,6 +8719,7 @@ doSystemLogin = async function doSystemLoginCentralV3() {
         const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'login', usuario, password, _: Date.now() });
         const res = await jsonpRequestWithRetry(url, 3, 30000);
         if (!res || res.success !== true || !res.user) throw new Error(res?.message || 'Resposta inválida do banco online.');
+        if (!res.user.authToken) throw new Error('O banco central não devolveu o token de sessão. Faça login novamente ou verifique a versão publicada do Apps Script.');
         applyOnlineUser(res.user);
         saveSystemUserSession(getCurrentSystemUser());
         updateSystemUserInterface();
@@ -8709,10 +8786,16 @@ window.submitForcedPasswordChange = submitForcedPasswordChange;
 hasBudgetPermission = function hasBudgetPermissionCentralV3(permission) {
     const user = getCurrentSystemUser();
     if (!user || String(user.status || '').toUpperCase() !== 'ATIVO') return false;
+
+    // O perfil OPERADOR possui permissão de INCLUIR. A única exigência
+    // adicional no modo online é possuir uma sessão central autenticada.
     if (isOnlineDatabaseReady() && !hasCentralOnlineSessionV3()) return false;
+
     const profile = normalizeSystemProfile(user.perfil || 'VISITANTE');
-    return (USER_PROFILE_RULES[profile] || USER_PROFILE_RULES.VISITANTE)[permission] === true;
+    const rules = USER_PROFILE_RULES[profile] || USER_PROFILE_RULES.VISITANTE;
+    return rules[permission] === true;
 };
+window.hasBudgetPermission = hasBudgetPermission;
 window.hasBudgetPermission = hasBudgetPermission;
 
 // Cadastro de usuários passa a gravar diretamente na aba USUARIOS do banco central.
@@ -8726,6 +8809,7 @@ createUserFromCadastro = async function createUserFromCadastroOnlineV3() {
     if (!nome || !email || !cpf || !numero_bombeiro) { showBudgetError('Informe nome, Gmail, CPF e nº BM com 6 números.'); return; }
     if (!email.endsWith('@gmail.com')) { showBudgetError('O e-mail deve ser um Gmail válido.'); return; }
     if (!/^\d{11}$/.test(cpf)) { showBudgetError('CPF inválido. Informe os 11 números.'); return; }
+    beginAppLoading('Criando usuário', 'Gravando o novo usuário no banco central.');
     try {
         const record = { nome, email, cpf, numero_bombeiro, usuario: numero_bombeiro, perfil, status: 'ATIVO' };
         const res = await onlineDbRequest({ action: 'createUser', userJson: JSON.stringify(record), password: DEFAULT_INITIAL_USER_PASSWORD }, 3, 30000);
@@ -8735,6 +8819,8 @@ createUserFromCadastro = async function createUserFromCadastroOnlineV3() {
         showAlert(`Acesso online criado para ${numero_bombeiro}. Senha inicial: ${DEFAULT_INITIAL_USER_PASSWORD}.`);
     } catch (err) {
         showBudgetError('Falha ao criar usuário: ' + (err.message || err));
+    } finally {
+        hideAppLoading();
     }
 };
 window.createUserFromCadastro = createUserFromCadastro;
@@ -8788,24 +8874,28 @@ saveCadastroUser = async function saveCadastroUserOnlineV3(usuario, idUsuario = 
         await loadCadastroUsers();
         return;
     }
+    beginAppLoading('Salvando acesso', 'Atualizando o nível de acesso no banco central.');
     try {
         const res = await onlineDbRequest({ action: 'updateUser', id: idUsuario, usuario, patchJson: JSON.stringify({ perfil, status }) }, 3, 30000);
         if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao atualizar usuário.');
         await loadCadastroUsers();
         showAlert('Nível de acesso atualizado no banco online.');
     } catch (err) { showBudgetError('Falha ao atualizar usuário: ' + (err.message || err)); }
+    finally { hideAppLoading(); }
 };
 window.saveCadastroUser = saveCadastroUser;
 
 resetCadastroPassword = async function resetCadastroPasswordOnlineV3(usuario) {
     if (!requireBudgetPermission('gerenciar_usuarios', 'redefinir senha')) return;
     if (!confirm(`Redefinir a senha de ${usuario} para ${DEFAULT_INITIAL_USER_PASSWORD}?`)) return;
+    beginAppLoading('Redefinindo senha', 'Gravando a nova senha temporária no banco central.');
     try {
         const res = await onlineDbRequest({ action: 'resetUserPassword', usuario, password: DEFAULT_INITIAL_USER_PASSWORD }, 3, 30000);
         if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao redefinir senha.');
         await loadCadastroUsers();
         showAlert(`Senha temporária redefinida para ${DEFAULT_INITIAL_USER_PASSWORD}.`);
     } catch (err) { showBudgetError('Falha ao redefinir senha: ' + (err.message || err)); }
+    finally { hideAppLoading(); }
 };
 window.resetCadastroPassword = resetCadastroPassword;
 

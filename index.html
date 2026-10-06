@@ -3714,7 +3714,7 @@ function jsonpRequest(url, timeoutMs = 30000) {
 
         const timer = setTimeout(() => {
             cleanup();
-            reject(new Error("Timeout JSONP: " + fullUrl));
+            reject(new Error("Timeout JSONP: o banco online não respondeu dentro do prazo."));
         }, timeoutMs);
 
         window[cbName] = (data) => {
@@ -3726,7 +3726,7 @@ function jsonpRequest(url, timeoutMs = 30000) {
         script.onerror = () => {
             clearTimeout(timer);
             cleanup();
-            reject(new Error("Erro ao carregar JSONP: " + fullUrl));
+            reject(new Error("Erro ao carregar o banco online. Verifique a conexão e a publicação do Apps Script."));
         };
 
         document.head.appendChild(script);
@@ -8715,11 +8715,15 @@ doSystemLogin = async function doSystemLoginCentralV3() {
         showBudgetError('Banco online indisponível. O login desta versão depende do banco central.');
         return;
     }
+    beginAppLoading('Entrando no sistema', 'Validando usuário e senha no banco central.');
     try {
         const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'login', usuario, password, _: Date.now() });
-        const res = await jsonpRequestWithRetry(url, 3, 30000);
+        // LOGIN NÃO DEVE SER REPETIDO AUTOMATICAMENTE. Uma primeira requisição pode
+        // ter sido processada pelo Apps Script mesmo que a conexão demore. Repetir
+        // o login poderia criar múltiplas sessões.
+        const res = await jsonpRequest(url, 45000);
         if (!res || res.success !== true || !res.user) throw new Error(res?.message || 'Resposta inválida do banco online.');
-        if (!res.user.authToken) throw new Error('O banco central não devolveu o token de sessão. Faça login novamente ou verifique a versão publicada do Apps Script.');
+        if (!res.user.authToken) throw new Error('O banco central não devolveu o token de sessão. Publique a versão atualizada do Apps Script e tente novamente.');
         applyOnlineUser(res.user);
         saveSystemUserSession(getCurrentSystemUser());
         updateSystemUserInterface();
@@ -8741,6 +8745,8 @@ doSystemLogin = async function doSystemLoginCentralV3() {
         showAlert(`Login online realizado como ${currentSystemUser.nome || currentSystemUser.usuario} (${currentSystemUser.perfil}).`);
     } catch (err) {
         showBudgetError('Falha no login online: ' + (err.message || err));
+    } finally {
+        hideAppLoading();
     }
 };
 window.doSystemLogin = doSystemLogin;

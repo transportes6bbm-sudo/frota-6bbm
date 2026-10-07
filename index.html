@@ -9057,6 +9057,114 @@ document.addEventListener('click', function(event) {
     if (!box) hideBudgetQuoteVehicleResults();
 });
 
-    </script>
+    
+
+// ================================================================
+// CORREÇÃO V5 — DETECÇÃO E RECUPERAÇÃO DE SESSÃO CENTRAL EXPIRADA
+// ================================================================
+// O backend encerra a sessão após SESSION_HOURS. O navegador, porém,
+// mantinha o token antigo no localStorage e só descobria a expiração
+// quando tentava gravar. Esta camada detecta a situação e abre o login
+// novamente, preservando o formulário que estava sendo editado.
+(function installCentralSessionRecoveryV5() {
+    function isCentralSessionErrorV5(error) {
+        const msg = String(error?.message || error || '').toLowerCase();
+        return /sess[aã]o/.test(msg) && (
+            /inv[aá]lida/.test(msg) ||
+            /expirada/.test(msg) ||
+            /encerrada/.test(msg) ||
+            /fa[cç]a login/.test(msg)
+        );
+    }
+
+    function invalidateCentralSessionV5(reason = '') {
+        try { clearSystemUserSession(); } catch (e) {}
+        currentSystemUser = {
+            email: '', usuario: '', numero_bombeiro: '', nome: 'Visitante',
+            perfil: 'VISITANTE', status: 'LOCAL', authToken: '', authMode: 'LOCAL'
+        };
+        try { updateSystemUserInterface(); } catch (e) {}
+        setOnlineDbSyncStatus('Sessão central expirada. Faça login novamente.', true);
+        console.warn('[Sessão central V5] Sessão invalidada:', reason);
+        setTimeout(() => {
+            try { openLoginModal(); } catch (e) { console.warn(e); }
+        }, 100);
+    }
+
+    // A confirmação de gravação dos formulários passa por esta função.
+    // Se o token expirou, não tentamos gravar novamente com o mesmo token.
+    const syncSpecificBaseV5 = window.syncSpecificBudgetRecordsV4 || syncSpecificBudgetRecordsV4;
+    syncSpecificBudgetRecordsV4 = async function syncSpecificBudgetRecordsRecoveryV5(records) {
+        try {
+            return await syncSpecificBaseV5(records);
+        } catch (err) {
+            if (isCentralSessionErrorV5(err)) invalidateCentralSessionV5(err.message || err);
+            throw err;
+        }
+    };
+    window.syncSpecificBudgetRecordsV4 = syncSpecificBudgetRecordsV4;
+
+    // Valida a sessão persistida ao abrir o sistema. O backend V5/V6 possui
+    // validateUser; versões anteriores não possuem, então fazemos fallback
+    // para initialData apenas nesse caso.
+    async function validatePersistedCentralSessionV5() {
+        if (!isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) return;
+        const user = getCurrentSystemUser();
+        const matricula = String(user?.usuario || user?.numero_bombeiro || '').trim();
+        if (!matricula) return;
+
+        try {
+            let res = await onlineDbRequest({
+                action: 'validateUser',
+                matricula,
+                _: Date.now()
+            }, 2, 15000);
+
+            const msg = String(res?.message || '').toLowerCase();
+            if (res?.success !== true && /a[cç][aã]o n[aã]o reconhecida/.test(msg)) {
+                res = await onlineDbRequest({ action: 'initialData', _: Date.now() }, 2, 20000);
+            }
+
+            if (!res || res.success !== true) {
+                throw new Error(res?.message || 'Sessão central não pôde ser validada.');
+            }
+
+            if (res.user?.authToken) {
+                applyOnlineUser(res.user);
+                saveSystemUserSession(getCurrentSystemUser());
+                updateSystemUserInterface();
+            }
+            setOnlineDbSyncStatus('Sessão central validada.');
+            return true;
+        } catch (err) {
+            if (isCentralSessionErrorV5(err)) {
+                invalidateCentralSessionV5(err.message || err);
+                return false;
+            }
+            console.warn('[Sessão central V5] Não foi possível validar a sessão:', err);
+            return false;
+        }
+    }
+
+    // Substitui o checkAuth final por uma versão que também verifica o token
+    // no servidor, sem remover o fluxo original de primeiro acesso.
+    const checkAuthBaseV5 = window.checkAuth || checkAuth;
+    checkAuth = function checkAuthCentralRecoveryV5() {
+        try { checkAuthBaseV5(); } catch (e) { console.warn(e); }
+        setTimeout(validatePersistedCentralSessionV5, 500);
+    };
+    window.checkAuth = checkAuth;
+
+    // bootApplicationV4 já pode ter executado antes deste bloco. A validação
+    // adicional garante que uma sessão antiga seja detectada nesta abertura.
+    setTimeout(validatePersistedCentralSessionV5, 900);
+
+    window.centralSessionRecoveryV5 = {
+        validate: validatePersistedCentralSessionV5,
+        invalidate: invalidateCentralSessionV5,
+        isSessionError: isCentralSessionErrorV5
+    };
+})();
+</script>
 </body>
 </html>

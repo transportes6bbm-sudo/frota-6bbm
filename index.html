@@ -5878,7 +5878,8 @@ function saveBudgetStorage(syncRecords = null) {
 async function awaitBudgetSave(syncRecords, operationLabel = 'salvamento') {
     const result = await saveBudgetStorage(syncRecords);
     if (result && result.onlineRequired && !result.onlineSynced) {
-        throw new Error(`O ${operationLabel} local foi realizado, mas o banco central não confirmou a gravação. O formulário foi mantido aberto para nova tentativa.`);
+        const detail = result.error?.message ? ` Motivo: ${result.error.message}` : '';
+        throw new Error(`O ${operationLabel} local foi realizado, mas o banco central não confirmou a gravação.${detail} O formulário foi mantido aberto para nova tentativa.`);
     }
     return result;
 }
@@ -8418,17 +8419,16 @@ function getOnlineMutationQueueV3() {
 
 function persistOnlineMutationQueueV3(queue) {
     const arr = Array.isArray(queue) ? queue : [];
-    const payload = JSON.stringify(arr);
-    cleanupBudgetLocalStorageV4();
+    window.__budgetMutationQueueFallbackV4 = arr.slice();
     try {
+        const payload = JSON.stringify(arr);
+        cleanupBudgetLocalStorageV4();
         localStorage.setItem(ONLINE_MUTATION_QUEUE_KEY_V3, payload);
-        window.__budgetMutationQueueFallbackV4 = arr.slice();
         // O marcador legado nunca mais é gravado.
         return true;
     } catch (e) {
-        // Se o navegador ainda estiver sem espaço, não interromper o lançamento.
-        // A fila fica em memória e o cache oficial continua disponível.
-        window.__budgetMutationQueueFallbackV4 = arr.slice();
+        // A quota do navegador jamais deve transformar uma falha de persistência
+        // da fila em falha do lançamento. A fila permanece em memória.
         try { localStorage.removeItem(ONLINE_MUTATION_QUEUE_KEY_V3); } catch (ignore) {}
         console.warn('Quota do localStorage atingida; fila online mantida em memória.', e);
         return false;
@@ -8506,9 +8506,43 @@ function queueAllBudgetRecordsV3() {
 }
 
 // Substitui o salvamento local-only por cache local + fila incremental para o banco central.
-saveBudgetStorage = function saveBudgetStorageOnlineV3() {
+// GRAVAÇÃO CENTRAL V4
+// Os formulários passam explicitamente os registros alterados. A confirmação do
+// salvamento novo/edição é feita diretamente no Apps Script, sem depender da fila
+// local. A fila incremental permanece apenas como contingência para novas tentativas.
+async function syncSpecificBudgetRecordsV4(records) {
+    console.log('[Banco online V4] Confirmando gravação direta de', Array.isArray(records) ? records.length : 0, 'registro(s).');
+    if (!Array.isArray(records) || !records.length) return true;
+    if (!isOnlineDatabaseReady()) throw new Error('Banco online não configurado.');
+    if (!hasCentralOnlineSessionV3()) throw new Error('Sessão do banco central inválida ou expirada. Faça login novamente.');
+
+    const profile = normalizeSystemProfile(getCurrentSystemUser()?.perfil);
+    const action = profile === 'GESTOR' ? 'upsert' : 'insertIfMissing';
+
+    for (const item of records) {
+        if (!item || !item.sheet || !item.idField || !item.record) continue;
+        const record = item.record;
+        const id = String(record[item.idField] || '').trim();
+        if (!id) throw new Error(`Registro sem identificador para a aba ${item.sheet}.`);
+
+        const res = await onlineDbRequest({
+            action,
+            sheet: item.sheet,
+            idField: item.idField,
+            id,
+            recordJson: JSON.stringify(record)
+        }, 3, 30000);
+
+        if (!res || res.success !== true) {
+            throw new Error(res?.message || `O banco central não confirmou a gravação em ${item.sheet}.`);
+        }
+    }
+    return true;
+}
+
+saveBudgetStorage = function saveBudgetStorageOnlineV4(syncRecords = null) {
     const previous = readPersistedBudgetSnapshotV3();
-    backupBudgetStorage('antes-de-salvar-alteracao-online-v3');
+    cleanupBudgetLocalStorageV4();
 
     saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
     saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
@@ -8518,24 +8552,31 @@ saveBudgetStorage = function saveBudgetStorageOnlineV3() {
     saveToStorage(BUDGET_STORAGE_KEYS.history, budgetHistory);
 
     const mutations = diffBudgetSnapshotsV3(previous, currentBudgetSnapshotV3());
-    if (mutations.length) enqueueOnlineMutationsV3(mutations);
+    if (mutations.length) {
+        try { enqueueOnlineMutationsV3(mutations); }
+        catch (e) { console.warn('Fila local indisponível; será usada a gravação central direta.', e); }
+    }
 
-    // Se o banco central estiver disponível e a sessão for válida, a promessa
-    // só é resolvida quando a fila confirmar as gravações no Apps Script.
-    // Isso permite que os formulários fechem somente depois da confirmação real.
-    if (isOnlineDatabaseReady() && typeof hasCentralOnlineSessionV3 === 'function' && hasCentralOnlineSessionV3()) {
-        const confirmAllQueuedChanges = async (ok) => {
-            if (ok !== true) return false;
-            // Se outra sincronização estava em andamento quando o usuário salvou,
-            // a alteração atual pode ter entrado na fila depois que aquela execução
-            // capturou sua própria cópia. Fazemos uma segunda confirmação da fila.
-            if (getOnlineMutationQueueV3().length) {
-                return await syncBudgetDataOnline({ silent: true });
-            }
-            return true;
-        };
+    const records = Array.isArray(syncRecords) ? syncRecords.filter(Boolean) : [];
 
-        return syncBudgetDataOnline({ silent: true }).then(confirmAllQueuedChanges).then(ok => ({
+    if (isOnlineDatabaseReady() && hasCentralOnlineSessionV3()) {
+        if (records.length) {
+            // Caminho principal para inclusão/edição: grava somente o que o formulário
+            // acabou de alterar e aguarda success:true do Apps Script.
+            return syncSpecificBudgetRecordsV4(records).then(() => ({
+                localSaved: true,
+                onlineRequired: true,
+                onlineSynced: true
+            })).catch(err => ({
+                localSaved: true,
+                onlineRequired: true,
+                onlineSynced: false,
+                error: err
+            }));
+        }
+
+        // Operações sem lista explícita (ex.: exclusão) continuam usando a fila.
+        return syncBudgetDataOnline({ silent: true }).then(ok => ({
             localSaved: true,
             onlineRequired: true,
             onlineSynced: ok === true
@@ -8548,11 +8589,7 @@ saveBudgetStorage = function saveBudgetStorageOnlineV3() {
     }
 
     queueOnlineBudgetSync();
-    return Promise.resolve({
-        localSaved: true,
-        onlineRequired: false,
-        onlineSynced: true
-    });
+    return Promise.resolve({ localSaved: true, onlineRequired: false, onlineSynced: true });
 };
 
 queueOnlineBudgetSync = function queueOnlineBudgetSyncV3() {

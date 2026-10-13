@@ -9165,6 +9165,131 @@ document.addEventListener('click', function(event) {
         isSessionError: isCentralSessionErrorV5
     };
 })();
+
+
+// ================================================================
+// CORREÇÃO V6 — SESSÃO CENTRAL, PRÉ-VALIDAÇÃO E RENOVAÇÃO
+// ================================================================
+// O V5 ainda tentava validar uma ação (validateUser) que não existia no
+// backend antigo. Quando o token estava expirado, o backend rejeitava a
+// chamada antes de chegar à validação e o navegador continuava segurando
+// o token inválido. Esta camada usa initialData como validação compatível
+// e força a autenticação novamente antes de qualquer gravação central.
+(function installCentralSessionV6() {
+    let validationPromise = null;
+
+    function sessionErrorV6(error) {
+        const msg = String(error?.message || error || '').toLowerCase();
+        return /sess[aã]o/.test(msg) && (
+            /inv[aá]lida/.test(msg) ||
+            /expirada/.test(msg) ||
+            /encerrada/.test(msg) ||
+            /fa[cç]a login/.test(msg)
+        );
+    }
+
+    function forceLoginV6(reason) {
+        try { clearSystemUserSession(); } catch (e) {}
+        currentSystemUser = {
+            id_usuario: '',
+            email: '',
+            usuario: '',
+            numero_bombeiro: '',
+            nome: 'Visitante',
+            perfil: 'VISITANTE',
+            status: 'LOCAL',
+            authToken: '',
+            authMode: 'LOCAL'
+        };
+        try { updateSystemUserInterface(); } catch (e) {}
+        setOnlineDbSyncStatus('Sessão central expirada. Faça login novamente.', true);
+        console.warn('[Sessão central V6]', reason || 'sessão inválida');
+        setTimeout(() => {
+            try { openLoginModal(); } catch (e) { console.warn(e); }
+        }, 50);
+    }
+
+    async function validateCentralSessionV6(showLogin = true) {
+        if (!isOnlineDatabaseReady()) return true;
+        if (!hasCentralOnlineSessionV3()) {
+            if (showLogin) forceLoginV6('Não existe sessão central válida no navegador.');
+            return false;
+        }
+        if (validationPromise) return validationPromise;
+
+        const userBefore = getCurrentSystemUser();
+        validationPromise = (async () => {
+            try {
+                // O backend V6 oferece validateUser, que é leve e também renova
+                // a sessão. Mantemos fallback para initialData caso o Web App ainda
+                // esteja momentaneamente servindo uma versão anterior.
+                let res = await onlineDbRequest({ action: 'validateUser', matricula: String(userBefore?.usuario || userBefore?.numero_bombeiro || ''), _: Date.now() }, 2, 15000);
+                const msg = String(res?.message || '').toLowerCase();
+                if (res?.success !== true && /a[cç][aã]o não reconhecida|a[cç][aã]o n[aã]o reconhecida/.test(msg)) {
+                    res = await onlineDbRequest({ action: 'initialData', _: Date.now() }, 2, 20000);
+                }
+                if (!res || res.success !== true || !res.user) {
+                    throw new Error(res?.message || 'O banco central não validou a sessão.');
+                }
+                if (res.user.authToken) {
+                    applyOnlineUser(res.user);
+                    saveSystemUserSession(getCurrentSystemUser());
+                    updateSystemUserInterface();
+                }
+                return true;
+            } catch (err) {
+                if (sessionErrorV6(err)) {
+                    if (showLogin) forceLoginV6(err.message || err);
+                    return false;
+                }
+                console.warn('[Sessão central V6] Falha de validação:', err);
+                return false;
+            } finally {
+                validationPromise = null;
+            }
+        })();
+        return validationPromise;
+    }
+
+    window.validateCentralSessionV6 = validateCentralSessionV6;
+    window.forceLoginV6 = forceLoginV6;
+
+    // Antes de qualquer salvamento que dependa do banco central, valida o
+    // token no servidor. Isso impede que o formulário seja processado com
+    // uma sessão apenas "aparentemente" válida no localStorage.
+    const awaitBudgetSaveBaseV6 = window.awaitBudgetSave || awaitBudgetSave;
+    awaitBudgetSave = async function awaitBudgetSaveCentralV6(syncRecords, operationLabel = 'salvamento') {
+        if (isOnlineDatabaseReady()) {
+            const valid = await validateCentralSessionV6(true);
+            if (!valid) {
+                throw new Error('Sessão central inválida ou expirada. Faça login novamente. O formulário foi mantido aberto para nova tentativa.');
+            }
+        }
+        return await awaitBudgetSaveBaseV6(syncRecords, operationLabel);
+    };
+    window.awaitBudgetSave = awaitBudgetSave;
+
+    // A cada 8 minutos, enquanto houver usuário online, renova a sessão no
+    // servidor. Com o backend V6, isso mantém a sessão viva durante o uso.
+    async function heartbeatCentralSessionV6() {
+        try {
+            if (document.hidden) return;
+            if (isOnlineDatabaseReady() && hasCentralOnlineSessionV3()) {
+                await validateCentralSessionV6(false);
+            }
+        } catch (e) {
+            console.warn('[Sessão central V6] heartbeat:', e);
+        }
+    }
+    setInterval(heartbeatCentralSessionV6, 8 * 60 * 1000);
+    setTimeout(heartbeatCentralSessionV6, 1500);
+
+    // Quando a página volta ao foco, valida imediatamente.
+    window.addEventListener('focus', () => {
+        heartbeatCentralSessionV6();
+    });
+})();
+
 </script>
 </body>
 </html>

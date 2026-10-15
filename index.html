@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <!-- AUDITORIA/CONSOLIDAÇÃO 18-09-2026
+    <!-- AUDITORIA/CONSOLIDAÇÃO 15-10-2026 — V7 BANCO CENTRAL
      Versão consolidada: autenticação central online V3; bloco de autenticação local V2 removido;
      duplicidades de funções críticas eliminadas; sincronização central redundante de 60s removida. -->
 
@@ -3054,66 +3054,41 @@ function openOnlineDatabaseSheet() {
 }
 
 async function loadMaintenancesFromSheet() {
-    console.log("Buscando manutenções:", `${MAINTENANCE_WEBAPP_URL}?action=listMaint...`);
-
+    if (!isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) {
+        syncGate.maintReady = false;
+        return false;
+    }
     try {
-        const url = `${MAINTENANCE_WEBAPP_URL}?action=listMaint&_=${Date.now()}`;
-        const data = await jsonpRequestWithRetry(url, 3, 30000);
-        if (!data || !data.success) throw new Error((data && data.message) ? data.message : "Falha ao carregar manutenções");
-
-        const raw =
-            (data.items !== undefined ? data.items :
-            (data.maintenances !== undefined ? data.maintenances :
-            (data.records !== undefined ? data.records :
-            (data.data !== undefined ? data.data : []))));
-
+        const data = await onlineDbRequest({ action: 'listMaint', _: Date.now() }, 3, 30000);
+        if (!data || data.success !== true) throw new Error(data?.message || 'Falha ao carregar manutenções do banco central.');
+        const raw = Array.isArray(data.items) ? data.items : [];
         const map = {};
-
         const pushUnderKeys = (it, keys) => {
             keys.forEach(k => {
                 if (!map[k]) map[k] = [];
                 map[k].push(it);
             });
         };
-
-        if (Array.isArray(raw)) {
-            raw.forEach(it => {
-                const keys = getMaintenanceKeyCandidates(it);
-                if (!keys.length) return;
-                pushUnderKeys(it, keys);
-            });
-        } else if (raw && typeof raw === "object") {
-            Object.keys(raw).forEach(k0 => {
-                const arr = raw[k0];
-                const keyNorm = normalizeKey(k0);
-                if (!keyNorm) return;
-
-                if (Array.isArray(arr)) {
-                    arr.forEach(it => {
-                        const keys = [keyNorm, ...getMaintenanceKeyCandidates(it)];
-                        const uniq = [...new Set(keys)].filter(Boolean);
-                        pushUnderKeys(it, uniq);
-                    });
-                }
-            });
-        }
-
+        raw.forEach(it => {
+            const keys = getMaintenanceKeyCandidates(it);
+            if (!keys.length) return;
+            pushUnderKeys(it, keys);
+        });
         Object.keys(map).forEach(k => {
             map[k].sort((a, b) => {
-                const da = parseDateValue(a.dataManutencao || a.data || a.date || a.timestamp) || new Date(0);
-                const db = parseDateValue(b.dataManutencao || b.data || b.date || b.timestamp) || new Date(0);
+                const da = parseDateValue(a.dataManutencao || a.data_manutencao || a.data || a.date || a.criado_em) || new Date(0);
+                const db = parseDateValue(b.dataManutencao || b.data_manutencao || b.data || b.date || b.criado_em) || new Date(0);
                 return db.getTime() - da.getTime();
             });
         });
-
         maintenances = map;
-                window.maintenances = maintenances;
+        window.maintenances = maintenances;
         const total = Object.values(map).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
-        console.log(`Manutenções carregadas: ${total} registros (chaves: ${Object.keys(map).length})`);
+        console.log(`Manutenções centrais carregadas: ${total} registros.`);
         syncGate.maintReady = true;
         return true;
     } catch (err) {
-        console.warn("Falha ao carregar manutenções:", err);
+        console.warn('Falha ao carregar manutenções do banco central:', err);
         syncGate.maintReady = false;
         return false;
     }
@@ -3334,7 +3309,7 @@ async function bootSyncPlanilhaVerdade() {
 // =========================
 // MANUTENÇÕES (Planilha Seção Transporte) - Apps Script Web App (JSONP)
 // =========================
-const MAINT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbymLlluCMny9seKJ0TXZkC9PrLdk13U1M7mRVAEp7hZLpWD3YdnAHA-XjIYt1f4Npxmaw/exec";
+const MAINT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxv4VcS7qAfKyQygQpKvwSfNaS5rojq8LpScwAYnviDPRr2zknWJStNccDdr9YlrcrG9A/exec";
 const MAINTENANCE_WEBAPP_URL = MAINT_WEBAPP_URL;
 
         // =========================
@@ -3366,15 +3341,9 @@ function formatMatriculaText(value) {
 async function validateMaintenanceMatricula(matriculaDigits) {
   const cleanMat = String(matriculaDigits || '').replace(/\D/g, '');
   if (!cleanMat) return false;
-
-  const url = buildUrl(MAINT_WEBAPP_URL, {
-    action: 'validateUser',
-    matricula: cleanMat,
-    _: Date.now()
-  });
-
-  const res = await jsonpRequestWithRetry(url, 3, 15000);
-  return !!(res && res.success === true);
+  if (!isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) return false;
+  const logged = normalizeBombeiroLogin(getCurrentSystemUser()?.usuario || getCurrentSystemUser()?.numero_bombeiro || '');
+  return cleanMat === logged;
 }
 
 async function ensureMaintenanceAuthorization(actionLabel = 'executar esta ação') {
@@ -3444,9 +3413,13 @@ async function jsonpRequestWithRetry(url, tries = 3, timeoutMs = 30000) {
 
 
 async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
+    if (!isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) {
+        throw new Error('Banco central indisponível ou sessão expirada. Faça login novamente.');
+    }
     const payload = {
         action: 'addMaintenance',
         id: maintenance.id,
+        id_orcamento: maintenance.id_orcamento || '',
         data: maintenance.data || maintenance.date || '',
         prefixo: maintenance.prefixo || (vehicle ? (vehicle.prefixo || '') : ''),
         placa: maintenance.placa || (vehicle ? (vehicle.placa || vehicle.id || '') : ''),
@@ -3454,7 +3427,6 @@ async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
         tipoViatura: maintenance.tipoViatura || (vehicle ? (vehicle.subclasse || vehicle.tipo || '') : ''),
         tipo: (maintenance.tipo || maintenance.type || ''),
         categoriaSistema: maintenance.categoriaSistema || maintenance.systemCategory || '',
-        manutencaoSistema: maintenance.categoriaSistema || maintenance.systemCategory || '',
         descricao: maintenance.descricao || maintenance.description || '',
         km: maintenance.km || maintenance.hodometro || '',
         custo: maintenance.custo || maintenance.cost || '',
@@ -3462,32 +3434,23 @@ async function syncMaintenanceToTransportSheet(maintenance, vehicle) {
         matricula: (maintenance.matricula || '').toString().replace(/\D/g,''),
         observacoes: maintenance.observacoes || maintenance.notes || ''
     };
-
-    const url = buildUrl(MAINT_WEBAPP_URL, payload);
-    const res = await jsonpRequestWithRetry(url, 3, 30000);
-    if (!res || res.success !== true) {
-        throw new Error((res && res.message) ? res.message : 'Falha ao registrar manutenção na planilha');
+    const res = await onlineDbPost(payload, 30000);
+    if (!res || res.success !== true || res.verified !== true) {
+        throw new Error(res?.message || 'O banco central não confirmou o registro da manutenção.');
     }
     return res;
 }
+
 
 async function deleteMaintenanceFromTransportSheet(maintenanceKey, matriculaDigits) {
     const cleanMat = (matriculaDigits || '').toString().replace(/\D/g,'');
-    const params = {
-        action: 'deleteMaintenance',
-        timestamp: maintenanceKey,     // principal
-        id: maintenanceKey,            // fallback
-        matricula: cleanMat,           // obrigatório para autorizar
-        _: Date.now()                  // anti-cache
-    };
-    const url = buildUrl(MAINT_WEBAPP_URL, params);
-    const res = await jsonpRequestWithRetry(url, 3, 30000);
-    if (!res || res.success !== true) {
-        const msg = (res && (res.error || res.message)) ? (res.error || res.message) : 'Falha ao remover manutenção da planilha';
-        throw new Error(msg);
-    }
+    if (!isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) throw new Error('Sessão central inválida. Faça login novamente.');
+    if (cleanMat !== normalizeBombeiroLogin(getCurrentSystemUser()?.usuario || getCurrentSystemUser()?.numero_bombeiro || '')) throw new Error('A matrícula não corresponde ao usuário autenticado.');
+    const res = await onlineDbPost({ action: 'deleteMaintenance', id: maintenanceKey, matricula: cleanMat, _: Date.now() }, 30000);
+    if (!res || res.success !== true || res.verified !== true) throw new Error(res?.message || 'Falha ao remover manutenção do banco central.');
     return res;
 }
+
         function setSyncIndicator(ok, updatedAtIso) {
             const at = document.getElementById('lastSyncAt');
             const okEl = document.getElementById('lastSyncOk');
@@ -5935,6 +5898,76 @@ async function onlineDbRequest(params, tries = 3, timeoutMs = 30000) {
     return await jsonpRequestWithRetry(url, tries, timeoutMs);
 }
 
+// Gravações do banco central usam POST. Isso elimina o problema estrutural de
+// transportar recordJson/histórico grande na URL do JSONP e reduz timeouts.
+async function onlineDbPost(params, timeoutMs = 30000) {
+    if (!isOnlineDatabaseReady()) throw new Error('Banco online não configurado.');
+    const user = getCurrentSystemUser();
+    const payload = Object.assign({
+        email: user?.email || '',
+        authToken: user?.authToken || '',
+        usuario: user?.usuario || user?.numero_bombeiro || '',
+        _: Date.now()
+    }, params || {});
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(ONLINE_DATABASE_CONFIG.webAppUrl, {
+            method: 'POST',
+            redirect: 'follow',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+        const text = await response.text();
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        let result;
+        try { result = JSON.parse(text); }
+        catch (e) { throw new Error('O banco central retornou uma resposta que não é JSON.'); }
+        return result;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+async function onlineDbWriteBatch(records, timeoutMs = 30000) {
+    if (!Array.isArray(records) || !records.length) return { success: true, count: 0, verified: true };
+    // O servidor gera a auditoria central. Não envie as linhas de histórico
+    // criadas apenas no navegador para não duplicar o histórico.
+    const cleanRecords = records.filter(r => r && String(r.sheet || '') !== 'HISTORICO_ALTERACOES');
+    if (!cleanRecords.length) return { success: true, count: 0, verified: true };
+
+    try {
+        const res = await onlineDbPost({ action: 'writeBatch', records: cleanRecords }, timeoutMs);
+        if (res?.success === true && res?.verified === true) return res;
+        throw new Error(res?.message || 'O banco central não confirmou o lote.');
+    } catch (postErr) {
+        // Fallback para compatibilidade. Só usa GET se cada registro couber em
+        // uma requisição curta; assim não recriamos o problema dos payloads grandes.
+        console.warn('[Banco online V7] POST falhou; tentando fallback GET.', postErr);
+        const results = [];
+        for (const item of cleanRecords) {
+            const record = item.record || {};
+            const payload = {
+                action: normalizeSystemProfile(getCurrentSystemUser()?.perfil) === 'GESTOR' ? 'upsert' : 'insertIfMissing',
+                sheet: item.sheet, idField: item.idField, id: record[item.idField],
+                recordJson: JSON.stringify(record)
+            };
+            const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, payload);
+            if (url.length > 1800) {
+                throw new Error('A gravação POST não pôde ser confirmada e o registro é grande demais para o fallback JSONP. Publique o Código.gs V7 e tente novamente.');
+            }
+            const res = await jsonpRequestWithRetry(url, 2, 20000);
+            if (!res || res.success !== true || res.verified !== true) {
+                throw new Error(res?.message || `O banco central não confirmou ${item.sheet}.`);
+            }
+            results.push(res);
+        }
+        return { success: true, verified: true, count: results.length, results };
+    }
+}
+
 function onlineNumber(value) {
     if (value === null || value === undefined || value === '') return 0;
     if (typeof value === 'number') return value;
@@ -6331,21 +6364,14 @@ async function loadOnlineBudgetData(showUserMessage = false) {
 
 async function onlineUpsertRecord(sheet, idField, record, localProfile) {
     if (!record || !record[idField]) return;
-    const email = getOnlineUserEmail();
-    const profile = String(email).toLowerCase() === String(DEFAULT_GESTOR_EMAIL).toLowerCase()
-        ? 'GESTOR'
-        : normalizeSystemProfile(localProfile || getCurrentSystemUser()?.perfil);
+    if (!isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) throw new Error('Sessão central inválida.');
+    const profile = normalizeSystemProfile(localProfile || getCurrentSystemUser()?.perfil);
     const action = profile === 'GESTOR' ? 'upsert' : 'insertIfMissing';
-    const res = await onlineDbRequest({
-        action,
-        sheet,
-        idField,
-        id: record[idField],
-        recordJson: JSON.stringify(record)
-    }, 3, 30000);
-    if (!res || res.success !== true) throw new Error(res?.message || `Falha ao sincronizar ${sheet}.`);
+    const res = await onlineDbPost({ action, sheet, idField, id: record[idField], recordJson: JSON.stringify(record) }, 30000);
+    if (!res || res.success !== true || res.verified !== true) throw new Error(res?.message || `Falha ao sincronizar ${sheet}.`);
     return res;
 }
+
 
 function syncBudgetDataOnline(options = {}) {
     if (!isOnlineDatabaseReady()) return Promise.resolve(false);
@@ -7054,6 +7080,46 @@ function closeBudgetContractForm() {
     if (modal) modal.classList.remove('active');
 }
 
+async function deleteBudgetRecordsOnlineV7(records) {
+    const items = Array.isArray(records) ? records.filter(Boolean) : [];
+    if (!items.length) return { success: true, verified: true, count: 0 };
+    if (!isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) throw new Error('Sessão central inválida ou expirada. Faça login novamente.');
+    for (let i = 0; i < items.length; i += 40) {
+        const res = await onlineDbPost({ action: 'deleteBatch', records: items.slice(i, i + 40) }, 30000);
+        if (!res || res.success !== true || res.verified !== true) throw new Error(res?.message || 'O banco central não confirmou a exclusão.');
+    }
+    return { success: true, verified: true, count: items.length };
+}
+
+function rollbackBudgetMutation_(collectionName, id, beforeValue, historyRecord) {
+    try {
+        if (collectionName === 'contracts') {
+            const i = budgetContracts.findIndex(x => String(x.id) === String(id));
+            if (beforeValue) { if (i >= 0) budgetContracts[i] = beforeValue; else budgetContracts.push(beforeValue); }
+            else if (i >= 0) budgetContracts.splice(i, 1);
+        } else if (collectionName === 'addenda') {
+            const i = budgetAddenda.findIndex(x => String(x.id) === String(id));
+            if (beforeValue) { if (i >= 0) budgetAddenda[i] = beforeValue; else budgetAddenda.push(beforeValue); }
+            else if (i >= 0) budgetAddenda.splice(i, 1);
+        } else if (collectionName === 'commitments') {
+            const i = budgetCommitments.findIndex(x => String(x.id) === String(id));
+            if (beforeValue) { if (i >= 0) budgetCommitments[i] = beforeValue; else budgetCommitments.push(beforeValue); }
+            else if (i >= 0) budgetCommitments.splice(i, 1);
+        } else if (collectionName === 'movements') {
+            const i = budgetMovements.findIndex(x => String(x.id) === String(id));
+            if (beforeValue) { if (i >= 0) budgetMovements[i] = beforeValue; else budgetMovements.push(beforeValue); }
+            else if (i >= 0) budgetMovements.splice(i, 1);
+        } else if (collectionName === 'quotes') {
+            const i = budgetQuotes.findIndex(x => String(x.id) === String(id));
+            if (beforeValue) { if (i >= 0) budgetQuotes[i] = beforeValue; else budgetQuotes.push(beforeValue); }
+            else if (i >= 0) budgetQuotes.splice(i, 1);
+        }
+        if (historyRecord?.id) {
+            budgetHistory = budgetHistory.filter(h => String(h.id) !== String(historyRecord.id));
+        }
+    } catch (e) { console.warn('[Rollback] Falha ao restaurar estado local:', e); }
+}
+
 async function saveBudgetContract(event) {
     event.preventDefault();
     const isEditingContract = !!document.getElementById('budgetContractId').value;
@@ -7118,6 +7184,8 @@ async function saveBudgetContract(event) {
         closeBudgetContractForm();
         showAlert('Contrato salvo com sucesso!');
     } catch (err) {
+        rollbackBudgetMutation_('contracts', id, before, history);
+        renderBudgetModule();
         showBudgetError(err.message || 'Não foi possível confirmar o salvamento do contrato no banco central.');
     } finally {
         hideAppLoading();
@@ -7362,6 +7430,8 @@ async function saveBudgetAddendum(event) {
         renderBudgetModule();
         showAlert('Aditivo/prorrogação salvo com sucesso!');
     } catch (err) {
+        rollbackBudgetMutation_('addenda', id, before, history);
+        renderBudgetModule();
         showBudgetError(err.message || 'Não foi possível confirmar o salvamento do aditivo no banco central.');
     } finally {
         hideAppLoading();
@@ -7500,6 +7570,8 @@ async function saveBudgetCommitment(event) {
         renderBudgetModule();
         showAlert('Empenho inicial salvo com sucesso!');
     } catch (err) {
+        rollbackBudgetMutation_('commitments', id, before, history);
+        renderBudgetModule();
         showBudgetError(err.message || 'Não foi possível confirmar o salvamento do empenho no banco central.');
     } finally {
         hideAppLoading();
@@ -7666,6 +7738,8 @@ async function saveBudgetMovement(event) {
         renderBudgetModule();
         showAlert(isReinforcement ? 'Reforço de empenho lançado com sucesso!' : (movementType === 'CANCELAMENTO DE RESTOS A PAGAR' ? 'Cancelamento de restos a pagar lançado com sucesso!' : 'Movimentação lançada com sucesso!'));
     } catch (err) {
+        rollbackBudgetMutation_('movements', movement.id, null, history);
+        renderBudgetModule();
         showBudgetError(err.message || 'Não foi possível confirmar o salvamento da movimentação no banco central.');
     } finally {
         hideAppLoading();
@@ -8353,6 +8427,9 @@ ${marker}` : marker;
         }
         showAlert(status === 'FATURADO' ? 'Orçamento/manutenção salvo e marcado como faturado.' : 'Orçamento/manutenção salvo com sucesso!');
     } catch (err) {
+        rollbackBudgetMutation_('quotes', id, before, history);
+        renderBudgetQuotesModule();
+        renderBudgetModule();
         showBudgetError(err.message || 'Não foi possível confirmar o salvamento do orçamento no banco central.');
     } finally {
         hideAppLoading();
@@ -8511,83 +8588,43 @@ function queueAllBudgetRecordsV3() {
 // salvamento novo/edição é feita diretamente no Apps Script, sem depender da fila
 // local. A fila incremental permanece apenas como contingência para novas tentativas.
 async function syncSpecificBudgetRecordsV4(records) {
-    console.log('[Banco online V4] Confirmando gravação direta de', Array.isArray(records) ? records.length : 0, 'registro(s).');
+    console.log('[Banco online V7] Confirmando gravação direta de', Array.isArray(records) ? records.length : 0, 'registro(s).');
     if (!Array.isArray(records) || !records.length) return true;
     if (!isOnlineDatabaseReady()) throw new Error('Banco online não configurado.');
     if (!hasCentralOnlineSessionV3()) throw new Error('Sessão do banco central inválida ou expirada. Faça login novamente.');
-
-    const profile = normalizeSystemProfile(getCurrentSystemUser()?.perfil);
-    const action = profile === 'GESTOR' ? 'upsert' : 'insertIfMissing';
-
-    for (const item of records) {
-        if (!item || !item.sheet || !item.idField || !item.record) continue;
-        const record = item.record;
-        const id = String(record[item.idField] || '').trim();
-        if (!id) throw new Error(`Registro sem identificador para a aba ${item.sheet}.`);
-
-        const res = await onlineDbRequest({
-            action,
-            sheet: item.sheet,
-            idField: item.idField,
-            id,
-            recordJson: JSON.stringify(record)
-        }, 3, 30000);
-
-        if (!res || res.success !== true) {
-            throw new Error(res?.message || `O banco central não confirmou a gravação em ${item.sheet}.`);
-        }
-    }
-    return true;
+    const res = await onlineDbWriteBatch(records, 30000);
+    if (!res || res.success !== true || res.verified !== true) throw new Error(res?.message || 'O banco central não confirmou a gravação.');
+    // A gravação foi confirmada; não deixe a mesma alteração presa na fila local.
+    try {
+        const ids = new Set((records || []).filter(r => r && r.sheet !== 'HISTORICO_ALTERACOES').map(r => `${r.sheet}::${String(r.record?.[r.idField] || '')}`));
+        const queue = getOnlineMutationQueueV3().filter(m => !ids.has(`${ONLINE_DATASET_CFG_V3[m.dataset]?.sheet || ''}::${String(m.id || '')}`));
+        persistOnlineMutationQueueV3(queue);
+    } catch (e) { console.warn('[Banco online V7] Não foi possível limpar a fila:', e); }
+    return res;
 }
 
-saveBudgetStorage = function saveBudgetStorageOnlineV4(syncRecords = null) {
-    const previous = readPersistedBudgetSnapshotV3();
-    cleanupBudgetLocalStorageV4();
+saveBudgetStorage = function saveBudgetStorageOnlineV7(syncRecords = null) {
+    const records = Array.isArray(syncRecords) ? syncRecords.filter(Boolean) : [];
+    const online = isOnlineDatabaseReady() && hasCentralOnlineSessionV3();
 
+    if (online && records.length) {
+        // Banco central é a fonte de verdade. Não grava a base inteira no localStorage
+        // e não cria fila para uma operação que será confirmada diretamente agora.
+        return syncSpecificBudgetRecordsV4(records).then(res => ({
+            localSaved: true, onlineRequired: true, onlineSynced: true, server: res
+        })).catch(error => ({
+            localSaved: true, onlineRequired: true, onlineSynced: false, error
+        }));
+    }
+
+    // Caminho offline/legado: preserva apenas cache local para permitir recuperação.
+    cleanupBudgetLocalStorageV4();
     saveToStorage(BUDGET_STORAGE_KEYS.contracts, budgetContracts);
     saveToStorage(BUDGET_STORAGE_KEYS.commitments, budgetCommitments);
     saveToStorage(BUDGET_STORAGE_KEYS.movements, budgetMovements);
     saveToStorage(BUDGET_STORAGE_KEYS.addenda, budgetAddenda);
     saveToStorage(BUDGET_STORAGE_KEYS.quotes, budgetQuotes);
     saveToStorage(BUDGET_STORAGE_KEYS.history, budgetHistory);
-
-    const mutations = diffBudgetSnapshotsV3(previous, currentBudgetSnapshotV3());
-    if (mutations.length) {
-        try { enqueueOnlineMutationsV3(mutations); }
-        catch (e) { console.warn('Fila local indisponível; será usada a gravação central direta.', e); }
-    }
-
-    const records = Array.isArray(syncRecords) ? syncRecords.filter(Boolean) : [];
-
-    if (isOnlineDatabaseReady() && hasCentralOnlineSessionV3()) {
-        if (records.length) {
-            // Caminho principal para inclusão/edição: grava somente o que o formulário
-            // acabou de alterar e aguarda success:true do Apps Script.
-            return syncSpecificBudgetRecordsV4(records).then(() => ({
-                localSaved: true,
-                onlineRequired: true,
-                onlineSynced: true
-            })).catch(err => ({
-                localSaved: true,
-                onlineRequired: true,
-                onlineSynced: false,
-                error: err
-            }));
-        }
-
-        // Operações sem lista explícita (ex.: exclusão) continuam usando a fila.
-        return syncBudgetDataOnline({ silent: true }).then(ok => ({
-            localSaved: true,
-            onlineRequired: true,
-            onlineSynced: ok === true
-        })).catch(err => ({
-            localSaved: true,
-            onlineRequired: true,
-            onlineSynced: false,
-            error: err
-        }));
-    }
-
     queueOnlineBudgetSync();
     return Promise.resolve({ localSaved: true, onlineRequired: false, onlineSynced: true });
 };
@@ -8772,6 +8809,8 @@ async function afterOnlineLoginV3() {
     // Primeiro envia qualquer fila deixada por esta máquina; depois recarrega a fonte central.
     if (getOnlineMutationQueueV3().length) await syncBudgetDataOnline({ silent: true });
     await loadOnlineBudgetData(false);
+    await loadMaintenancesFromSheet();
+    try { renderVehicles(); } catch (e) {}
 }
 
 doSystemLogin = async function doSystemLoginCentralV3() {
@@ -9283,6 +9322,32 @@ document.addEventListener('click', function(event) {
     }
     setInterval(heartbeatCentralSessionV6, 8 * 60 * 1000);
     setTimeout(heartbeatCentralSessionV6, 1500);
+
+    // Verifica a versão do banco central periodicamente. Só baixa os dados quando
+    // outra máquina realmente gravou algo; isso evita recarregar a base inteira
+    // a cada poucos minutos sem necessidade.
+    let centralLastVersionV7 = null;
+    async function pollCentralChangesV7() {
+        try {
+            if (document.hidden || !isOnlineDatabaseReady() || !hasCentralOnlineSessionV3()) return;
+            const res = await onlineDbRequest({ action: 'syncState', _: Date.now() }, 2, 15000);
+            if (!res || res.success !== true) return;
+            const version = Number(res.version || 0);
+            if (centralLastVersionV7 === null) { centralLastVersionV7 = version; return; }
+            if (version !== centralLastVersionV7) {
+                centralLastVersionV7 = version;
+                beginAppLoading('Atualizando dados', 'Outra máquina realizou uma alteração. Sincronizando o banco central.');
+                try {
+                    await loadOnlineBudgetData(false);
+                    await loadMaintenancesFromSheet();
+                    renderVehicles();
+                } finally { hideAppLoading(); }
+            }
+        } catch (e) { console.warn('[Banco central V7] polling:', e); }
+    }
+    window.pollCentralChangesV7 = pollCentralChangesV7;
+    setInterval(pollCentralChangesV7, 60 * 1000);
+    setTimeout(pollCentralChangesV7, 5000);
 
     // Quando a página volta ao foco, valida imediatamente.
     window.addEventListener('focus', () => {

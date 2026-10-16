@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <!-- AUDITORIA/CONSOLIDAÇÃO 16-10-2026 — V9 BANCO CENTRAL
-     Versão consolidada V9: banco central autoritativo, gravação idempotente, sessão renovável, fila somente de operações pendentes e sincronização por versão. -->
+    <!-- AUDITORIA/CONSOLIDAÇÃO 16-10-2026 — V11 BANCO CENTRAL
+     Versão consolidada V11: banco central autoritativo, gravação idempotente, sessão renovável, fila somente de operações pendentes e sincronização por versão. -->
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2510,7 +2510,9 @@ function updateSystemUserInterface() {
     const badge = document.getElementById('userBadge');
     const loginBtn = document.getElementById('loginHeaderButton');
     const configTab = document.getElementById('configTab');
+    const cadastroTab = document.getElementById('cadastroTab');
     const name = user.nome || user.usuario || user.email || 'Visitante';
+    const gestorAtivo = profile === 'GESTOR' && String(user.status || '').toUpperCase() === 'ATIVO' && !!user.authToken;
 
     if (badge) {
         const icon = profile === 'GESTOR' ? '👨‍💼' : (profile === 'OPERADOR' ? '🧑‍🔧' : '👤');
@@ -2518,7 +2520,8 @@ function updateSystemUserInterface() {
         badge.title = getProfileHint(profile) + ' Clique para entrar ou trocar usuário.';
     }
     if (loginBtn) loginBtn.textContent = user.email ? 'Trocar usuário' : 'Entrar';
-    if (configTab) configTab.style.display = hasBudgetPermission('gerenciar_usuarios') ? 'block' : 'none';
+    if (configTab) configTab.style.display = gestorAtivo ? 'block' : 'none';
+    if (cadastroTab) cadastroTab.style.display = gestorAtivo ? 'block' : 'none';
 
     isManager = profile === 'GESTOR';
     updateLoginConnectionInfo();
@@ -2713,7 +2716,7 @@ async function submitForcedPasswordChange(event) {
     if (validationError) { showBudgetError(validationError); return; }
     if (oldPassword === newPassword) { showBudgetError('A nova senha deve ser diferente da senha inicial/atual.'); return; }
     try {
-        const res = await onlineDbRequest({ action: 'changePassword', oldPassword, newPassword }, 3, 30000);
+        const res = await onlineDbPost({ action: 'changePassword', oldPassword, newPassword, requestId: newClientOperationIdV9('PWD') }, 30000);
         if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao alterar senha.');
         pendingForcedPasswordChangeOldPassword = '';
         currentSystemUser.precisa_trocar_senha = 'NAO';
@@ -2733,9 +2736,9 @@ function changeOwnPassword() {
 
 function openUserManagementModal() {
     if (!requireBudgetPermission('gerenciar_usuarios', 'gerenciar usuários')) return;
-    const modal = document.getElementById('userManagementModal');
-    if (modal) modal.classList.add('active');
-    loadUserManagementData();
+    const btn = document.getElementById('cadastroTab');
+    switchTab('cadastro', btn || null);
+    loadCadastroUsers();
 }
 
 function closeUserManagementModal() {
@@ -2744,16 +2747,8 @@ function closeUserManagementModal() {
 }
 
 async function loadUserManagementData() {
-    if (!requireBudgetPermission('gerenciar_usuarios', 'gerenciar usuários')) return;
-    const content = document.getElementById('userManagementContent');
-    if (content) content.innerHTML = '<div style="color:var(--text-muted);">Carregando usuários e solicitações...</div>';
-    try {
-        const res = await onlineDbRequest({ action: 'adminData' }, 3, 30000);
-        if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao carregar usuários.');
-        renderUserManagementPanel(res.usuarios || [], res.solicitacoes || []);
-    } catch (err) {
-        if (content) content.innerHTML = `<div style="color:crimson;">${escapeHTML(err.message || err)}</div>`;
-    }
+    if (typeof loadCadastroUsers === 'function') return loadCadastroUsers();
+    throw new Error('Módulo de cadastro de usuários não está disponível.');
 }
 
 function renderUserManagementPanel(users, requests) {
@@ -3159,7 +3154,13 @@ function buildUrl(baseUrl, params) {
     const u = new URL(baseUrl);
     Object.entries(params || {}).forEach(([k, v]) => {
         if (v === undefined || v === null) return;
-        u.searchParams.set(k, String(v));
+        let value;
+        if (typeof v === 'object') {
+            value = JSON.stringify(v);
+        } else {
+            value = String(v);
+        }
+        u.searchParams.set(k, value);
     });
     return u.toString();
 }
@@ -4175,6 +4176,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? [vehi
         }
 
         async function showAddMaintenance() {
+            if (!requireBudgetPermission('incluir', 'incluir manutenção')) return;
             const authorizedMatricula = await ensureMaintenanceAuthorization('registrar manutenção');
             if (!authorizedMatricula) return;
 
@@ -4253,6 +4255,7 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? [vehi
 
         async function saveMaintenanceRecord(event) {
   event.preventDefault();
+  if (!requireBudgetPermission('incluir', 'incluir manutenção')) return;
 
   const isEngineOilChecked = document.getElementById('maintenanceEngineOilCheck')?.checked === true;
   const systemCategory = isEngineOilChecked ? ENGINE_OIL_SYSTEM_CATEGORY : '';
@@ -4396,22 +4399,21 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
 
     const authorizedMatricula = await ensureMaintenanceAuthorization('excluir manutenção');
     if (!authorizedMatricula) return;
-
     if (!confirm('Tem certeza que deseja excluir este registro de manutenção?')) return;
 
+    beginAppLoading('Excluindo manutenção', 'Aguardando confirmação do banco central.');
     try {
-        // remover na planilha (fonte da verdade) usando a matrícula do usuário autorizado atual
         await deleteMaintenanceFromTransportSheet(String(maintenanceKey), authorizedMatricula);
-
-        // recarregar do Sheets e redesenhar
         await loadMaintenancesFromSheet();
         renderMaintenanceList();
         renderVehicles();
-
-        showAlert('Registro de manutenção excluído!');
+        showAlert('Registro de manutenção excluído com confirmação do banco central.');
     } catch (err) {
         console.error(err);
-        showAlert('Falha ao remover manutenção da planilha: ' + (err.message || err), 'error');
+        if (isSessionErrorV9(err)) invalidateCentralSessionV9(err.message);
+        showAlert('Falha ao remover manutenção: ' + (err.message || err), 'error');
+    } finally {
+        hideAppLoading();
     }
 }
 
@@ -5446,28 +5448,42 @@ async function onlineDbPost(params,timeoutMs=30000){
     const user=getCurrentSystemUser();
     const payload=Object.assign({email:user?.email||'',authToken:user?.authToken||'',usuario:user?.usuario||user?.numero_bombeiro||'',_:Date.now()},params||{});
 
-    // IMPORTANTE: GitHub Pages e Google Apps Script estão em origens diferentes.
-    // O Web App do Apps Script não devolve cabeçalho CORS para fetch() do navegador.
-    // Portanto, um POST via fetch() termina em "Failed to fetch" mesmo quando a senha
-    // está correta. Para chamadas pequenas usamos JSONP/GET, que funciona entre origens.
+    // GitHub Pages não pode ler uma resposta POST do Apps Script por fetch/CORS.
+    // O transporte normal usa JSONP/GET; lotes grandes usam fragmentação JSONP para
+    // não ultrapassar o limite prático da URL. Nenhum fetch() é usado aqui.
     const url=buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl,payload);
     if(url.length<=7500){
         return await jsonpRequestWithRetry(url,2,Math.min(timeoutMs,30000));
     }
 
-    // Não tentar fetch() como primeira opção: ele gera falso erro de rede no GitHub Pages.
-    // Chamadas grandes devem ser divididas pelo chamador em lotes menores.
-    throw new Error('Operação muito grande para o canal seguro do banco central. O sistema deverá dividir o lote antes de enviá-lo.');
+    if(String(payload.action||'')!=='writeBatch') {
+        throw new Error('Operação muito grande para o canal do banco central.');
+    }
+
+    const body=JSON.stringify(payload);
+    const bodyChars=Array.from(body);
+    const chunkSize=2200;
+    const totalParts=Math.ceil(bodyChars.length/chunkSize);
+    if(totalParts>40) throw new Error('O lançamento excede o limite seguro de 88.000 caracteres. Reduza o conteúdo das observações.');
+    const requestId=String(payload.requestId||newClientOperationIdV9('WR'));
+    let finalResult=null;
+    for(let partIndex=0;partIndex<totalParts;partIndex++){
+        const chunk=bodyChars.slice(partIndex*chunkSize,(partIndex+1)*chunkSize).join('');
+        const chunkPayload={email:user?.email||'',authToken:user?.authToken||'',usuario:user?.usuario||user?.numero_bombeiro||'',action:'writeBatchChunk',requestId,totalParts,partIndex,chunk,_:Date.now()};
+        const chunkUrl=buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl,chunkPayload);
+        if(chunkUrl.length>7500) throw new Error('Falha de transporte: uma parte do lançamento excedeu o limite da URL.');
+        const res=await jsonpRequestWithRetry(chunkUrl,2,Math.min(timeoutMs,30000));
+        if(!res||res.success!==true) throw new Error(res?.message||`Falha ao enviar a parte ${partIndex+1} de ${totalParts}.`);
+        if(res.complete===true) finalResult=res;
+    }
+    if(!finalResult) throw new Error('O banco central recebeu as partes, mas não confirmou a conclusão do lançamento.');
+    return finalResult;
 }
 async function onlineDbWriteBatch(records,timeoutMs=45000,options={}){
     const importMode=String(options.mode||'NORMAL').toUpperCase()==='IMPORT';const clean=(Array.isArray(records)?records:[]).filter(r=>r&& (importMode || String(r.sheet||'')!=='HISTORICO_ALTERACOES'));if(!clean.length)return{success:true,verified:true,count:0,version:centralLastVersionV9||0};
     if(!hasValidOnlineSession())throw new Error('Sessão central inválida ou expirada. Faça login novamente.');
     const payload={action:'writeBatch',records:clean,requestId:String(options.requestId||newClientOperationIdV9('WR')),mode:String(options.mode||'NORMAL').toUpperCase()};
-    try{return await onlineDbPost(payload,timeoutMs);}catch(postErr){
-        const fallbackUrl=buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl,Object.assign({email:getOnlineUserEmail(),authToken:getCurrentSystemUser()?.authToken||'',usuario:getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||'',_:Date.now()},payload));
-        if(fallbackUrl.length>7500)throw postErr;
-        try{return await jsonpRequest(fallbackUrl,Math.max(timeoutMs,45000));}catch(fallbackErr){fallbackErr.cause=postErr;throw fallbackErr;}
-    }
+    return await onlineDbPost(payload,timeoutMs);
 }
 
 function onlineNumber(value) {
@@ -7701,9 +7717,9 @@ function openManagerProfileCompletionModal() {
 
 // ==============================================================
 // =============================================================
-// BANCO CENTRAL V10 — TRANSPORTE JSONP COMPATÍVEL COM GITHUB PAGES + SESSÃO CENTRAL
+// BANCO CENTRAL V11 — TRANSPORTE JSONP E FRAGMENTAÇÃO SEGURA COM GITHUB PAGES + SESSÃO CENTRAL
 // =============================================================
-const ONLINE_MUTATION_QUEUE_KEY_V9='budget-online-mutation-6bbm-v9';
+const ONLINE_MUTATION_QUEUE_KEY_V11='budget-online-mutation-6bbm-v9';
 const ONLINE_QUEUE_MAX_ITEMS_V9=50;
 let onlineMutationQueueMemoryV9=[];
 let centralLastVersionV9=null;
@@ -7724,7 +7740,7 @@ function invalidateCentralSessionV9(reason='',expectedToken='',expectedGeneratio
     currentSystemUser={email:'',usuario:'',numero_bombeiro:'',cpf:'',nome:'Visitante',perfil:'VISITANTE',status:'LOCAL',authToken:'',authMode:'LOCAL'};
     updateSystemUserInterface();
     setOnlineDbSyncStatus('Sessão central expirada. Faça login novamente.',true);
-    console.warn('[Banco central V9] sessão invalidada:',reason);
+    console.warn('[Banco central V11] sessão invalidada:',reason);
     setTimeout(()=>{try{openLoginModal();}catch(e){}},100);
     return true;
 }
@@ -7746,7 +7762,7 @@ async function validateCentralSessionV9(openLoginOnFail=false){
             return true;
         }catch(err){
             if(isSessionErrorV9(err))invalidateCentralSessionV9(err.message,ctx.token,ctx.generation);
-            else console.warn('[Banco central V9] validação:',err);
+            else console.warn('[Banco central V11] validação:',err);
             if(openLoginOnFail&&isCurrentSessionContextV9(ctx))try{openLoginModal();}catch(e){}
             return false;
         }finally{if(centralSessionValidationV9===entry)centralSessionValidationV9=null;}
@@ -7754,8 +7770,8 @@ async function validateCentralSessionV9(openLoginOnFail=false){
     centralSessionValidationV9=entry;
     return entry.promise;
 }
-function getOnlineMutationQueueV9(){try{const raw=JSON.parse(localStorage.getItem(ONLINE_MUTATION_QUEUE_KEY_V9)||'[]');if(Array.isArray(raw)){onlineMutationQueueMemoryV9=raw;return raw.slice();}}catch(e){}return onlineMutationQueueMemoryV9.slice();}
-function persistOnlineMutationQueueV9(queue){const safe=Array.isArray(queue)?queue.slice(0,ONLINE_QUEUE_MAX_ITEMS_V9):[];onlineMutationQueueMemoryV9=safe.slice();try{localStorage.setItem(ONLINE_MUTATION_QUEUE_KEY_V9,JSON.stringify(safe));return true;}catch(e){console.warn('[Fila V9] quota local atingida; fila mantida em memória.');return false;}}
+function getOnlineMutationQueueV9(){try{const raw=JSON.parse(localStorage.getItem(ONLINE_MUTATION_QUEUE_KEY_V11)||'[]');if(Array.isArray(raw)){onlineMutationQueueMemoryV9=raw;return raw.slice();}}catch(e){}return onlineMutationQueueMemoryV9.slice();}
+function persistOnlineMutationQueueV9(queue){const safe=Array.isArray(queue)?queue.slice(0,ONLINE_QUEUE_MAX_ITEMS_V9):[];onlineMutationQueueMemoryV9=safe.slice();try{localStorage.setItem(ONLINE_MUTATION_QUEUE_KEY_V11,JSON.stringify(safe));return true;}catch(e){console.warn('[Fila V11] quota local atingida; fila mantida em memória.');return false;}}
 function enqueueBudgetWriteV9(records,label='salvamento',requestId=''){const clean=(Array.isArray(records)?records:[]).filter(r=>r&&String(r.sheet||'')!=='HISTORICO_ALTERACOES');if(!clean.length)return;const q=getOnlineMutationQueueV9();q.push({kind:'writeBatch',requestId:String(requestId||newClientOperationIdV9('WRQ')),mode:normalizeSystemProfile(getCurrentSystemUser()?.perfil)==='GESTOR'?'NORMAL':'INSERT_ONLY',requiredProfile:normalizeSystemProfile(getCurrentSystemUser()?.perfil),requiredUser:String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''),records:clean,label,queuedAt:new Date().toISOString()});persistOnlineMutationQueueV9(q);setOnlineDbSyncStatus(`Operação pendente: ${q.length} item(ns) na fila de segurança.`,true);}
 function enqueueDeleteV9(records,label='exclusão',requestId=''){const clean=(Array.isArray(records)?records:[]).filter(r=>r&&r.sheet&&r.idField&&r.id);if(!clean.length)return;const q=getOnlineMutationQueueV9();q.push({kind:'deleteBatch',requestId:String(requestId||newClientOperationIdV9('DELQ')),requiredProfile:'GESTOR',requiredUser:String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''),records:clean,label,queuedAt:new Date().toISOString()});persistOnlineMutationQueueV9(q);setOnlineDbSyncStatus(`Exclusão pendente: ${q.length} item(ns) na fila de segurança.`,true);}
 function readPersistedBudgetSnapshotV9(){return{contracts:loadFromStorage('budget-contracts-6bbm')||[],commitments:loadFromStorage('budget-commitments-6bbm')||[],movements:loadFromStorage('budget-movements-6bbm')||[],addenda:loadFromStorage('budget-addenda-6bbm')||[],quotes:loadFromStorage('budget-quotes-6bbm')||[],history:loadFromStorage('budget-history-6bbm')||[]};}
@@ -7790,14 +7806,27 @@ async function syncQueuedMutationsV9(options={}){
 
 async function setupOnlineDatabase(){if(!isOnlineDatabaseReady()){showBudgetError('Banco online não está ativo.');return;}beginAppLoading('Conferindo banco','Verificando a estrutura da planilha central sem apagar dados históricos.');try{const res=await jsonpRequest(buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl,{action:'setupDatabase',_:Date.now()}),45000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao conferir estrutura.');showAlert('Banco central conferido com sucesso. Nenhum dado histórico foi apagado.');setOnlineDbSyncStatus('Estrutura central conferida/atualizada.');}catch(err){showBudgetError('Falha ao conferir estrutura: '+(err.message||err));}finally{hideAppLoading();}}
 async function completeBootstrapManagerProfile(event){if(event)event.preventDefault();if(!hasValidOnlineSession()){showBudgetError('Sessão central inválida. Faça login novamente com o BM 155258.');return;}const email=String(document.getElementById('bootstrapManagerEmail')?.value||'').trim().toLowerCase();const cpf=normalizeCpf(document.getElementById('bootstrapManagerCpf')?.value||'');const bm=validateBombeiroLogin(document.getElementById('bootstrapManagerBm')?.value||DEFAULT_GESTOR_LOGIN);if(!/^[^\s@]+@gmail\.com$/i.test(email)){showBudgetError('Informe um Gmail válido.');return;}if(!/^\d{11}$/.test(cpf)){showBudgetError('Informe CPF com 11 números.');return;}if(bm!==DEFAULT_GESTOR_LOGIN){showBudgetError(`O gestor inicial deve utilizar o BM ${DEFAULT_GESTOR_LOGIN}.`);return;}beginAppLoading('Concluindo cadastro','Gravando os dados do gestor no banco central.');try{const res=await onlineDbPost({action:'completeBootstrapManager',email,cpf,numero_bombeiro:bm,requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true||!res.user)throw new Error(res?.message||'Falha ao concluir cadastro.');applyOnlineUser(res.user);saveSystemUserSession(getCurrentSystemUser());updateSystemUserInterface();document.getElementById('managerProfileCompletionModal')?.classList.remove('active');pendingForcedPasswordChangeOldPassword=DEFAULT_INITIAL_USER_PASSWORD;openForcePasswordChangeModal(true,DEFAULT_INITIAL_USER_PASSWORD);}catch(err){showBudgetError('Falha ao concluir cadastro: '+(err.message||err));}finally{hideAppLoading();}}
-submitForcedPasswordChange=async function(event){if(event)event.preventDefault();if(!hasValidOnlineSession()){showBudgetError('Sessão inválida. Faça login novamente.');return;}const oldPassword=String(document.getElementById('forceOldPassword')?.value||pendingForcedPasswordChangeOldPassword||''),newPassword=String(document.getElementById('forceNewPassword')?.value||''),confirmPassword=String(document.getElementById('forceNewPasswordConfirm')?.value||'');if(!oldPassword||!newPassword||!confirmPassword){showBudgetError('Preencha todos os campos de senha.');return;}if(newPassword!==confirmPassword){showBudgetError('As senhas não conferem.');return;}const validationError=validateSystemPassword(newPassword);if(validationError){showBudgetError(validationError);return;}beginAppLoading('Alterando senha','Gravando a nova senha no banco central.');try{const res=await onlineDbPost({action:'changePassword',oldPassword,newPassword,requestId:newClientOperationIdV9('PWD')},30000);if(!res||res.success!==true||!res.user)throw new Error(res?.message||'Falha ao alterar senha.');applyOnlineUser(res.user);saveSystemUserSession(getCurrentSystemUser());pendingForcedPasswordChangeOldPassword='';document.getElementById('forcePasswordChangeModal')?.classList.remove('active');updateSystemUserInterface();if(String(getCurrentSystemUser()?.cadastro_incompleto||'').toUpperCase()==='SIM')openManagerProfileCompletionModal();else showAlert('Senha alterada com sucesso.');}catch(err){showBudgetError('Falha ao alterar senha: '+(err.message||err));}finally{hideAppLoading();}};
-window.submitForcedPasswordChange=submitForcedPasswordChange;
 
-const updateSystemUserInterfaceBaseV9=updateSystemUserInterface;
-updateSystemUserInterface=function(){updateSystemUserInterfaceBaseV9();const u=getCurrentSystemUser();const gestor=normalizeSystemProfile(u?.perfil)==='GESTOR'&&String(u?.status||'').toUpperCase()==='ATIVO'&&!!u?.authToken;const tab=document.getElementById('cadastroTab');if(tab)tab.style.display=gestor?'block':'none';const cfg=document.getElementById('configTab');if(cfg)cfg.style.display=gestor?'block':'none';};
-window.updateSystemUserInterface=updateSystemUserInterface;
-openUserManagementModal=function(){if(!requireBudgetPermission('gerenciar_usuarios','gerenciar usuários'))return;const btn=document.getElementById('cadastroTab');switchTab('cadastro',btn||null);loadCadastroUsers();};
-window.openUserManagementModal=openUserManagementModal;
+function clearCadastroUserForm(){['cadastroNewUserName','cadastroNewUserEmail','cadastroNewUserCpf','cadastroNewUserBombeiro'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const profile=document.getElementById('cadastroNewUserProfile');if(profile)profile.value='OPERADOR';}
+
+async function createUserFromCadastro(){if(!requireBudgetPermission('gerenciar_usuarios','criar usuários'))return;const nome=String(document.getElementById('cadastroNewUserName')?.value||'').trim(),email=String(document.getElementById('cadastroNewUserEmail')?.value||'').trim().toLowerCase(),cpf=normalizeCpf(document.getElementById('cadastroNewUserCpf')?.value||''),numero_bombeiro=validateBombeiroLogin(document.getElementById('cadastroNewUserBombeiro')?.value||''),perfil=normalizeSystemProfile(document.getElementById('cadastroNewUserProfile')?.value||'OPERADOR');if(!nome||!numero_bombeiro||!/^[^\s@]+@gmail\.com$/i.test(email)||!/^\d{11}$/.test(cpf)){showBudgetError('Informe nome, Gmail, CPF e BM válido.');return;}beginAppLoading('Criando usuário','Gravando o novo acesso no banco central.');try{const res=await onlineDbPost({action:'createUser',userJson:JSON.stringify({nome,email,cpf,numero_bombeiro,usuario:numero_bombeiro,perfil,status:'ATIVO'}),password:DEFAULT_INITIAL_USER_PASSWORD,requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao criar usuário.');clearCadastroUserForm();await loadCadastroUsers();showAlert(`Acesso criado para ${numero_bombeiro}. Senha temporária: ${DEFAULT_INITIAL_USER_PASSWORD}.`);}catch(err){showBudgetError('Falha ao criar usuário: '+(err.message||err));}finally{hideAppLoading();}}
+function cadastroProfileOptionsV9(user){const p=normalizeSystemProfile(user.perfil);return['GESTOR','OPERADOR','VISITANTE'].map(x=>`<option value="${x}" ${x===p?'selected':''}>${x}</option>`).join('');}
+async function loadCadastroUsers(){if(!requireBudgetPermission('gerenciar_usuarios','visualizar usuários'))return;const content=document.getElementById('cadastroUserManagementContent');if(!content)return;content.innerHTML='<div class="loading">Carregando usuários do banco central...</div>';try{const res=await onlineDbRequest({action:'adminData'},2,30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao carregar usuários.');const users=(res.usuarios||[]).sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));content.innerHTML=users.length?`<div style="overflow:auto;"><table class="budget-table" style="width:100%;min-width:900px;"><thead><tr><th>Nome</th><th>BM</th><th>Gmail</th><th>CPF</th><th>Perfil</th><th>Status</th><th>Trocar senha?</th><th>Último login</th><th>Ações</th></tr></thead><tbody>${users.map(u=>{const login=escapeHTML(u.usuario||u.numero_bombeiro||'');return `<tr><td>${escapeHTML(u.nome||'')}</td><td><strong>${login}</strong></td><td>${escapeHTML(u.email||'')}</td><td>${escapeHTML(u.cpf||'')}</td><td><select id="cad_profile_${login}">${cadastroProfileOptionsV9(u)}</select></td><td><select id="cad_status_${login}"><option value="ATIVO" ${String(u.status).toUpperCase()==='ATIVO'?'selected':''}>ATIVO</option><option value="INATIVO" ${String(u.status).toUpperCase()==='INATIVO'?'selected':''}>INATIVO</option></select></td><td>${escapeHTML(u.precisa_trocar_senha||'NAO')}</td><td>${escapeHTML(u.ultimo_login||'—')}</td><td><button class="btn btn-primary" onclick="saveCadastroUser('${login}','${escapeHTML(u.id_usuario||'')}')">Salvar</button><button class="btn btn-secondary" onclick="resetCadastroPassword('${login}')">Senha inicial</button></td></tr>`;}).join('')}</tbody></table></div>`:'<div class="empty-state">Nenhum usuário cadastrado.</div>';}catch(err){content.innerHTML=`<div style="color:crimson;">${escapeHTML(err.message||err)}</div>`;}}
+async function saveCadastroUser(usuario,idUsuario=''){if(!requireBudgetPermission('gerenciar_usuarios','alterar nível de acesso'))return;const perfil=normalizeSystemProfile(document.getElementById(`cad_profile_${usuario}`)?.value||'VISITANTE'),status=String(document.getElementById(`cad_status_${usuario}`)?.value||'ATIVO').toUpperCase();if(usuario===DEFAULT_GESTOR_LOGIN&&(perfil!=='GESTOR'||status!=='ATIVO')){showBudgetError('O gestor inicial 155258 não pode ser rebaixado nem inativado.');return;}beginAppLoading('Salvando acesso','Atualizando o perfil no banco central.');try{const res=await onlineDbPost({action:'updateUser',id:idUsuario,usuario,patchJson:JSON.stringify({perfil,status}),requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao atualizar usuário.');await loadCadastroUsers();showAlert('Nível de acesso atualizado.');}catch(err){showBudgetError('Falha ao atualizar usuário: '+(err.message||err));}finally{hideAppLoading();}}
+async function resetCadastroPassword(usuario){if(!requireBudgetPermission('gerenciar_usuarios','redefinir senha'))return;if(!confirm(`Redefinir a senha de ${usuario} para ${DEFAULT_INITIAL_USER_PASSWORD}?`))return;beginAppLoading('Redefinindo senha','Gravando a senha temporária no banco central.');try{const res=await onlineDbPost({action:'resetUserPassword',usuario,password:DEFAULT_INITIAL_USER_PASSWORD,requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao redefinir senha.');await loadCadastroUsers();showAlert(`Senha temporária redefinida para ${DEFAULT_INITIAL_USER_PASSWORD}.`);}catch(err){showBudgetError('Falha ao redefinir senha: '+(err.message||err));}finally{hideAppLoading();}}
+
+async function createUserFromAdmin(){if(!requireBudgetPermission('gerenciar_usuarios','criar usuários'))return;const nome=String(document.getElementById('adminNewUserName')?.value||'').trim(),email=String(document.getElementById('adminNewUserEmail')?.value||'').trim().toLowerCase(),cpf=normalizeCpf(document.getElementById('adminNewUserCpf')?.value||''),numero_bombeiro=validateBombeiroLogin(document.getElementById('adminNewUserBombeiro')?.value||''),perfil=normalizeSystemProfile(document.getElementById('adminNewUserProfile')?.value||'OPERADOR'),password=String(document.getElementById('adminNewUserPassword')?.value||DEFAULT_INITIAL_USER_PASSWORD);if(!nome||!numero_bombeiro||!/^[^\s@]+@gmail\.com$/i.test(email)||!/^\d{11}$/.test(cpf)){showBudgetError('Informe nome, Gmail, CPF e BM válido.');return;}const validationError=validateSystemPassword(password);if(validationError){showBudgetError(validationError);return;}try{const res=await onlineDbPost({action:'createUser',userJson:JSON.stringify({nome,email,cpf,numero_bombeiro,usuario:numero_bombeiro,perfil,status:'ATIVO'}),password,requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao criar usuário.');showAlert('Acesso criado.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao criar usuário: '+(err.message||err));}}
+async function updateUserFromAdmin(id){if(!requireBudgetPermission('gerenciar_usuarios','alterar usuários'))return;const perfil=document.getElementById(`profile_${id}`)?.value||'VISITANTE',status=document.getElementById(`status_${id}`)?.value||'ATIVO';try{const res=await onlineDbPost({action:'updateUser',id,patchJson:JSON.stringify({perfil,status}),requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao atualizar usuário.');showAlert('Usuário atualizado.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao atualizar usuário: '+(err.message||err));}}
+async function resetPasswordFromAdmin(email){if(!requireBudgetPermission('gerenciar_usuarios','redefinir senhas'))return;const password=prompt(`Nova senha temporária para ${email}:`,DEFAULT_INITIAL_USER_PASSWORD);if(!password)return;const validationError=validateSystemPassword(password);if(validationError){showBudgetError(validationError);return;}try{const res=await onlineDbPost({action:'resetUserPassword',email,password,requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao redefinir senha.');showAlert('Senha redefinida.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao redefinir senha: '+(err.message||err));}}
+
+async function deleteBudgetContract(contractId){if(!requireBudgetPermission('excluir_cancelar','excluir contratos'))return;const c=getBudgetContractById(contractId);if(!c)return;const commitments=getBudgetCommitmentsForContract(contractId),commitmentIds=new Set(commitments.map(e=>String(e.id))),addenda=getBudgetAddendaForContract(contractId),movements=(budgetMovements||[]).filter(m=>commitmentIds.has(String(m.commitmentId))),quotes=getBudgetQuotesForContract(contractId);const records=[{sheet:'CONTRATOS',idField:'id_contrato',id:String(c.id)}];addenda.forEach(a=>records.push({sheet:'ADITIVOS_CONTRATO',idField:'id_aditivo',id:String(a.id)}));commitments.forEach(e=>records.push({sheet:'EMPENHOS',idField:'id_empenho',id:String(e.id)}));movements.forEach(m=>records.push({sheet:'EXTRATO_ORCAMENTARIO',idField:'id_extrato',id:String(m.id)}));quotes.forEach(q=>records.push({sheet:'ORCAMENTOS_MANUTENCOES',idField:'id_orcamento',id:String(q.id)}));if(!confirm(`Excluir o contrato ${c.number||''} e ${records.length-1} registro(s) vinculado(s)?`))return;if(!askBudgetChangeIdentity('excluindo o contrato'))return;beginAppLoading('Excluindo contrato','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV9(records,'exclusão do contrato');budgetContracts=budgetContracts.filter(x=>String(x.id)!==String(contractId));budgetAddenda=budgetAddenda.filter(x=>String(x.contractId)!==String(contractId));budgetCommitments=budgetCommitments.filter(x=>String(x.contractId)!==String(contractId));budgetMovements=budgetMovements.filter(x=>!commitmentIds.has(String(x.commitmentId)));budgetQuotes=budgetQuotes.filter(x=>String(x.contractId)!==String(contractId));if(String(currentBudgetContractId)===String(contractId))closeBudgetDetailModal();renderBudgetModule();renderBudgetQuotesModule();showAlert('Contrato excluído com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
+async function deleteBudgetAddendum(addendumId){if(!requireBudgetPermission('excluir_cancelar','excluir aditivos'))return;const a=(budgetAddenda||[]).find(x=>String(x.id)===String(addendumId));if(!a)return;if(!confirm(`Confirma a exclusão do aditivo/prorrogação ${a.document||''}?`))return;if(!askBudgetChangeIdentity('excluindo o aditivo/prorrogação'))return;const currentValueWithoutThis=getBudgetContractCurrentValue(a.contractId)-Number(a.valueDelta||0),committed=getBudgetCommitmentsForContract(a.contractId).reduce((sum,e)=>sum+getBudgetCommitmentTotals(e.id).value,0);if(currentValueWithoutThis<committed){showBudgetError('Exclusão bloqueada: o contrato ficaria abaixo do total empenhado.');return;}beginAppLoading('Excluindo aditivo','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV9([{sheet:'ADITIVOS_CONTRATO',idField:'id_aditivo',id:String(a.id)}],'exclusão do aditivo');budgetAddenda=budgetAddenda.filter(x=>String(x.id)!==String(addendumId));renderBudgetModule();showAlert('Aditivo excluído com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
+async function deleteBudgetCommitment(commitmentId){if(!requireBudgetPermission('excluir_cancelar','excluir empenhos'))return;const e=getBudgetCommitmentById(commitmentId);if(!e)return;const mov=getBudgetMovementsForCommitment(commitmentId),quotes=getBudgetQuotesForCommitment(commitmentId);if(!confirm(`Excluir o empenho ${e.number||''} e ${mov.length+quotes.length} registro(s) vinculado(s)?`))return;if(!askBudgetChangeIdentity('excluindo o empenho'))return;const records=[{sheet:'EMPENHOS',idField:'id_empenho',id:String(e.id)}];mov.forEach(m=>records.push({sheet:'EXTRATO_ORCAMENTARIO',idField:'id_extrato',id:String(m.id)}));quotes.forEach(q=>records.push({sheet:'ORCAMENTOS_MANUTENCOES',idField:'id_orcamento',id:String(q.id)}));beginAppLoading('Excluindo empenho','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV9(records,'exclusão do empenho');budgetCommitments=budgetCommitments.filter(x=>String(x.id)!==String(commitmentId));budgetMovements=budgetMovements.filter(x=>String(x.commitmentId)!==String(commitmentId));budgetQuotes=budgetQuotes.filter(x=>String(x.commitmentId)!==String(commitmentId));renderBudgetModule();renderBudgetQuotesModule();showAlert('Empenho excluído com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
+async function deleteBudgetMovement(movementId){if(!requireBudgetPermission('excluir_cancelar','excluir movimentações'))return;const m=(budgetMovements||[]).find(x=>String(x.id)===String(movementId));if(!m)return;if(!confirm(`Confirma a exclusão da movimentação ${m.document||''}?`))return;if(!askBudgetChangeIdentity('excluindo movimentação'))return;beginAppLoading('Excluindo movimentação','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV9([{sheet:'EXTRATO_ORCAMENTARIO',idField:'id_extrato',id:String(m.id)}],'exclusão da movimentação');budgetMovements=budgetMovements.filter(x=>String(x.id)!==String(movementId));renderBudgetModule();showAlert('Movimentação excluída com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
+async function deleteBudgetQuote(quoteId){if(!requireBudgetPermission('excluir_cancelar','excluir orçamentos'))return;const q=getBudgetQuoteById(quoteId);if(!q)return;if(!confirm(`Confirma a exclusão do orçamento ${q.number||''}?`))return;if(!askBudgetChangeIdentity('excluindo o orçamento'))return;beginAppLoading('Excluindo orçamento','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV9([{sheet:'ORCAMENTOS_MANUTENCOES',idField:'id_orcamento',id:String(q.id)}],'exclusão do orçamento');budgetQuotes=budgetQuotes.filter(x=>String(x.id)!==String(quoteId));renderBudgetQuotesModule();renderBudgetModule();renderVehicles();if(currentMaintenanceVehicleId){try{renderMaintenanceList();}catch(e){}}showAlert('Orçamento excluído com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
+
+async function syncMaintenanceToTransportSheet(maintenance,vehicle){if(!isOnlineDatabaseReady()||!hasValidOnlineSession())throw new Error('Banco central indisponível ou sessão expirada. Faça login novamente.');const payload={action:'addMaintenance',requestId:newClientOperationIdV9('MAN'),id:maintenance.id,id_orcamento:maintenance.id_orcamento||'',data:maintenance.data||maintenance.date||'',prefixo:maintenance.prefixo||(vehicle?.prefixo||''),placa:maintenance.placa||(vehicle?.placa||vehicle?.id||''),cidade:maintenance.cidade||(vehicle?.cidadeLotacaoPadrao||vehicle?.cidadeLotacao||vehicle?.cidade||''),tipoViatura:maintenance.tipoViatura||(vehicle?.subclasse||vehicle?.tipo||''),tipo:maintenance.tipo||maintenance.type||'',categoriaSistema:maintenance.categoriaSistema||maintenance.systemCategory||'',descricao:maintenance.descricao||maintenance.description||'',km:maintenance.km||maintenance.hodometro||'',custo:maintenance.custo||maintenance.cost||'',responsavel:maintenance.responsavel||maintenance.responsible||'',matricula:String(maintenance.matricula||'').replace(/\D/g,''),observacoes:maintenance.observacoes||maintenance.notes||''};try{const res=await onlineDbPost(payload,45000);if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||'O banco central não confirmou a manutenção.');return res;}catch(err){if(isSessionErrorV9(err))invalidateCentralSessionV9(err.message);if(isNetworkErrorV9(err)){const q=getOnlineMutationQueueV9();q.push({kind:'maintenance',requestId:payload.requestId,requiredProfile:normalizeSystemProfile(getCurrentSystemUser()?.perfil),requiredUser:String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''),payload,queuedAt:new Date().toISOString()});persistOnlineMutationQueueV9(q);throw new Error('A manutenção não pôde ser confirmada. Ela foi colocada na fila de segurança; não repita o lançamento.');}throw err;}}
+async function deleteMaintenanceFromTransportSheet(maintenanceKey,matriculaDigits){if(!hasValidOnlineSession())throw new Error('Sessão central inválida.');const cleanMat=String(matriculaDigits||'').replace(/\D/g,'');if(cleanMat!==normalizeBombeiroLogin(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''))throw new Error('A matrícula não corresponde ao usuário autenticado.');return await deleteBudgetRecordsOnlineV9([{sheet:'MANUTENCOES',idField:'id_manutencao',id:String(maintenanceKey)}],'exclusão da manutenção');}
 
 async function bootApplicationV9(){beginAppLoading('Carregando sistema','Sincronizando frota, manutenções e banco central.');try{initializeData();await bootSyncPlanilhaVerdade();loadOnlineDatabaseSettings();if(hasValidOnlineSession()){await validateCentralSessionV9(false);if(hasValidOnlineSession()){const u=getCurrentSystemUser();if(String(u.cadastro_incompleto||'').toUpperCase()==='SIM')openManagerProfileCompletionModal();else if(String(u.precisa_trocar_senha||'').toUpperCase()==='SIM')openForcePasswordChangeModal(true,'');await loadOnlineBudgetData(false);await loadMaintenancesFromSheet();await syncQueuedMutationsV9({silent:true});}}scheduleOnlineBudgetSync(1000);}catch(err){console.error('[Inicialização V9]',err);}finally{hideAppLoading();}}
 bootApplicationV9();

@@ -5443,9 +5443,21 @@ async function onlineDbRequest(params,tries=2,timeoutMs=30000){
 // transportar recordJson/histórico grande na URL do JSONP e reduz timeouts.
 async function onlineDbPost(params,timeoutMs=30000){
     if(!isOnlineDatabaseReady())throw new Error('Banco online não configurado.');
-    const user=getCurrentSystemUser();const payload=Object.assign({email:user?.email||'',authToken:user?.authToken||'',usuario:user?.usuario||user?.numero_bombeiro||'',_:Date.now()},params||{});
-    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);
-    try{const response=await fetch(ONLINE_DATABASE_CONFIG.webAppUrl,{method:'POST',redirect:'follow',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),signal:controller.signal});const text=await response.text();if(!response.ok)throw new Error(`HTTP ${response.status}`);let result;try{result=JSON.parse(text);}catch(e){throw new Error('O banco central retornou uma resposta que não é JSON.');}return result;}finally{clearTimeout(timer);}
+    const user=getCurrentSystemUser();
+    const payload=Object.assign({email:user?.email||'',authToken:user?.authToken||'',usuario:user?.usuario||user?.numero_bombeiro||'',_:Date.now()},params||{});
+
+    // IMPORTANTE: GitHub Pages e Google Apps Script estão em origens diferentes.
+    // O Web App do Apps Script não devolve cabeçalho CORS para fetch() do navegador.
+    // Portanto, um POST via fetch() termina em "Failed to fetch" mesmo quando a senha
+    // está correta. Para chamadas pequenas usamos JSONP/GET, que funciona entre origens.
+    const url=buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl,payload);
+    if(url.length<=7500){
+        return await jsonpRequestWithRetry(url,2,Math.min(timeoutMs,30000));
+    }
+
+    // Não tentar fetch() como primeira opção: ele gera falso erro de rede no GitHub Pages.
+    // Chamadas grandes devem ser divididas pelo chamador em lotes menores.
+    throw new Error('Operação muito grande para o canal seguro do banco central. O sistema deverá dividir o lote antes de enviá-lo.');
 }
 async function onlineDbWriteBatch(records,timeoutMs=45000,options={}){
     const importMode=String(options.mode||'NORMAL').toUpperCase()==='IMPORT';const clean=(Array.isArray(records)?records:[]).filter(r=>r&& (importMode || String(r.sheet||'')!=='HISTORICO_ALTERACOES'));if(!clean.length)return{success:true,verified:true,count:0,version:centralLastVersionV9||0};
@@ -7689,7 +7701,7 @@ function openManagerProfileCompletionModal() {
 
 // ==============================================================
 // =============================================================
-// BANCO CENTRAL V9 — PERSISTÊNCIA E SESSÃO SEM CORRIDA DE TOKEN
+// BANCO CENTRAL V10 — TRANSPORTE JSONP COMPATÍVEL COM GITHUB PAGES + SESSÃO CENTRAL
 // =============================================================
 const ONLINE_MUTATION_QUEUE_KEY_V9='budget-online-mutation-6bbm-v9';
 const ONLINE_QUEUE_MAX_ITEMS_V9=50;

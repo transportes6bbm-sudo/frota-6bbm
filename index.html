@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <!-- AUDITORIA/CONSOLIDAÇÃO 16-10-2026 — V8 BANCO CENTRAL
-     Versão consolidada V8: banco central autoritativo, gravação idempotente, sessão renovável, fila somente de operações pendentes e sincronização por versão. -->
+    <!-- AUDITORIA/CONSOLIDAÇÃO 16-10-2026 — V9 BANCO CENTRAL
+     Versão consolidada V9: banco central autoritativo, gravação idempotente, sessão renovável, fila somente de operações pendentes e sincronização por versão. -->
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2485,19 +2485,23 @@ function isOnlineDatabaseReady() {
 }
 function loadSystemUserSession() {
     try {
-        const saved = JSON.parse(localStorage.getItem(SYSTEM_USER_STORAGE_KEY) || 'null');
+        const saved = JSON.parse(sessionStorage.getItem(SYSTEM_USER_STORAGE_KEY) || 'null');
         if (saved && saved.authToken && saved.usuario && saved.perfil) applyOnlineUser(saved);
         else clearSystemUserSession();
+        // Remove o token legado compartilhado pelas versões anteriores.
+        localStorage.removeItem(SYSTEM_USER_STORAGE_KEY);
     } catch (e) { clearSystemUserSession(); }
 }
 
 function saveSystemUserSession(user) {
     if (!user) return;
-    localStorage.setItem(SYSTEM_USER_STORAGE_KEY, JSON.stringify(user));
+    sessionStorage.setItem(SYSTEM_USER_STORAGE_KEY, JSON.stringify(user));
+    localStorage.removeItem(SYSTEM_USER_STORAGE_KEY);
 }
 
 function clearSystemUserSession() {
-    localStorage.removeItem(SYSTEM_USER_STORAGE_KEY);
+    try { sessionStorage.removeItem(SYSTEM_USER_STORAGE_KEY); } catch (e) {}
+    try { localStorage.removeItem(SYSTEM_USER_STORAGE_KEY); } catch (e) {}
 }
 
 function updateSystemUserInterface() {
@@ -2602,12 +2606,23 @@ async function doSystemLogin() {
     const password=String(document.getElementById('systemLoginPassword')?.value || '');
     if(!usuario||!password){showBudgetError('Informe o usuário com 6 números e a senha.');return;}
     if(!isOnlineDatabaseReady()){showBudgetError('Banco online não está ativo.');return;}
+
+    // Cancela logicamente qualquer validação/polling que tenha sido iniciado
+    // antes deste login. A resposta antiga não poderá sobrescrever o novo token.
+    sessionGenerationV9 += 1;
+    const loginGeneration = sessionGenerationV9;
     beginAppLoading('Autenticando','Validando o usuário no banco central.');
     try{
-        const res=await onlineDbPost({action:'login',usuario,password,requestId:newClientOperationIdV8('LOGIN')},45000);
+        const res=await onlineDbPost({action:'login',usuario,password,requestId:newClientOperationIdV9('LOGIN')},45000);
         if(!res||res.success!==true||!res.user)throw new Error(res?.message||'Resposta inválida do banco central.');
-        applyOnlineUser(res.user);saveSystemUserSession(getCurrentSystemUser());updateSystemUserInterface();closeLoginModal();
-        await loadOnlineBudgetData(false);await loadMaintenancesFromSheet();await syncQueuedMutationsV8({silent:true});
+        if(loginGeneration!==sessionGenerationV9)throw new Error('Outra tentativa de login foi iniciada.');
+        applyOnlineUser(res.user);
+        saveSystemUserSession(getCurrentSystemUser());
+        updateSystemUserInterface();
+        closeLoginModal();
+        await loadOnlineBudgetData(false);
+        await loadMaintenancesFromSheet();
+        await syncQueuedMutationsV9({silent:true});
         if(String(res.user.cadastro_incompleto||'').toUpperCase()==='SIM'){openManagerProfileCompletionModal();showAlert('Primeiro acesso identificado. Complete o cadastro do gestor.');}
         else if(String(res.user.precisa_trocar_senha||'').toUpperCase()==='SIM'){pendingForcedPasswordChangeOldPassword=password;openForcePasswordChangeModal(true,password);showAlert('Primeiro acesso identificado. Crie sua senha pessoal.');}
         else showAlert(`Login realizado como ${currentSystemUser.nome||currentSystemUser.usuario} (${currentSystemUser.perfil}).`);
@@ -2617,19 +2632,20 @@ async function doSystemLogin() {
 
 
 async function doSystemLogout() {
-    try {
-        if (isOnlineDatabaseReady() && hasValidOnlineSession()) {
-            await onlineDbRequest({ action: 'logout' }, 1, 10000);
-        }
-    } catch (e) {
-        console.warn('Falha ao encerrar sessão no backend:', e);
-    }
+    const oldToken=String(getCurrentSystemUser()?.authToken||'');
+    sessionGenerationV9 += 1;
     clearSystemUserSession();
-    currentSystemUser = { email: '', usuario: '', numero_bombeiro: '', nome: 'Visitante', perfil: 'VISITANTE', status: 'LOCAL', authToken: '' };
+    currentSystemUser={email:'',usuario:'',numero_bombeiro:'',nome:'Visitante',perfil:'VISITANTE',status:'LOCAL',authToken:'',authMode:'LOCAL'};
     updateSystemUserInterface();
     closeLoginModal();
+    // O logout remoto é disparado com o token capturado, mas a interface já é
+    // imediatamente independente de qualquer resposta tardia do servidor.
+    if(isOnlineDatabaseReady()&&oldToken){
+        try{await onlineDbRequest({action:'logout',authToken:oldToken},1,10000);}catch(e){console.warn('Falha ao encerrar sessão no backend:',e);}
+    }
     showAlert('Usuário desconectado. Faça login para acessar os dados online.');
 }
+
 
 function loginAsVisitor() {
     showBudgetError('Acesso visitante também deve ser cadastrado pelo gestor. Use usuário de 6 números e senha de um perfil VISITANTE.');
@@ -2792,13 +2808,13 @@ async function approveSignupRequest(id) {
     if (!requireBudgetPermission('gerenciar_usuarios','aprovar usuários')) return;
     const perfil=prompt('Perfil final do usuário: GESTOR, OPERADOR ou VISITANTE','OPERADOR');if(!perfil)return;
     beginAppLoading('Aprovando usuário','Gravando a aprovação no banco central.');
-    try{const res=await onlineDbPost({action:'approveSignup',id,perfil:String(perfil).toUpperCase(),requestId:newClientOperationIdV8('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao aprovar.');showAlert('Solicitação aprovada.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao aprovar usuário: '+(err.message||err));}finally{hideAppLoading();}
+    try{const res=await onlineDbPost({action:'approveSignup',id,perfil:String(perfil).toUpperCase(),requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao aprovar.');showAlert('Solicitação aprovada.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao aprovar usuário: '+(err.message||err));}finally{hideAppLoading();}
 }
 async function rejectSignupRequest(id) {
     if (!requireBudgetPermission('gerenciar_usuarios','rejeitar usuários')) return;
     const motivo=prompt('Motivo/observação da rejeição:','Rejeitada pelo gestor.');if(motivo===null)return;
     beginAppLoading('Rejeitando solicitação','Gravando a decisão no banco central.');
-    try{const res=await onlineDbPost({action:'rejectSignup',id,motivo,requestId:newClientOperationIdV8('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao rejeitar.');showAlert('Solicitação rejeitada.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao rejeitar usuário: '+(err.message||err));}finally{hideAppLoading();}
+    try{const res=await onlineDbPost({action:'rejectSignup',id,motivo,requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao rejeitar.');showAlert('Solicitação rejeitada.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao rejeitar usuário: '+(err.message||err));}finally{hideAppLoading();}
 }
 
 
@@ -3204,8 +3220,11 @@ async function jsonpRequestWithRetry(url, tries = 3, timeoutMs = 30000) {
 
         // === AUTENTICAÇÃO / LOGIN POR PERFIL ===
 function checkAuth() {
-    loadOnlineDatabaseSettings();loadSystemUserSession();updateSystemUserInterface();
-    if(hasValidOnlineSession())setTimeout(async()=>{try{if(await validateCentralSessionV8(false)){const u=getCurrentSystemUser();if(String(u.cadastro_incompleto||'').toUpperCase()==='SIM')openManagerProfileCompletionModal();else if(String(u.precisa_trocar_senha||'').toUpperCase()==='SIM')openForcePasswordChangeModal(true,'');}}catch(e){console.warn('[Sessão central]',e);}},300);
+    loadOnlineDatabaseSettings();
+    loadSystemUserSession();
+    updateSystemUserInterface();
+    // A validação remota é executada uma única vez no boot, depois que todas as
+    // rotinas V9 de sessão já estão carregadas. Isso elimina a corrida de inicialização.
 }
 
         function becomeManager() {
@@ -3285,7 +3304,7 @@ function initializeData() {
         // cache temporário e fila de resiliência. Backups completos do módulo
         // orçamentário foram desativados porque duplicavam a base e causavam
         // "Storage quota exceeded" após vários lançamentos.
-        function cleanupBudgetLocalStorageV8() {
+        function cleanupBudgetLocalStorageV9() {
             let removed = 0;
             try {
                 const keys = [];
@@ -3306,8 +3325,8 @@ function initializeData() {
         }
 
         // Recupera espaço ocupado por versões anteriores. Esta limpeza NÃO toca
-        // nas chaves oficiais budget-* nem na fila V8.
-        try { cleanupBudgetLocalStorageV8(); } catch (e) {}
+        // nas chaves oficiais budget-* nem na fila V9.
+        try { cleanupBudgetLocalStorageV9(); } catch (e) {}
 
         function saveToStorage(key, data) {
             const payload = JSON.stringify(data);
@@ -3317,7 +3336,7 @@ function initializeData() {
             } catch (e) {
                 // Se versões antigas deixaram backups grandes, libera somente o
                 // conteúdo redundante e tenta uma segunda vez.
-                try { cleanupBudgetLocalStorageV8(); } catch (cleanupError) {}
+                try { cleanupBudgetLocalStorageV9(); } catch (cleanupError) {}
                 try {
                     localStorage.setItem(key, payload);
                     return true;
@@ -5370,24 +5389,31 @@ const BUDGET_STORAGE_KEYS = {
     history: 'budget-history-6bbm'
 };
 function saveBudgetStorage() {
-    try { cleanupBudgetLocalStorageV8(); } catch(e) {}
+    try { cleanupBudgetLocalStorageV9(); } catch(e) {}
     return { localSaved:false, onlineRequired:true, onlineSynced:false };
 }
 async function awaitBudgetSave(syncRecords, operationLabel='salvamento') {
     if(!isOnlineDatabaseReady()||!hasValidOnlineSession())throw new Error(`O ${operationLabel} foi bloqueado porque não há sessão válida no banco central. Faça login novamente.`);
+    const ctx=getSessionContextV9();
+    const requestId=newClientOperationIdV9('WR');
     try{
-        const valid=await validateCentralSessionV8(true);if(!valid)throw new Error('Sessão central inválida ou expirada. Faça login novamente.');
-        const result=await syncSpecificBudgetRecordsV8(syncRecords,operationLabel);
+        const result=await syncSpecificBudgetRecordsV9(syncRecords,operationLabel,requestId);
         if(!result||result.success!==true||result.verified!==true)throw new Error(result?.message||`O banco central não confirmou o ${operationLabel}.`);
-        if(result.version)centralLastVersionV8=Number(result.version);
+        if(result.version)centralLastVersionV9=Number(result.version);
         return result;
     }catch(err){
-        if(isSessionErrorV8(err)){invalidateCentralSessionV8(err.message);throw new Error(`Sessão central inválida ou expirada. Faça login novamente. O formulário foi mantido aberto para nova tentativa.`);}
-        if(isNetworkErrorV8(err)){enqueueBudgetWriteV8(syncRecords,operationLabel);throw new Error(`Não foi possível confirmar o ${operationLabel}. A operação foi colocada na fila de segurança; o formulário foi mantido aberto.`);}
+        if(isSessionErrorV9(err)){
+            invalidateCentralSessionV9(err.message,ctx.token,ctx.generation);
+            throw new Error('Sessão central inválida ou expirada. Faça login novamente. O formulário foi mantido aberto para nova tentativa.');
+        }
+        if(isNetworkErrorV9(err)){
+            enqueueBudgetWriteV9(syncRecords,operationLabel,requestId);
+            throw new Error('Não foi possível confirmar o salvamento agora. A operação foi colocada na fila de segurança com o mesmo identificador; não repita o lançamento.');
+        }
         throw err;
     }
 }
-function queueOnlineBudgetSync(){return syncQueuedMutationsV8({silent:true});}
+function queueOnlineBudgetSync(){return syncQueuedMutationsV9({silent:true});}
 
 let onlineBudgetSyncTimer = null;
 let onlineBudgetSyncRunning = false;
@@ -5401,7 +5427,7 @@ function setOnlineDbSyncStatus(message, isError = false) {
     }
     console.log('[Banco online]', message);
 }
-function scheduleOnlineBudgetSync(delayMs=500){if(onlineBudgetSyncTimer)clearTimeout(onlineBudgetSyncTimer);onlineBudgetSyncTimer=setTimeout(()=>syncQueuedMutationsV8({silent:true}).catch(e=>console.warn('[Fila central]',e)),Math.max(0,Number(delayMs||0)));}
+function scheduleOnlineBudgetSync(delayMs=500){if(onlineBudgetSyncTimer)clearTimeout(onlineBudgetSyncTimer);onlineBudgetSyncTimer=setTimeout(()=>syncQueuedMutationsV9({silent:true}).catch(e=>console.warn('[Fila central]',e)),Math.max(0,Number(delayMs||0)));}
 
 function getOnlineUserEmail() {
     const user = getCurrentSystemUser ? getCurrentSystemUser() : currentSystemUser;
@@ -5422,9 +5448,9 @@ async function onlineDbPost(params,timeoutMs=30000){
     try{const response=await fetch(ONLINE_DATABASE_CONFIG.webAppUrl,{method:'POST',redirect:'follow',cache:'no-store',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),signal:controller.signal});const text=await response.text();if(!response.ok)throw new Error(`HTTP ${response.status}`);let result;try{result=JSON.parse(text);}catch(e){throw new Error('O banco central retornou uma resposta que não é JSON.');}return result;}finally{clearTimeout(timer);}
 }
 async function onlineDbWriteBatch(records,timeoutMs=45000,options={}){
-    const importMode=String(options.mode||'NORMAL').toUpperCase()==='IMPORT';const clean=(Array.isArray(records)?records:[]).filter(r=>r&& (importMode || String(r.sheet||'')!=='HISTORICO_ALTERACOES'));if(!clean.length)return{success:true,verified:true,count:0,version:centralLastVersionV8||0};
+    const importMode=String(options.mode||'NORMAL').toUpperCase()==='IMPORT';const clean=(Array.isArray(records)?records:[]).filter(r=>r&& (importMode || String(r.sheet||'')!=='HISTORICO_ALTERACOES'));if(!clean.length)return{success:true,verified:true,count:0,version:centralLastVersionV9||0};
     if(!hasValidOnlineSession())throw new Error('Sessão central inválida ou expirada. Faça login novamente.');
-    const payload={action:'writeBatch',records:clean,requestId:String(options.requestId||newClientOperationIdV8('WR')),mode:String(options.mode||'NORMAL').toUpperCase()};
+    const payload={action:'writeBatch',records:clean,requestId:String(options.requestId||newClientOperationIdV9('WR')),mode:String(options.mode||'NORMAL').toUpperCase()};
     try{return await onlineDbPost(payload,timeoutMs);}catch(postErr){
         const fallbackUrl=buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl,Object.assign({email:getOnlineUserEmail(),authToken:getCurrentSystemUser()?.authToken||'',usuario:getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||'',_:Date.now()},payload));
         if(fallbackUrl.length>7500)throw postErr;
@@ -5490,7 +5516,7 @@ function getBudgetStorageSnapshot() {
 function backupBudgetStorage(reason = 'backup') {
     // Mantido apenas para compatibilidade com chamadas antigas. Não cria mais
     // snapshots completos no navegador, pois isso provoca estouro de quota.
-    try { cleanupBudgetLocalStorageV8(); } catch (e) {}
+    try { cleanupBudgetLocalStorageV9(); } catch (e) {}
     return false;
 }
 
@@ -5752,30 +5778,31 @@ let optionsOnlineSeedInProgress = false;
 async function loadOnlineBudgetData(showUserMessage=false){
     if(!isOnlineDatabaseReady()){if(showUserMessage)showBudgetError('Banco online não está ativo.');return false;}
     if(!hasValidOnlineSession()){if(showUserMessage)showBudgetError('Faça login para carregar os dados centrais.');return false;}
+    const sessionContextAtStart=getSessionContextV9();
     try{
         setOnlineDbSyncStatus('Carregando dados do banco central...');
         const res=await onlineDbRequest({action:'initialData',historyLimit:300},2,45000);if(!res||res.success!==true)throw new Error(res?.message||'Resposta inválida do banco central.');
         const nextContracts=sanitizeOnlineArray(res.contratos,dbContractToLocal),nextAddenda=sanitizeOnlineArray(res.aditivos,dbAddendumToLocal),nextCommitments=sanitizeOnlineArray(res.empenhos,dbCommitmentToLocal),nextMovements=sanitizeOnlineArray(res.extrato,dbMovementToLocal).filter(m=>m.type!=='ORÇAMENTO'&&m.type!=='ORCAMENTO'),nextQuotes=sanitizeOnlineArray(res.orcamentos,dbQuoteToLocal),nextHistory=sanitizeOnlineArray(res.historico||[],dbHistoryToLocal);
         const hasAny=nextContracts.length+nextAddenda.length+nextCommitments.length+nextMovements.length+nextQuotes.length+nextHistory.length>0;
         if(!hasAny&&localBudgetHasData()){setOnlineDbSyncStatus('O banco central retornou vazio. Dados locais preservados; nenhuma substituição foi feita.',true);if(showUserMessage)showBudgetError('O banco central retornou vazio. Nenhum dado local foi apagado.');return false;}
-        budgetContracts=nextContracts;budgetAddenda=nextAddenda;budgetCommitments=nextCommitments;budgetMovements=nextMovements;budgetQuotes=nextQuotes;budgetHistory=nextHistory;centralLastVersionV8=Number(res.version||centralLastVersionV8||1);
+        budgetContracts=nextContracts;budgetAddenda=nextAddenda;budgetCommitments=nextCommitments;budgetMovements=nextMovements;budgetQuotes=nextQuotes;budgetHistory=nextHistory;centralLastVersionV9=Number(res.version||centralLastVersionV9||1);
         renderBudgetModule();renderBudgetQuotesModule();renderVehicles();if(currentMaintenanceVehicleId){try{renderMaintenanceList();}catch(e){}}
         setOnlineDbSyncStatus(`Banco central carregado: ${budgetContracts.length} contrato(s), ${budgetCommitments.length} empenho(s), ${budgetQuotes.length} orçamento(s).`);if(showUserMessage)showAlert('Dados do banco central carregados com sucesso.');return true;
-    }catch(err){if(isSessionErrorV8(err))invalidateCentralSessionV8(err.message);setOnlineDbSyncStatus('Falha ao carregar dados centrais: '+(err.message||err),true);if(showUserMessage)showBudgetError('Falha ao carregar dados centrais: '+(err.message||err));return false;}
+    }catch(err){if(isSessionErrorV9(err))invalidateCentralSessionV9(err.message,sessionContextAtStart.token,sessionContextAtStart.generation);setOnlineDbSyncStatus('Falha ao carregar dados centrais: '+(err.message||err),true);if(showUserMessage)showBudgetError('Falha ao carregar dados centrais: '+(err.message||err));return false;}
 }
-async function onlineUpsertRecord(sheet,idField,record,localProfile){if(!record||!record[idField])return null;const profile=normalizeSystemProfile(localProfile||getCurrentSystemUser()?.perfil);const mode=profile==='GESTOR'?'NORMAL':'INSERT_ONLY';const res=await onlineDbWriteBatch([{sheet,idField,record}],45000,{mode,requestId:newClientOperationIdV8('WR')});if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||`Falha ao sincronizar ${sheet}.`);return res;}
+async function onlineUpsertRecord(sheet,idField,record,localProfile){if(!record||!record[idField])return null;const profile=normalizeSystemProfile(localProfile||getCurrentSystemUser()?.perfil);const mode=profile==='GESTOR'?'NORMAL':'INSERT_ONLY';const res=await onlineDbWriteBatch([{sheet,idField,record}],45000,{mode,requestId:newClientOperationIdV9('WR')});if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||`Falha ao sincronizar ${sheet}.`);return res;}
 function syncBudgetDataOnline(options={}) {
     if (!isOnlineDatabaseReady()) return Promise.resolve(false);
     if (onlineBudgetSyncPromise) return onlineBudgetSyncPromise;
-    onlineBudgetSyncPromise = syncQueuedMutationsV8(options).finally(function(){ onlineBudgetSyncPromise = null; });
+    onlineBudgetSyncPromise = syncQueuedMutationsV9(options).finally(function(){ onlineBudgetSyncPromise = null; });
     return onlineBudgetSyncPromise;
 }
 async function migrateLocalBudgetDataToOnline(){
     if(!requireBudgetPermission('gerenciar_usuarios','migrar dados locais para o banco online'))return;if(!hasValidOnlineSession()){showBudgetError('Faça login como GESTOR antes da migração.');return;}
-    const snap=readPersistedBudgetSnapshotV8();const jobs=[];const add=(sheet,idField,arr,mapper)=>(arr||[]).forEach(r=>{if(r&&r.id)jobs.push({sheet,idField,record:mapper(r)});});
+    const snap=readPersistedBudgetSnapshotV9();const jobs=[];const add=(sheet,idField,arr,mapper)=>(arr||[]).forEach(r=>{if(r&&r.id)jobs.push({sheet,idField,record:mapper(r)});});
     add('CONTRATOS','id_contrato',snap.contracts,localContractToDb);add('ADITIVOS_CONTRATO','id_aditivo',snap.addenda,localAddendumToDb);add('EMPENHOS','id_empenho',snap.commitments,localCommitmentToDb);add('EXTRATO_ORCAMENTARIO','id_extrato',snap.movements,localMovementToDb);add('ORCAMENTOS_MANUTENCOES','id_orcamento',snap.quotes,localQuoteToDb);add('HISTORICO_ALTERACOES','id_historico',snap.history,localHistoryToDb);
     if(!jobs.length){showBudgetError('Não há dados antigos para migrar nesta máquina.');return;}if(!confirm(`Foram encontrados ${jobs.length} registro(s). A migração é somente inclusiva e não sobrescreve o banco central. Continuar?`))return;
-    beginAppLoading('Migrando dados',`Enviando ${jobs.length} registro(s) sem sobrescrever dados centrais.`);try{let inserted=0,existing=0;for(let i=0;i<jobs.length;i+=40){const res=await onlineDbWriteBatch(jobs.slice(i,i+40),45000,{mode:'IMPORT',requestId:newClientOperationIdV8('IMP')});if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||'Falha na migração.');(res.results||[]).forEach(x=>{if(x.inserted)inserted++;else if(x.already_present)existing++;});}await loadOnlineBudgetData(false);showAlert(`Migração concluída. Inseridos: ${inserted}. Já existentes: ${existing}.`);}catch(err){showBudgetError('Falha na migração: '+(err.message||err));}finally{hideAppLoading();}
+    beginAppLoading('Migrando dados',`Enviando ${jobs.length} registro(s) sem sobrescrever dados centrais.`);try{let inserted=0,existing=0;for(let i=0;i<jobs.length;i+=40){const res=await onlineDbWriteBatch(jobs.slice(i,i+40),45000,{mode:'IMPORT',requestId:newClientOperationIdV9('IMP')});if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||'Falha na migração.');(res.results||[]).forEach(x=>{if(x.inserted)inserted++;else if(x.already_present)existing++;});}await loadOnlineBudgetData(false);showAlert(`Migração concluída. Inseridos: ${inserted}. Já existentes: ${existing}.`);}catch(err){showBudgetError('Falha na migração: '+(err.message||err));}finally{hideAppLoading();}
 }
 function applyOnlineUser(user) {
     if (!user) return;
@@ -7661,67 +7688,114 @@ function openManagerProfileCompletionModal() {
 }
 
 // ==============================================================
-// BANCO CENTRAL V8 — CAMADA ÚNICA DE PERSISTÊNCIA
-// ==============================================================
-const ONLINE_MUTATION_QUEUE_KEY_V8='budget-online-mutation-queue-6bbm-v8';
-const ONLINE_QUEUE_MAX_ITEMS_V8=50;
-let onlineMutationQueueMemoryV8=[];
-let centralLastVersionV8=null;
-let centralSessionValidationPromiseV8=null;
+// =============================================================
+// BANCO CENTRAL V9 — PERSISTÊNCIA E SESSÃO SEM CORRIDA DE TOKEN
+// =============================================================
+const ONLINE_MUTATION_QUEUE_KEY_V9='budget-online-mutation-6bbm-v9';
+const ONLINE_QUEUE_MAX_ITEMS_V9=50;
+let onlineMutationQueueMemoryV9=[];
+let centralLastVersionV9=null;
+let centralSessionValidationV9=null;
+let sessionGenerationV9=0;
 
-function newClientOperationIdV8(prefix='OP'){return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;}
-function isSessionErrorV8(error){const m=String(error?.message||error||'').toLowerCase();return /sess[aã]o/.test(m)&&(/inv[aá]lida/.test(m)||/expirada/.test(m)||/encerrada/.test(m)||/fa[cç]a login/.test(m));}
-function isNetworkErrorV8(error){const m=String(error?.message||error||'').toLowerCase();return error?.name==='AbortError'||/timeout|failed to fetch|network|jsonp|carregar jsonp|resposta que n[aã]o [ée] json/.test(m);}
-function invalidateCentralSessionV8(reason=''){clearSystemUserSession();currentSystemUser={email:'',usuario:'',numero_bombeiro:'',cpf:'',nome:'Visitante',perfil:'VISITANTE',status:'LOCAL',authToken:'',authMode:'LOCAL'};updateSystemUserInterface();setOnlineDbSyncStatus('Sessão central expirada. Faça login novamente.',true);console.warn('[Banco central V8] sessão invalidada:',reason);setTimeout(()=>{try{openLoginModal();}catch(e){}},100);}
-async function validateCentralSessionV8(openLoginOnFail=false){if(!isOnlineDatabaseReady())return false;if(!hasValidOnlineSession()){if(openLoginOnFail)try{openLoginModal();}catch(e){};return false;}if(centralSessionValidationPromiseV8)return centralSessionValidationPromiseV8;centralSessionValidationPromiseV8=(async()=>{try{const res=await onlineDbRequest({action:'validateUser'},1,15000);if(!res||res.success!==true||!res.user||!res.user.authToken)throw new Error(res?.message||'Sessão central inválida.');applyOnlineUser(res.user);saveSystemUserSession(getCurrentSystemUser());updateSystemUserInterface();return true;}catch(err){if(isSessionErrorV8(err)||/sess[aã]o/.test(String(err?.message||'').toLowerCase()))invalidateCentralSessionV8(err.message);else console.warn('[Banco central V8] validação:',err);if(openLoginOnFail)try{openLoginModal();}catch(e){}return false;}finally{centralSessionValidationPromiseV8=null;}})();return centralSessionValidationPromiseV8;}
-function getOnlineMutationQueueV8(){try{const raw=JSON.parse(localStorage.getItem(ONLINE_MUTATION_QUEUE_KEY_V8)||'[]');if(Array.isArray(raw)){onlineMutationQueueMemoryV8=raw;return raw.slice();}}catch(e){}return onlineMutationQueueMemoryV8.slice();}
-function persistOnlineMutationQueueV8(queue){const safe=Array.isArray(queue)?queue.slice(0,ONLINE_QUEUE_MAX_ITEMS_V8):[];onlineMutationQueueMemoryV8=safe.slice();try{localStorage.setItem(ONLINE_MUTATION_QUEUE_KEY_V8,JSON.stringify(safe));return true;}catch(e){console.warn('[Fila V8] quota local atingida; fila mantida em memória.');return false;}}
-function enqueueBudgetWriteV8(records,label='salvamento'){const clean=(Array.isArray(records)?records:[]).filter(r=>r&&String(r.sheet||'')!=='HISTORICO_ALTERACOES');if(!clean.length)return;const q=getOnlineMutationQueueV8();q.push({kind:'writeBatch',requestId:newClientOperationIdV8('WRQ'),mode:normalizeSystemProfile(getCurrentSystemUser()?.perfil)==='GESTOR'?'NORMAL':'INSERT_ONLY',requiredProfile:normalizeSystemProfile(getCurrentSystemUser()?.perfil),requiredUser:String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''),records:clean,label,queuedAt:new Date().toISOString()});persistOnlineMutationQueueV8(q);setOnlineDbSyncStatus(`Operação pendente: ${q.length} item(ns) na fila de segurança.`,true);}
-function enqueueDeleteV8(records,label='exclusão'){const clean=(Array.isArray(records)?records:[]).filter(r=>r&&r.sheet&&r.idField&&r.id);if(!clean.length)return;const q=getOnlineMutationQueueV8();q.push({kind:'deleteBatch',requestId:newClientOperationIdV8('DELQ'),requiredProfile:'GESTOR',requiredUser:String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''),records:clean,label,queuedAt:new Date().toISOString()});persistOnlineMutationQueueV8(q);setOnlineDbSyncStatus(`Exclusão pendente: ${q.length} item(ns) na fila de segurança.`,true);}
-function readPersistedBudgetSnapshotV8(){return{contracts:loadFromStorage('budget-contracts-6bbm')||[],commitments:loadFromStorage('budget-commitments-6bbm')||[],movements:loadFromStorage('budget-movements-6bbm')||[],addenda:loadFromStorage('budget-addenda-6bbm')||[],quotes:loadFromStorage('budget-quotes-6bbm')||[],history:loadFromStorage('budget-history-6bbm')||[]};}
-async function syncSpecificBudgetRecordsV8(records,label='salvamento'){if(!Array.isArray(records)||!records.length)return{success:true,verified:true,count:0};if(!hasValidOnlineSession())throw new Error('Sessão central inválida ou expirada. Faça login novamente.');const clean=records.filter(r=>r&&String(r.sheet||'')!=='HISTORICO_ALTERACOES');if(!clean.length)return{success:true,verified:true,count:0,version:centralLastVersionV8||0};const profile=normalizeSystemProfile(getCurrentSystemUser()?.perfil);const mode=profile==='GESTOR'?'NORMAL':'INSERT_ONLY';const requestId=newClientOperationIdV8('WR');const res=await onlineDbWriteBatch(clean,45000,{mode,requestId});if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||`O banco central não confirmou o ${label}.`);if(res.version)centralLastVersionV8=Number(res.version);return res;}
-async function deleteBudgetRecordsOnlineV8(records,label='exclusão'){const items=(Array.isArray(records)?records:[]).filter(Boolean);if(!items.length)return{success:true,verified:true,count:0};if(!hasValidOnlineSession())throw new Error('Sessão central inválida ou expirada. Faça login novamente.');const requestId=newClientOperationIdV8('DEL');try{const res=await onlineDbPost({action:'deleteBatch',records:items,requestId},45000);if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||`O banco central não confirmou a ${label}.`);if(res.version)centralLastVersionV8=Number(res.version);return res;}catch(err){if(isSessionErrorV8(err)){invalidateCentralSessionV8(err.message);throw err;}if(isNetworkErrorV8(err)){enqueueDeleteV8(items,label);throw new Error(`A ${label} não pôde ser confirmada agora. Ela foi colocada na fila de segurança; não repita a operação.`);}throw err;}}
-async function processQueuedMaintenanceV8(item){const res=await onlineDbPost(item.payload,45000);if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||'Manutenção pendente não confirmada.');return res;}
-async function syncQueuedMutationsV8(options={}){if(onlineBudgetSyncRunning)return false;if(!isOnlineDatabaseReady()||!hasValidOnlineSession())return false;const queue=getOnlineMutationQueueV8();if(!queue.length)return true;onlineBudgetSyncRunning=true;const silent=options.silent!==false;try{await validateCentralSessionV8(false);if(!hasValidOnlineSession())return false;while(queue.length){const item=queue[0];const profile=normalizeSystemProfile(getCurrentSystemUser()?.perfil);if(item.requiredProfile==='GESTOR'&&profile!=='GESTOR'){setOnlineDbSyncStatus('Há operação pendente exclusiva do GESTOR.');return false;}if(item.requiredUser&&String(item.requiredUser)!==String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||'')){setOnlineDbSyncStatus(`Há operação pendente vinculada ao usuário BM ${item.requiredUser}. Faça login com esse usuário para concluí-la.`);return false;}let res;if(item.kind==='deleteBatch')res=await onlineDbPost({action:'deleteBatch',records:item.records,requestId:item.requestId},45000);else if(item.kind==='maintenance')res=await processQueuedMaintenanceV8(item);else res=await onlineDbWriteBatch(item.records,45000,{mode:item.mode||'INSERT_ONLY',requestId:item.requestId});if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||'Operação pendente não confirmada.');if(res.version)centralLastVersionV8=Number(res.version);queue.shift();persistOnlineMutationQueueV8(queue);}await loadOnlineBudgetData(false);await loadMaintenancesFromSheet();setOnlineDbSyncStatus('Banco central sincronizado. Nenhuma operação pendente.');if(!silent)showAlert('Fila de segurança sincronizada com sucesso.');return true;}catch(err){persistOnlineMutationQueueV8(queue);if(isSessionErrorV8(err))invalidateCentralSessionV8(err.message);setOnlineDbSyncStatus('Fila pendente: '+(err.message||err),true);if(!silent)showBudgetError('A fila de segurança não pôde ser concluída: '+(err.message||err));return false;}finally{onlineBudgetSyncRunning=false;}}
+function newClientOperationIdV9(prefix='OP'){return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;}
+function isSessionErrorV9(error){const m=String(error?.message||error||'').toLowerCase();return /sess[aã]o/.test(m)&&(/inv[aá]lida/.test(m)||/expirada/.test(m)||/encerrada/.test(m)||/fa[cç]a login/.test(m));}
+function isNetworkErrorV9(error){const m=String(error?.message||error||'').toLowerCase();return error?.name==='AbortError'||/timeout|failed to fetch|network|jsonp|carregar jsonp|resposta que n[aã]o [ée] json/.test(m);}
+function getSessionContextV9(){const u=getCurrentSystemUser();return{token:String(u?.authToken||''),generation:sessionGenerationV9,usuario:String(u?.usuario||u?.numero_bombeiro||'')};}
+function isCurrentSessionContextV9(ctx){return !!ctx&&String(getCurrentSystemUser()?.authToken||'')===String(ctx.token||'')&&sessionGenerationV9===ctx.generation;}
+function invalidateCentralSessionV9(reason='',expectedToken='',expectedGeneration=null){
+    const currentToken=String(getCurrentSystemUser()?.authToken||'');
+    if(expectedToken&&currentToken!==String(expectedToken))return false;
+    if(expectedGeneration!==null&&sessionGenerationV9!==expectedGeneration)return false;
+    sessionGenerationV9+=1;
+    clearSystemUserSession();
+    currentSystemUser={email:'',usuario:'',numero_bombeiro:'',cpf:'',nome:'Visitante',perfil:'VISITANTE',status:'LOCAL',authToken:'',authMode:'LOCAL'};
+    updateSystemUserInterface();
+    setOnlineDbSyncStatus('Sessão central expirada. Faça login novamente.',true);
+    console.warn('[Banco central V9] sessão invalidada:',reason);
+    setTimeout(()=>{try{openLoginModal();}catch(e){}},100);
+    return true;
+}
+async function validateCentralSessionV9(openLoginOnFail=false){
+    if(!isOnlineDatabaseReady())return false;
+    const ctx=getSessionContextV9();
+    if(!ctx.token){if(openLoginOnFail)try{openLoginModal();}catch(e){};return false;}
+    if(centralSessionValidationV9&&isCurrentSessionContextV9(centralSessionValidationV9.ctx))return centralSessionValidationV9.promise;
+    const entry={ctx,promise:null};
+    entry.promise=(async()=>{
+        try{
+            const res=await onlineDbRequest({action:'validateUser'},1,15000);
+            if(!isCurrentSessionContextV9(ctx))return false;
+            if(!res||res.success!==true||!res.user||!res.user.authToken)throw new Error(res?.message||'Sessão central inválida.');
+            if(String(res.user.authToken)!==ctx.token)throw new Error('O servidor retornou uma sessão diferente da sessão atual.');
+            applyOnlineUser(res.user);
+            saveSystemUserSession(getCurrentSystemUser());
+            updateSystemUserInterface();
+            return true;
+        }catch(err){
+            if(isSessionErrorV9(err))invalidateCentralSessionV9(err.message,ctx.token,ctx.generation);
+            else console.warn('[Banco central V9] validação:',err);
+            if(openLoginOnFail&&isCurrentSessionContextV9(ctx))try{openLoginModal();}catch(e){}
+            return false;
+        }finally{if(centralSessionValidationV9===entry)centralSessionValidationV9=null;}
+    })();
+    centralSessionValidationV9=entry;
+    return entry.promise;
+}
+function getOnlineMutationQueueV9(){try{const raw=JSON.parse(localStorage.getItem(ONLINE_MUTATION_QUEUE_KEY_V9)||'[]');if(Array.isArray(raw)){onlineMutationQueueMemoryV9=raw;return raw.slice();}}catch(e){}return onlineMutationQueueMemoryV9.slice();}
+function persistOnlineMutationQueueV9(queue){const safe=Array.isArray(queue)?queue.slice(0,ONLINE_QUEUE_MAX_ITEMS_V9):[];onlineMutationQueueMemoryV9=safe.slice();try{localStorage.setItem(ONLINE_MUTATION_QUEUE_KEY_V9,JSON.stringify(safe));return true;}catch(e){console.warn('[Fila V9] quota local atingida; fila mantida em memória.');return false;}}
+function enqueueBudgetWriteV9(records,label='salvamento',requestId=''){const clean=(Array.isArray(records)?records:[]).filter(r=>r&&String(r.sheet||'')!=='HISTORICO_ALTERACOES');if(!clean.length)return;const q=getOnlineMutationQueueV9();q.push({kind:'writeBatch',requestId:String(requestId||newClientOperationIdV9('WRQ')),mode:normalizeSystemProfile(getCurrentSystemUser()?.perfil)==='GESTOR'?'NORMAL':'INSERT_ONLY',requiredProfile:normalizeSystemProfile(getCurrentSystemUser()?.perfil),requiredUser:String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''),records:clean,label,queuedAt:new Date().toISOString()});persistOnlineMutationQueueV9(q);setOnlineDbSyncStatus(`Operação pendente: ${q.length} item(ns) na fila de segurança.`,true);}
+function enqueueDeleteV9(records,label='exclusão',requestId=''){const clean=(Array.isArray(records)?records:[]).filter(r=>r&&r.sheet&&r.idField&&r.id);if(!clean.length)return;const q=getOnlineMutationQueueV9();q.push({kind:'deleteBatch',requestId:String(requestId||newClientOperationIdV9('DELQ')),requiredProfile:'GESTOR',requiredUser:String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''),records:clean,label,queuedAt:new Date().toISOString()});persistOnlineMutationQueueV9(q);setOnlineDbSyncStatus(`Exclusão pendente: ${q.length} item(ns) na fila de segurança.`,true);}
+function readPersistedBudgetSnapshotV9(){return{contracts:loadFromStorage('budget-contracts-6bbm')||[],commitments:loadFromStorage('budget-commitments-6bbm')||[],movements:loadFromStorage('budget-movements-6bbm')||[],addenda:loadFromStorage('budget-addenda-6bbm')||[],quotes:loadFromStorage('budget-quotes-6bbm')||[],history:loadFromStorage('budget-history-6bbm')||[]};}
+async function syncSpecificBudgetRecordsV9(records,label='salvamento',requestIdOverride=''){
+    if(!Array.isArray(records)||!records.length)return{success:true,verified:true,count:0};
+    if(!hasValidOnlineSession())throw new Error('Sessão central inválida ou expirada. Faça login novamente.');
+    const clean=records.filter(r=>r&&String(r.sheet||'')!=='HISTORICO_ALTERACOES');
+    if(!clean.length)return{success:true,verified:true,count:0,version:centralLastVersionV9||0};
+    const profile=normalizeSystemProfile(getCurrentSystemUser()?.perfil);
+    const mode=profile==='GESTOR'?'NORMAL':'INSERT_ONLY';
+    const requestId=String(requestIdOverride||newClientOperationIdV9('WR'));
+    try{
+        const res=await onlineDbWriteBatch(clean,45000,{mode,requestId});
+        if(!res||res.success!==true||res.verified!==true){const e=new Error(res?.message||`O banco central não confirmou o ${label}.`);e.requestId=requestId;throw e;}
+        if(res.version)centralLastVersionV9=Number(res.version);
+        return Object.assign({},res,{requestId});
+    }catch(err){err.requestId=err.requestId||requestId;throw err;}
+}
+async function deleteBudgetRecordsOnlineV9(records,label='exclusão'){
+    const items=(Array.isArray(records)?records:[]).filter(Boolean);if(!items.length)return{success:true,verified:true,count:0};
+    if(!hasValidOnlineSession())throw new Error('Sessão central inválida ou expirada. Faça login novamente.');
+    const requestId=newClientOperationIdV9('DEL');const ctx=getSessionContextV9();
+    try{const res=await onlineDbPost({action:'deleteBatch',records:items,requestId},45000);if(!res||res.success!==true||res.verified!==true)throw Object.assign(new Error(res?.message||`O banco central não confirmou a ${label}.`),{requestId});if(res.version)centralLastVersionV9=Number(res.version);return res;}
+    catch(err){if(isSessionErrorV9(err)){invalidateCentralSessionV9(err.message,ctx.token,ctx.generation);throw err;}if(isNetworkErrorV9(err)){enqueueDeleteV9(items,label,requestId);throw new Error(`A ${label} não pôde ser confirmada agora. Ela foi colocada na fila de segurança; não repita a operação.`);}throw err;}
+}
+async function processQueuedMaintenanceV9(item){const res=await onlineDbPost(item.payload,45000);if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||'Manutenção pendente não confirmada.');return res;}
+async function syncQueuedMutationsV9(options={}){
+    if(onlineBudgetSyncRunning)return false;if(!isOnlineDatabaseReady()||!hasValidOnlineSession())return false;
+    const queue=getOnlineMutationQueueV9();if(!queue.length)return true;onlineBudgetSyncRunning=true;const silent=options.silent!==false;
+    try{while(queue.length){const item=queue[0];const ctx=getSessionContextV9();if(item.requiredProfile==='GESTOR'&&normalizeSystemProfile(getCurrentSystemUser()?.perfil)!=='GESTOR'){setOnlineDbSyncStatus('Há operação pendente exclusiva do GESTOR.');return false;}if(item.requiredUser&&String(item.requiredUser)!==String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||'')){setOnlineDbSyncStatus(`Há operação pendente vinculada ao usuário BM ${item.requiredUser}. Faça login com esse usuário para concluí-la.`);return false;}let res;if(item.kind==='deleteBatch')res=await onlineDbPost({action:'deleteBatch',records:item.records,requestId:item.requestId},45000);else if(item.kind==='maintenance')res=await processQueuedMaintenanceV9(item);else res=await onlineDbWriteBatch(item.records,45000,{mode:item.mode||'INSERT_ONLY',requestId:item.requestId});if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||'Operação pendente não confirmada.');if(res.version)centralLastVersionV9=Number(res.version);queue.shift();persistOnlineMutationQueueV9(queue);if(!isCurrentSessionContextV9(ctx))return false;}await loadOnlineBudgetData(false);await loadMaintenancesFromSheet();setOnlineDbSyncStatus('Banco central sincronizado. Nenhuma operação pendente.');if(!silent)showAlert('Fila de segurança sincronizada com sucesso.');return true;}
+    catch(err){persistOnlineMutationQueueV9(queue);if(isSessionErrorV9(err)){const ctx=getSessionContextV9();invalidateCentralSessionV9(err.message,ctx.token,ctx.generation);}setOnlineDbSyncStatus('Fila pendente: '+(err.message||err),true);if(!silent)showBudgetError('A fila de segurança não pôde ser concluída: '+(err.message||err));return false;}finally{onlineBudgetSyncRunning=false;}}
 
 async function setupOnlineDatabase(){if(!isOnlineDatabaseReady()){showBudgetError('Banco online não está ativo.');return;}beginAppLoading('Conferindo banco','Verificando a estrutura da planilha central sem apagar dados históricos.');try{const res=await jsonpRequest(buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl,{action:'setupDatabase',_:Date.now()}),45000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao conferir estrutura.');showAlert('Banco central conferido com sucesso. Nenhum dado histórico foi apagado.');setOnlineDbSyncStatus('Estrutura central conferida/atualizada.');}catch(err){showBudgetError('Falha ao conferir estrutura: '+(err.message||err));}finally{hideAppLoading();}}
-async function completeBootstrapManagerProfile(event){if(event)event.preventDefault();if(!hasValidOnlineSession()){showBudgetError('Sessão central inválida. Faça login novamente com o BM 155258.');return;}const email=String(document.getElementById('bootstrapManagerEmail')?.value||'').trim().toLowerCase();const cpf=normalizeCpf(document.getElementById('bootstrapManagerCpf')?.value||'');const bm=validateBombeiroLogin(document.getElementById('bootstrapManagerBm')?.value||DEFAULT_GESTOR_LOGIN);if(!/^[^\s@]+@gmail\.com$/i.test(email)){showBudgetError('Informe um Gmail válido.');return;}if(!/^\d{11}$/.test(cpf)){showBudgetError('Informe CPF com 11 números.');return;}if(bm!==DEFAULT_GESTOR_LOGIN){showBudgetError(`O gestor inicial deve utilizar o BM ${DEFAULT_GESTOR_LOGIN}.`);return;}beginAppLoading('Concluindo cadastro','Gravando os dados do gestor no banco central.');try{const res=await onlineDbPost({action:'completeBootstrapManager',email,cpf,numero_bombeiro:bm,requestId:newClientOperationIdV8('USR')},30000);if(!res||res.success!==true||!res.user)throw new Error(res?.message||'Falha ao concluir cadastro.');applyOnlineUser(res.user);saveSystemUserSession(getCurrentSystemUser());updateSystemUserInterface();document.getElementById('managerProfileCompletionModal')?.classList.remove('active');pendingForcedPasswordChangeOldPassword=DEFAULT_INITIAL_USER_PASSWORD;openForcePasswordChangeModal(true,DEFAULT_INITIAL_USER_PASSWORD);}catch(err){showBudgetError('Falha ao concluir cadastro: '+(err.message||err));}finally{hideAppLoading();}}
-
-function clearCadastroUserForm(){['cadastroNewUserName','cadastroNewUserEmail','cadastroNewUserCpf','cadastroNewUserBombeiro'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const profile=document.getElementById('cadastroNewUserProfile');if(profile)profile.value='OPERADOR';}
-
-async function createUserFromCadastro(){if(!requireBudgetPermission('gerenciar_usuarios','criar usuários'))return;const nome=String(document.getElementById('cadastroNewUserName')?.value||'').trim(),email=String(document.getElementById('cadastroNewUserEmail')?.value||'').trim().toLowerCase(),cpf=normalizeCpf(document.getElementById('cadastroNewUserCpf')?.value||''),numero_bombeiro=validateBombeiroLogin(document.getElementById('cadastroNewUserBombeiro')?.value||''),perfil=normalizeSystemProfile(document.getElementById('cadastroNewUserProfile')?.value||'OPERADOR');if(!nome||!numero_bombeiro||!/^[^\s@]+@gmail\.com$/i.test(email)||!/^\d{11}$/.test(cpf)){showBudgetError('Informe nome, Gmail, CPF e BM válido.');return;}beginAppLoading('Criando usuário','Gravando o novo acesso no banco central.');try{const res=await onlineDbPost({action:'createUser',userJson:JSON.stringify({nome,email,cpf,numero_bombeiro,usuario:numero_bombeiro,perfil,status:'ATIVO'}),password:DEFAULT_INITIAL_USER_PASSWORD,requestId:newClientOperationIdV8('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao criar usuário.');clearCadastroUserForm();await loadCadastroUsers();showAlert(`Acesso criado para ${numero_bombeiro}. Senha temporária: ${DEFAULT_INITIAL_USER_PASSWORD}.`);}catch(err){showBudgetError('Falha ao criar usuário: '+(err.message||err));}finally{hideAppLoading();}}
-function cadastroProfileOptionsV8(user){const p=normalizeSystemProfile(user.perfil);return['GESTOR','OPERADOR','VISITANTE'].map(x=>`<option value="${x}" ${x===p?'selected':''}>${x}</option>`).join('');}
-async function loadCadastroUsers(){if(!requireBudgetPermission('gerenciar_usuarios','visualizar usuários'))return;const content=document.getElementById('cadastroUserManagementContent');if(!content)return;content.innerHTML='<div class="loading">Carregando usuários do banco central...</div>';try{const res=await onlineDbRequest({action:'adminData'},2,30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao carregar usuários.');const users=(res.usuarios||[]).sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));content.innerHTML=users.length?`<div style="overflow:auto;"><table class="budget-table" style="width:100%;min-width:900px;"><thead><tr><th>Nome</th><th>BM</th><th>Gmail</th><th>CPF</th><th>Perfil</th><th>Status</th><th>Trocar senha?</th><th>Último login</th><th>Ações</th></tr></thead><tbody>${users.map(u=>{const login=escapeHTML(u.usuario||u.numero_bombeiro||'');return `<tr><td>${escapeHTML(u.nome||'')}</td><td><strong>${login}</strong></td><td>${escapeHTML(u.email||'')}</td><td>${escapeHTML(u.cpf||'')}</td><td><select id="cad_profile_${login}">${cadastroProfileOptionsV8(u)}</select></td><td><select id="cad_status_${login}"><option value="ATIVO" ${String(u.status).toUpperCase()==='ATIVO'?'selected':''}>ATIVO</option><option value="INATIVO" ${String(u.status).toUpperCase()==='INATIVO'?'selected':''}>INATIVO</option></select></td><td>${escapeHTML(u.precisa_trocar_senha||'NAO')}</td><td>${escapeHTML(u.ultimo_login||'—')}</td><td><button class="btn btn-primary" onclick="saveCadastroUser('${login}','${escapeHTML(u.id_usuario||'')}')">Salvar</button><button class="btn btn-secondary" onclick="resetCadastroPassword('${login}')">Senha inicial</button></td></tr>`;}).join('')}</tbody></table></div>`:'<div class="empty-state">Nenhum usuário cadastrado.</div>';}catch(err){content.innerHTML=`<div style="color:crimson;">${escapeHTML(err.message||err)}</div>`;}}
-async function saveCadastroUser(usuario,idUsuario=''){if(!requireBudgetPermission('gerenciar_usuarios','alterar nível de acesso'))return;const perfil=normalizeSystemProfile(document.getElementById(`cad_profile_${usuario}`)?.value||'VISITANTE'),status=String(document.getElementById(`cad_status_${usuario}`)?.value||'ATIVO').toUpperCase();if(usuario===DEFAULT_GESTOR_LOGIN&&(perfil!=='GESTOR'||status!=='ATIVO')){showBudgetError('O gestor inicial 155258 não pode ser rebaixado nem inativado.');return;}beginAppLoading('Salvando acesso','Atualizando o perfil no banco central.');try{const res=await onlineDbPost({action:'updateUser',id:idUsuario,usuario,patchJson:JSON.stringify({perfil,status}),requestId:newClientOperationIdV8('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao atualizar usuário.');await loadCadastroUsers();showAlert('Nível de acesso atualizado.');}catch(err){showBudgetError('Falha ao atualizar usuário: '+(err.message||err));}finally{hideAppLoading();}}
-async function resetCadastroPassword(usuario){if(!requireBudgetPermission('gerenciar_usuarios','redefinir senha'))return;if(!confirm(`Redefinir a senha de ${usuario} para ${DEFAULT_INITIAL_USER_PASSWORD}?`))return;beginAppLoading('Redefinindo senha','Gravando a senha temporária no banco central.');try{const res=await onlineDbPost({action:'resetUserPassword',usuario,password:DEFAULT_INITIAL_USER_PASSWORD,requestId:newClientOperationIdV8('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao redefinir senha.');await loadCadastroUsers();showAlert(`Senha temporária redefinida para ${DEFAULT_INITIAL_USER_PASSWORD}.`);}catch(err){showBudgetError('Falha ao redefinir senha: '+(err.message||err));}finally{hideAppLoading();}}
-
-async function createUserFromAdmin(){if(!requireBudgetPermission('gerenciar_usuarios','criar usuários'))return;const nome=String(document.getElementById('adminNewUserName')?.value||'').trim(),email=String(document.getElementById('adminNewUserEmail')?.value||'').trim().toLowerCase(),cpf=normalizeCpf(document.getElementById('adminNewUserCpf')?.value||''),numero_bombeiro=validateBombeiroLogin(document.getElementById('adminNewUserBombeiro')?.value||''),perfil=normalizeSystemProfile(document.getElementById('adminNewUserProfile')?.value||'OPERADOR'),password=String(document.getElementById('adminNewUserPassword')?.value||DEFAULT_INITIAL_USER_PASSWORD);if(!nome||!numero_bombeiro||!/^[^\s@]+@gmail\.com$/i.test(email)||!/^\d{11}$/.test(cpf)){showBudgetError('Informe nome, Gmail, CPF e BM válido.');return;}const validationError=validateSystemPassword(password);if(validationError){showBudgetError(validationError);return;}try{const res=await onlineDbPost({action:'createUser',userJson:JSON.stringify({nome,email,cpf,numero_bombeiro,usuario:numero_bombeiro,perfil,status:'ATIVO'}),password,requestId:newClientOperationIdV8('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao criar usuário.');showAlert('Acesso criado.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao criar usuário: '+(err.message||err));}}
-async function updateUserFromAdmin(id){if(!requireBudgetPermission('gerenciar_usuarios','alterar usuários'))return;const perfil=document.getElementById(`profile_${id}`)?.value||'VISITANTE',status=document.getElementById(`status_${id}`)?.value||'ATIVO';try{const res=await onlineDbPost({action:'updateUser',id,patchJson:JSON.stringify({perfil,status}),requestId:newClientOperationIdV8('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao atualizar usuário.');showAlert('Usuário atualizado.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao atualizar usuário: '+(err.message||err));}}
-async function resetPasswordFromAdmin(email){if(!requireBudgetPermission('gerenciar_usuarios','redefinir senhas'))return;const password=prompt(`Nova senha temporária para ${email}:`,DEFAULT_INITIAL_USER_PASSWORD);if(!password)return;const validationError=validateSystemPassword(password);if(validationError){showBudgetError(validationError);return;}try{const res=await onlineDbPost({action:'resetUserPassword',email,password,requestId:newClientOperationIdV8('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao redefinir senha.');showAlert('Senha redefinida.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao redefinir senha: '+(err.message||err));}}
-
-async function deleteBudgetContract(contractId){if(!requireBudgetPermission('excluir_cancelar','excluir contratos'))return;const c=getBudgetContractById(contractId);if(!c)return;const commitments=getBudgetCommitmentsForContract(contractId),commitmentIds=new Set(commitments.map(e=>String(e.id))),addenda=getBudgetAddendaForContract(contractId),movements=(budgetMovements||[]).filter(m=>commitmentIds.has(String(m.commitmentId))),quotes=getBudgetQuotesForContract(contractId);const records=[{sheet:'CONTRATOS',idField:'id_contrato',id:String(c.id)}];addenda.forEach(a=>records.push({sheet:'ADITIVOS_CONTRATO',idField:'id_aditivo',id:String(a.id)}));commitments.forEach(e=>records.push({sheet:'EMPENHOS',idField:'id_empenho',id:String(e.id)}));movements.forEach(m=>records.push({sheet:'EXTRATO_ORCAMENTARIO',idField:'id_extrato',id:String(m.id)}));quotes.forEach(q=>records.push({sheet:'ORCAMENTOS_MANUTENCOES',idField:'id_orcamento',id:String(q.id)}));if(!confirm(`Excluir o contrato ${c.number||''} e ${records.length-1} registro(s) vinculado(s)?`))return;if(!askBudgetChangeIdentity('excluindo o contrato'))return;beginAppLoading('Excluindo contrato','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV8(records,'exclusão do contrato');budgetContracts=budgetContracts.filter(x=>String(x.id)!==String(contractId));budgetAddenda=budgetAddenda.filter(x=>String(x.contractId)!==String(contractId));budgetCommitments=budgetCommitments.filter(x=>String(x.contractId)!==String(contractId));budgetMovements=budgetMovements.filter(x=>!commitmentIds.has(String(x.commitmentId)));budgetQuotes=budgetQuotes.filter(x=>String(x.contractId)!==String(contractId));if(String(currentBudgetContractId)===String(contractId))closeBudgetDetailModal();renderBudgetModule();renderBudgetQuotesModule();showAlert('Contrato excluído com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
-async function deleteBudgetAddendum(addendumId){if(!requireBudgetPermission('excluir_cancelar','excluir aditivos'))return;const a=(budgetAddenda||[]).find(x=>String(x.id)===String(addendumId));if(!a)return;if(!confirm(`Confirma a exclusão do aditivo/prorrogação ${a.document||''}?`))return;if(!askBudgetChangeIdentity('excluindo o aditivo/prorrogação'))return;const currentValueWithoutThis=getBudgetContractCurrentValue(a.contractId)-Number(a.valueDelta||0),committed=getBudgetCommitmentsForContract(a.contractId).reduce((sum,e)=>sum+getBudgetCommitmentTotals(e.id).value,0);if(currentValueWithoutThis<committed){showBudgetError('Exclusão bloqueada: o contrato ficaria abaixo do total empenhado.');return;}beginAppLoading('Excluindo aditivo','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV8([{sheet:'ADITIVOS_CONTRATO',idField:'id_aditivo',id:String(a.id)}],'exclusão do aditivo');budgetAddenda=budgetAddenda.filter(x=>String(x.id)!==String(addendumId));renderBudgetModule();showAlert('Aditivo excluído com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
-async function deleteBudgetCommitment(commitmentId){if(!requireBudgetPermission('excluir_cancelar','excluir empenhos'))return;const e=getBudgetCommitmentById(commitmentId);if(!e)return;const mov=getBudgetMovementsForCommitment(commitmentId),quotes=getBudgetQuotesForCommitment(commitmentId);if(!confirm(`Excluir o empenho ${e.number||''} e ${mov.length+quotes.length} registro(s) vinculado(s)?`))return;if(!askBudgetChangeIdentity('excluindo o empenho'))return;const records=[{sheet:'EMPENHOS',idField:'id_empenho',id:String(e.id)}];mov.forEach(m=>records.push({sheet:'EXTRATO_ORCAMENTARIO',idField:'id_extrato',id:String(m.id)}));quotes.forEach(q=>records.push({sheet:'ORCAMENTOS_MANUTENCOES',idField:'id_orcamento',id:String(q.id)}));beginAppLoading('Excluindo empenho','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV8(records,'exclusão do empenho');budgetCommitments=budgetCommitments.filter(x=>String(x.id)!==String(commitmentId));budgetMovements=budgetMovements.filter(x=>String(x.commitmentId)!==String(commitmentId));budgetQuotes=budgetQuotes.filter(x=>String(x.commitmentId)!==String(commitmentId));renderBudgetModule();renderBudgetQuotesModule();showAlert('Empenho excluído com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
-async function deleteBudgetMovement(movementId){if(!requireBudgetPermission('excluir_cancelar','excluir movimentações'))return;const m=(budgetMovements||[]).find(x=>String(x.id)===String(movementId));if(!m)return;if(!confirm(`Confirma a exclusão da movimentação ${m.document||''}?`))return;if(!askBudgetChangeIdentity('excluindo movimentação'))return;beginAppLoading('Excluindo movimentação','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV8([{sheet:'EXTRATO_ORCAMENTARIO',idField:'id_extrato',id:String(m.id)}],'exclusão da movimentação');budgetMovements=budgetMovements.filter(x=>String(x.id)!==String(movementId));renderBudgetModule();showAlert('Movimentação excluída com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
-async function deleteBudgetQuote(quoteId){if(!requireBudgetPermission('excluir_cancelar','excluir orçamentos'))return;const q=getBudgetQuoteById(quoteId);if(!q)return;if(!confirm(`Confirma a exclusão do orçamento ${q.number||''}?`))return;if(!askBudgetChangeIdentity('excluindo o orçamento'))return;beginAppLoading('Excluindo orçamento','Aguardando confirmação do banco central.');try{await deleteBudgetRecordsOnlineV8([{sheet:'ORCAMENTOS_MANUTENCOES',idField:'id_orcamento',id:String(q.id)}],'exclusão do orçamento');budgetQuotes=budgetQuotes.filter(x=>String(x.id)!==String(quoteId));renderBudgetQuotesModule();renderBudgetModule();renderVehicles();if(currentMaintenanceVehicleId){try{renderMaintenanceList();}catch(e){}}showAlert('Orçamento excluído com confirmação do banco central.');}catch(err){showBudgetError(err.message||'A exclusão não foi confirmada.');}finally{hideAppLoading();}}
-
-async function syncMaintenanceToTransportSheet(maintenance,vehicle){if(!isOnlineDatabaseReady()||!hasValidOnlineSession())throw new Error('Banco central indisponível ou sessão expirada. Faça login novamente.');const payload={action:'addMaintenance',requestId:newClientOperationIdV8('MAN'),id:maintenance.id,id_orcamento:maintenance.id_orcamento||'',data:maintenance.data||maintenance.date||'',prefixo:maintenance.prefixo||(vehicle?.prefixo||''),placa:maintenance.placa||(vehicle?.placa||vehicle?.id||''),cidade:maintenance.cidade||(vehicle?.cidadeLotacaoPadrao||vehicle?.cidadeLotacao||vehicle?.cidade||''),tipoViatura:maintenance.tipoViatura||(vehicle?.subclasse||vehicle?.tipo||''),tipo:maintenance.tipo||maintenance.type||'',categoriaSistema:maintenance.categoriaSistema||maintenance.systemCategory||'',descricao:maintenance.descricao||maintenance.description||'',km:maintenance.km||maintenance.hodometro||'',custo:maintenance.custo||maintenance.cost||'',responsavel:maintenance.responsavel||maintenance.responsible||'',matricula:String(maintenance.matricula||'').replace(/\D/g,''),observacoes:maintenance.observacoes||maintenance.notes||''};try{const res=await onlineDbPost(payload,45000);if(!res||res.success!==true||res.verified!==true)throw new Error(res?.message||'O banco central não confirmou a manutenção.');return res;}catch(err){if(isSessionErrorV8(err))invalidateCentralSessionV8(err.message);if(isNetworkErrorV8(err)){const q=getOnlineMutationQueueV8();q.push({kind:'maintenance',requestId:payload.requestId,requiredProfile:normalizeSystemProfile(getCurrentSystemUser()?.perfil),requiredUser:String(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''),payload,queuedAt:new Date().toISOString()});persistOnlineMutationQueueV8(q);throw new Error('A manutenção não pôde ser confirmada. Ela foi colocada na fila de segurança; não repita o lançamento.');}throw err;}}
-async function deleteMaintenanceFromTransportSheet(maintenanceKey,matriculaDigits){if(!hasValidOnlineSession())throw new Error('Sessão central inválida.');const cleanMat=String(matriculaDigits||'').replace(/\D/g,'');if(cleanMat!==normalizeBombeiroLogin(getCurrentSystemUser()?.usuario||getCurrentSystemUser()?.numero_bombeiro||''))throw new Error('A matrícula não corresponde ao usuário autenticado.');return await deleteBudgetRecordsOnlineV8([{sheet:'MANUTENCOES',idField:'id_manutencao',id:String(maintenanceKey)}],'exclusão da manutenção');}
-
-submitForcedPasswordChange=async function(event){if(event)event.preventDefault();if(!hasValidOnlineSession()){showBudgetError('Sessão inválida. Faça login novamente.');return;}const oldPassword=String(document.getElementById('forceOldPassword')?.value||pendingForcedPasswordChangeOldPassword||''),newPassword=String(document.getElementById('forceNewPassword')?.value||''),confirmPassword=String(document.getElementById('forceNewPasswordConfirm')?.value||'');if(!oldPassword||!newPassword||!confirmPassword){showBudgetError('Preencha todos os campos de senha.');return;}if(newPassword!==confirmPassword){showBudgetError('As senhas não conferem.');return;}const validationError=validateSystemPassword(newPassword);if(validationError){showBudgetError(validationError);return;}beginAppLoading('Alterando senha','Gravando a nova senha no banco central.');try{const res=await onlineDbPost({action:'changePassword',oldPassword,newPassword,requestId:newClientOperationIdV8('PWD')},30000);if(!res||res.success!==true||!res.user)throw new Error(res?.message||'Falha ao alterar senha.');applyOnlineUser(res.user);saveSystemUserSession(getCurrentSystemUser());pendingForcedPasswordChangeOldPassword='';document.getElementById('forcePasswordChangeModal')?.classList.remove('active');updateSystemUserInterface();if(String(getCurrentSystemUser()?.cadastro_incompleto||'').toUpperCase()==='SIM')openManagerProfileCompletionModal();else showAlert('Senha alterada com sucesso.');}catch(err){showBudgetError('Falha ao alterar senha: '+(err.message||err));}finally{hideAppLoading();}};
+async function completeBootstrapManagerProfile(event){if(event)event.preventDefault();if(!hasValidOnlineSession()){showBudgetError('Sessão central inválida. Faça login novamente com o BM 155258.');return;}const email=String(document.getElementById('bootstrapManagerEmail')?.value||'').trim().toLowerCase();const cpf=normalizeCpf(document.getElementById('bootstrapManagerCpf')?.value||'');const bm=validateBombeiroLogin(document.getElementById('bootstrapManagerBm')?.value||DEFAULT_GESTOR_LOGIN);if(!/^[^\s@]+@gmail\.com$/i.test(email)){showBudgetError('Informe um Gmail válido.');return;}if(!/^\d{11}$/.test(cpf)){showBudgetError('Informe CPF com 11 números.');return;}if(bm!==DEFAULT_GESTOR_LOGIN){showBudgetError(`O gestor inicial deve utilizar o BM ${DEFAULT_GESTOR_LOGIN}.`);return;}beginAppLoading('Concluindo cadastro','Gravando os dados do gestor no banco central.');try{const res=await onlineDbPost({action:'completeBootstrapManager',email,cpf,numero_bombeiro:bm,requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true||!res.user)throw new Error(res?.message||'Falha ao concluir cadastro.');applyOnlineUser(res.user);saveSystemUserSession(getCurrentSystemUser());updateSystemUserInterface();document.getElementById('managerProfileCompletionModal')?.classList.remove('active');pendingForcedPasswordChangeOldPassword=DEFAULT_INITIAL_USER_PASSWORD;openForcePasswordChangeModal(true,DEFAULT_INITIAL_USER_PASSWORD);}catch(err){showBudgetError('Falha ao concluir cadastro: '+(err.message||err));}finally{hideAppLoading();}}
+submitForcedPasswordChange=async function(event){if(event)event.preventDefault();if(!hasValidOnlineSession()){showBudgetError('Sessão inválida. Faça login novamente.');return;}const oldPassword=String(document.getElementById('forceOldPassword')?.value||pendingForcedPasswordChangeOldPassword||''),newPassword=String(document.getElementById('forceNewPassword')?.value||''),confirmPassword=String(document.getElementById('forceNewPasswordConfirm')?.value||'');if(!oldPassword||!newPassword||!confirmPassword){showBudgetError('Preencha todos os campos de senha.');return;}if(newPassword!==confirmPassword){showBudgetError('As senhas não conferem.');return;}const validationError=validateSystemPassword(newPassword);if(validationError){showBudgetError(validationError);return;}beginAppLoading('Alterando senha','Gravando a nova senha no banco central.');try{const res=await onlineDbPost({action:'changePassword',oldPassword,newPassword,requestId:newClientOperationIdV9('PWD')},30000);if(!res||res.success!==true||!res.user)throw new Error(res?.message||'Falha ao alterar senha.');applyOnlineUser(res.user);saveSystemUserSession(getCurrentSystemUser());pendingForcedPasswordChangeOldPassword='';document.getElementById('forcePasswordChangeModal')?.classList.remove('active');updateSystemUserInterface();if(String(getCurrentSystemUser()?.cadastro_incompleto||'').toUpperCase()==='SIM')openManagerProfileCompletionModal();else showAlert('Senha alterada com sucesso.');}catch(err){showBudgetError('Falha ao alterar senha: '+(err.message||err));}finally{hideAppLoading();}};
 window.submitForcedPasswordChange=submitForcedPasswordChange;
 
-const updateSystemUserInterfaceBaseV8=updateSystemUserInterface;
-updateSystemUserInterface=function(){updateSystemUserInterfaceBaseV8();const u=getCurrentSystemUser();const gestor=normalizeSystemProfile(u?.perfil)==='GESTOR'&&String(u?.status||'').toUpperCase()==='ATIVO'&&!!u?.authToken;const tab=document.getElementById('cadastroTab');if(tab)tab.style.display=gestor?'block':'none';const cfg=document.getElementById('configTab');if(cfg)cfg.style.display=gestor?'block':'none';};
+const updateSystemUserInterfaceBaseV9=updateSystemUserInterface;
+updateSystemUserInterface=function(){updateSystemUserInterfaceBaseV9();const u=getCurrentSystemUser();const gestor=normalizeSystemProfile(u?.perfil)==='GESTOR'&&String(u?.status||'').toUpperCase()==='ATIVO'&&!!u?.authToken;const tab=document.getElementById('cadastroTab');if(tab)tab.style.display=gestor?'block':'none';const cfg=document.getElementById('configTab');if(cfg)cfg.style.display=gestor?'block':'none';};
 window.updateSystemUserInterface=updateSystemUserInterface;
 openUserManagementModal=function(){if(!requireBudgetPermission('gerenciar_usuarios','gerenciar usuários'))return;const btn=document.getElementById('cadastroTab');switchTab('cadastro',btn||null);loadCadastroUsers();};
 window.openUserManagementModal=openUserManagementModal;
 
-async function bootApplicationV8(){beginAppLoading('Carregando sistema','Sincronizando frota, manutenções e banco central.');try{initializeData();await bootSyncPlanilhaVerdade();loadOnlineDatabaseSettings();if(hasValidOnlineSession()){await validateCentralSessionV8(false);if(hasValidOnlineSession()){await loadOnlineBudgetData(false);await loadMaintenancesFromSheet();await syncQueuedMutationsV8({silent:true});}}scheduleOnlineBudgetSync(1000);}catch(err){console.error('[Inicialização V8]',err);}finally{hideAppLoading();}}
-bootApplicationV8();
-window.addEventListener('online',()=>scheduleOnlineBudgetSync(500));window.addEventListener('focus',()=>{heartbeatCentralSessionV8();pollCentralChangesV8();});document.addEventListener('visibilitychange',()=>{if(!document.hidden){heartbeatCentralSessionV8();pollCentralChangesV8();}});setInterval(()=>heartbeatCentralSessionV8(),8*60*1000);setInterval(()=>pollCentralChangesV8(),30*1000);setInterval(()=>syncQueuedMutationsV8({silent:true}),60*1000);
-async function heartbeatCentralSessionV8(){if(document.hidden||!isOnlineDatabaseReady()||!hasValidOnlineSession())return;await validateCentralSessionV8(false);}
-async function pollCentralChangesV8(){if(document.hidden||!isOnlineDatabaseReady()||!hasValidOnlineSession())return;try{const res=await onlineDbRequest({action:'syncState'},1,15000);if(!res||res.success!==true)return;const version=Number(res.version||0);if(centralLastVersionV8===null){centralLastVersionV8=version;return;}if(version!==centralLastVersionV8){const editing=document.querySelector('#budgetContractModal.active,#budgetDetailModal.active,#budgetQuoteModal.active');if(editing)return;beginAppLoading('Atualizando dados','Outra máquina realizou uma alteração.');try{await loadOnlineBudgetData(false);await loadMaintenancesFromSheet();centralLastVersionV8=version;}finally{hideAppLoading();}}}catch(err){if(isSessionErrorV8(err))invalidateCentralSessionV8(err.message);}}
+async function bootApplicationV9(){beginAppLoading('Carregando sistema','Sincronizando frota, manutenções e banco central.');try{initializeData();await bootSyncPlanilhaVerdade();loadOnlineDatabaseSettings();if(hasValidOnlineSession()){await validateCentralSessionV9(false);if(hasValidOnlineSession()){const u=getCurrentSystemUser();if(String(u.cadastro_incompleto||'').toUpperCase()==='SIM')openManagerProfileCompletionModal();else if(String(u.precisa_trocar_senha||'').toUpperCase()==='SIM')openForcePasswordChangeModal(true,'');await loadOnlineBudgetData(false);await loadMaintenancesFromSheet();await syncQueuedMutationsV9({silent:true});}}scheduleOnlineBudgetSync(1000);}catch(err){console.error('[Inicialização V9]',err);}finally{hideAppLoading();}}
+bootApplicationV9();
+window.addEventListener('online',()=>scheduleOnlineBudgetSync(500));
+window.addEventListener('focus',()=>{pollCentralChangesV9();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollCentralChangesV9();});
+setInterval(()=>{if(!document.hidden&&isOnlineDatabaseReady()&&hasValidOnlineSession())validateCentralSessionV9(false);},8*60*1000);
+setInterval(()=>pollCentralChangesV9(),60*1000);
+setInterval(()=>syncQueuedMutationsV9({silent:true}),60*1000);
+async function pollCentralChangesV9(){if(document.hidden||!isOnlineDatabaseReady()||!hasValidOnlineSession())return;const ctx=getSessionContextV9();try{const res=await onlineDbRequest({action:'syncState'},1,15000);if(!isCurrentSessionContextV9(ctx))return;if(!res||res.success!==true)return;const version=Number(res.version||0);if(centralLastVersionV9===null){centralLastVersionV9=version;return;}if(version!==centralLastVersionV9){const editing=document.querySelector('#budgetContractModal.active,#budgetDetailModal.active,#budgetQuoteModal.active');if(editing)return;beginAppLoading('Atualizando dados','Outra máquina realizou uma alteração.');try{await loadOnlineBudgetData(false);await loadMaintenancesFromSheet();centralLastVersionV9=version;}finally{hideAppLoading();}}}catch(err){if(isSessionErrorV9(err))invalidateCentralSessionV9(err.message,ctx.token,ctx.generation);}}
 
 window.migrateLocalBudgetDataToOnline=migrateLocalBudgetDataToOnline;window.setupOnlineDatabase=setupOnlineDatabase;window.completeBootstrapManagerProfile=completeBootstrapManagerProfile;window.createUserFromCadastro=createUserFromCadastro;window.loadCadastroUsers=loadCadastroUsers;window.saveCadastroUser=saveCadastroUser;window.resetCadastroPassword=resetCadastroPassword;window.createUserFromAdmin=createUserFromAdmin;window.updateUserFromAdmin=updateUserFromAdmin;window.resetPasswordFromAdmin=resetPasswordFromAdmin;
 

@@ -13,297 +13,297 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
         * {
-            margem: 0;
-            preenchimento: 0;
-            box-sized: caixa com borda;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
         
-:raiz {
-    --primário: #D32F2F; /* vermelho CBMMG */
+:root {
+    --primary: #D32F2F;          /* vermelho CBMMG */
     --primary-dark: #8E0000;
-    --secundário: #FF8F00; /* laranja */
-    --accent-blue: #1976D2; /* azul */
+    --secondary: #FF8F00;        /* laranja */
+    --accent-blue: #1976D2;      /* azul */
     --accent-blue-dark: #0D47A1;
 
     --bg-dark: #071026;
     --bg-card: #151b3d;
     --bg-hover: #1e2850;
 
-    --texto: #e8eaf6;
-    --texto silenciado: #9fa8da;
+    --text: #e8eaf6;
+    --text-muted: #9fa8da;
 
-    --sucesso: #00c853;
-    --aviso: #ffa000;
-    --perigo: #d32f2f;
+    --success: #00c853;
+    --warning: #ffa000;
+    --danger: #d32f2f;
     --border: rgba(25,118,210,.35);
 
-    --branco: #FFFFFF;
+    --white: #FFFFFF;
 }
 
 
-        corpo {
-            família de fontes: 'Rajdhani', sem serifa;
-            fundo: gradiente radial(1200px 600px a 20% 0%, rgba(255,143,0,0.18) 0%, rgba(10,14,39,0) 60%),
-            gradiente-radial(900px 500px em 80% 10%, rgba(25,118,210,0.18) 0%, rgba(10,14,39,0) 55%),
-            gradiente-linear(135 graus, #071026 0%, #0B1636 55%, #0A0E27 100%);
-            cor: var(--texto);
-            altura mínima: 100vh;
-            overflow-x: oculto;
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: radial-gradient(1200px 600px at 20% 0%, rgba(255,143,0,0.18) 0%, rgba(10,14,39,0) 60%),
+            radial-gradient(900px 500px at 80% 10%, rgba(25,118,210,0.18) 0%, rgba(10,14,39,0) 55%),
+            linear-gradient(135deg, #071026 0%, #0B1636 55%, #0A0E27 100%);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        .grão {
-            posição: fixa;
-            topo: 0;
-            esquerda: 0;
-            largura: 100%;
-            altura: 100%;
-            eventos-ponteiro: nenhum;
-            opacidade: 0,03;
-            Índice z: 1000;
+        .grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            z-index: 1000;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
         }
 
         .header {
-            plano de fundo: gradiente linear (90 graus, var (--primário-escuro) 0%, var (--primário) 55%, var (--secundário) 100%);
-            preenchimento: 1,5rem 2rem;
+            background: linear-gradient(90deg, var(--primary-dark) 0%, var(--primary) 55%, var(--secondary) 100%);
+            padding: 1.5rem 2rem;
             box-shadow: 0 4px 20px rgba(211, 47, 47, 0.3);
-            posição: pegajosa;
-            topo: 0;
-            Índice z: 100;
-            borda-inferior: 3px sólida var(--accent-blue);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 3px solid var(--accent-blue);
         }
 
         .header-content {
-            largura máxima: 1600px;
-            margem: 0 auto;
-            Exibir: flexível;
-            justify-content: espaço-entre;
-            alinhamento-itens: centro;
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .logo {
-            Exibir: flexível;
-            alinhamento-itens: centro;
-            intervalo: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
         }
 
 
 .cbmmg-logo {
-    largura: 48px;
-    altura: 48px;
-    ajuste-do-objeto: conter;
-    raio-da-borda: 50%;
-    fundo: rgba(255, 255, 255, 0.08);
-    borda: 1px sólida rgba(255, 255, 255, 0.18);
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     box-shadow: 0 0 18px rgba(255, 255, 255, 0.10);
 }
 
         .logo-badge {
-            largura: 50px;
-            altura: 50px;
-            fundo: var(--secundário);
-            raio-da-borda: 50%;
-            Exibir: flexível;
-            alinhamento-itens: centro;
-            justificar-conteúdo: centralizado;
-            peso da fonte: 700;
-            tamanho da fonte: 1,5rem;
-            cor: var(--bg-dark);
+            width: 50px;
+            height: 50px;
+            background: var(--secondary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--bg-dark);
             box-shadow: 0 0 20px rgba(255, 160, 0, 0.5);
         }
 
         h1 {
-            tamanho da fonte: 1,8rem;
-            peso da fonte: 700;
-            espaçamento entre letras: 1px;
-            text-transform: maiúsculas;
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
-        .subtítulo {
-            tamanho da fonte: 0,9rem;
-            cor: var(--text-muted);
-            família de fontes: 'Roboto Mono', monoespaçada;
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-family: 'Roboto Mono', monospace;
         }
 
         .container {
-            largura máxima: 1600px;
-            margem: 0 auto;
-            preenchimento: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
         }
 
-        .painel {
-            Exibir: grade;
+        .dashboard {
+            display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            intervalo: 1,5rem;
-            margem-inferior: 2rem;
-            animação: slideUp 0.6s ease-out;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            animation: slideUp 0.6s ease-out;
         }
 
         @keyframes slideUp {
-            de {
-                opacidade: 0;
-                transformar: translateY(30px);
+            from {
+                opacity: 0;
+                transform: translateY(30px);
             }
-            para {
-                opacidade: 1;
-                transformar: traduzirY(0);
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
 
         .stat-card {
-            fundo: var(--bg-card);
-            preenchimento: 1,5rem;
-            raio da borda: 12px;
-            borda: 1px var sólido (--border);
-            posição: relativa;
-            overflow: oculto;
-            transição: todos os 0,3s de facilidade;
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
         }
 
         .stat-card::before {
-            contente: '';
-            posição: absoluta;
-            topo: 0;
-            esquerda: 0;
-            largura: 4px;
-            altura: 100%;
-            fundo: var(--primário);
-            transição: largura 0,3s de facilidade;
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s ease;
         }
 
         .stat-card:hover {
-            transformar: translateY(-5px);
+            transform: translateY(-5px);
             box-shadow: 0 10px 30px rgba(211, 47, 47, 0.3);
         }
 
         .stat-card:hover::before {
-            largura: 8px;
+            width: 8px;
         }
 
         .stat-label {
-            tamanho da fonte: 0,85rem;
-            cor: var(--text-muted);
-            text-transform: maiúsculas;
-            espaçamento entre letras: 1px;
-            margem-inferior: 0,5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
         }
 
         .stat-value {
-            tamanho da fonte: 2,5rem;
-            peso da fonte: 700;
-            cor: var(--texto);
-            família de fontes: 'Roboto Mono', monoespaçada;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text);
+            font-family: 'Roboto Mono', monospace;
         }
 
         .stat-icon {
-            posição: absoluta;
-            topo: 1rem;
-            direita: 1rem;
-            tamanho da fonte: 2rem;
-            opacidade: 0,2;
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 2rem;
+            opacity: 0.2;
         }
 
         .controls {
-            fundo: var(--bg-card);
-            preenchimento: 1,5rem;
-            raio da borda: 12px;
-            margem-inferior: 2rem;
-            borda: 1px var sólido (--border);
-            Exibir: flexível;
-            intervalo: 1rem;
-            flex-wrap: envolver;
-            alinhamento-itens: centro;
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
         }
 
         .btn {
-            preenchimento: 0,75rem 1,5rem;
-            fronteira: nenhuma;
-            raio da borda: 8px;
-            família de fontes: 'Rajdhani', sem serifa;
-            peso da fonte: 600;
-            tamanho da fonte: 1rem;
-            cursor: ponteiro;
-            transição: todos os 0,3s de facilidade;
-            text-transform: maiúsculas;
-            espaçamento entre letras: 0,5px;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .btn-primary {
-            fundo: var(--primário);
-            cor: branca;
+            background: var(--primary);
+            color: white;
             box-shadow: 0 4px 15px rgba(211, 47, 47, 0.4);
         }
 
         .btn-primary:hover {
-            plano de fundo: var(--primário-escuro);
-            transformar: translateY(-2px);
+            background: var(--primary-dark);
+            transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(211, 47, 47, 0.6);
         }
 
         
 .btn-secondary {
-    fundo: gradiente-linear(180deg, rgba(25,118,210,.95) 0%, rgba(13,71,161,.95) 100%);
-    cor: var(--branco);
-    borda: 1px sólida rgba(255,255,255,.15);
+    background: linear-gradient(180deg, rgba(25,118,210,.95) 0%, rgba(13,71,161,.95) 100%);
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,.15);
     box-shadow: 0 8px 22px rgba(25,118,210,.28);
 }
 
 .btn-secondary:hover{
-    transformar: translateY(-2px);
-    filtro: brilho(1.05);
+    transform: translateY(-2px);
+    filter: brightness(1.05);
 }
 
 
-        .caixa-de-pesquisa {
+        .search-box {
             flex: 1;
-            largura mínima: 250px;
-            posição: relativa;
+            min-width: 250px;
+            position: relative;
         }
 
-        .caixa-de-pesquisa input {
-            largura: 100%;
-            preenchimento: 0,75rem 1rem 0,75rem 2,5rem;
-            fundo: var(--bg-dark);
-            borda: 1px var sólido (--border);
-            raio da borda: 8px;
-            cor: var(--texto);
-            família de fontes: 'Rajdhani', sem serifa;
-            tamanho da fonte: 1rem;
+        .search-box input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
         }
 
         .search-box::before {
-            conteúdo: '🔍';
-            posição: absoluta;
-            esquerda: 0,75rem;
-            topo: 50%;
-            transformar: traduzirY(-50%);
+            content: '🔍';
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
         }
 
-        selecionar {
-            preenchimento: 0,75rem 1rem;
-            fundo: var(--bg-dark);
-            borda: 1px var sólido (--border);
-            raio da borda: 8px;
-            cor: var(--texto);
-            família de fontes: 'Rajdhani', sem serifa;
-            tamanho da fonte: 1rem;
-            cursor: ponteiro;
+        select {
+            padding: 0.75rem 1rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
         }
 
         .table-container {
-            fundo: var(--bg-card);
-            raio da borda: 12px;
-            overflow: oculto;
-            borda: 1px var sólido (--border);
-            animação: slideUp 0.8s ease-out;
-            atraso-animação: 0,2s;
-            modo-de-preenchimento-de-animação: ambos;
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            animation: slideUp 0.8s ease-out;
+            animation-delay: 0.2s;
+            animation-fill-mode: both;
         }
 
-        mesa {
-            largura: 100%;
-            colapso de fronteira: colapso;
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
 
         thead{
@@ -311,365 +311,365 @@
         }
 
         th {
-            preenchimento: 1rem;
-            alinhamento de texto: esquerda;
-            peso da fonte: 600;
-            text-transform: maiúsculas;
-            tamanho da fonte: 0,85rem;
-            espaçamento entre letras: 1px;
-            cor: var(--secundário);
-            borda-inferior: 2px sólida var(--primary);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            color: var(--secondary);
+            border-bottom: 2px solid var(--primary);
         }
 
         td {
-            preenchimento: 1rem;
-            borda inferior: 1px var sólido (--border);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
         }
 
         tbody tr {
-            transição: todos os 0,3s de facilidade;
+            transition: all 0.3s ease;
         }
 
         tbody tr:hover {
-            fundo: var(--bg-hover);
-            transformar: escala(1.01);
+            background: var(--bg-hover);
+            transform: scale(1.01);
         }
 
-        .distintivo {
-            exibição: inline-block;
-            preenchimento: 0,35rem 0,75rem;
-            raio-da-borda: 6px;
-            tamanho da fonte: 0,85rem;
-            peso da fonte: 600;
-            text-transform: maiúsculas;
-            espaçamento entre letras: 0,5px;
+        .badge {
+            display: inline-block;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .badge-success {
-            fundo: rgba(0, 200, 83, 0.2);
-            cor: var(--sucesso);
-            borda: 1px var sólido (--sucesso);
+            background: rgba(0, 200, 83, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
         }
 
         .badge-warning {
-            fundo: rgba(255, 160, 0, 0.2);
-            cor: var(--aviso);
-            borda: 1px var sólido (--warning);
+            background: rgba(255, 160, 0, 0.2);
+            color: var(--warning);
+            border: 1px solid var(--warning);
         }
 
         .badge-danger {
-            fundo: rgba(211, 47, 47, 0.2);
-            cor: var(--perigo);
-            borda: 1px var sólido (--perigo);
+            background: rgba(211, 47, 47, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
         }
 
         .badge-info {
-            fundo: rgba(159, 168, 218, 0.2);
-            cor: var(--text-muted);
-            borda: 1px var sólido (--text-muted);
+            background: rgba(159, 168, 218, 0.2);
+            color: var(--text-muted);
+            border: 1px solid var(--text-muted);
         }
 
-        .ações {
-            Exibir: flexível;
-            intervalo: 0,5rem;
+        .actions {
+            display: flex;
+            gap: 0.5rem;
         }
 
-        .btn-ícone {
-            preenchimento: 0,5rem;
-            fundo: transparente;
-            borda: 1px var sólido (--border);
-            raio-da-borda: 6px;
-            cor: var(--texto);
-            cursor: ponteiro;
-            transição: todos os 0,3s de facilidade;
-            tamanho da fonte: 1rem;
+        .btn-icon {
+            padding: 0.5rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
         }
 
         
 .btn-icon:hover {
-    fundo: var(--accent-blue);
-    cor-da-borda: var(--accent-blue);
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
 }
 
         .modal {
-            exibir: nenhum;
-            posição: fixa;
-            topo: 0;
-            esquerda: 0;
-            largura: 100%;
-            altura: 100%;
-            fundo: rgba(10, 14, 39, 0.95);
-            Índice z: 1000;
-            alinhamento-itens: centro;
-            justificar-conteúdo: centralizado;
-            filtro de fundo: desfoque(10px);
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
         }
 
-        .modal.ativo {
-            Exibir: flexível;
-            animação: fadeIn 0.3s suavização;
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
         }
 
-        /* =====================================================
+        /* ======================================================
            INDICADOR GLOBAL DE PROCESSAMENTO
            Bloqueia cliques durante gravações/sincronizações e
-           evita envio duplo por cliques repetidos.
-           ======================================================= */
+           evita duplo envio por cliques repetidos.
+           ====================================================== */
         .app-loading-overlay {
-            exibir: nenhum;
-            posição: fixa;
-            inserção: 0;
-            Índice z: 99999;
-            alinhamento-itens: centro;
-            justificar-conteúdo: centralizado;
-            preenchimento: 1,25rem;
-            fundo: rgba(4, 9, 24, 0.78);
-            filtro de fundo: desfoque(4px);
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+            background: rgba(4, 9, 24, 0.78);
+            backdrop-filter: blur(4px);
             -webkit-backdrop-filter: blur(4px);
-            cursor: aguarde;
+            cursor: wait;
         }
 
         .app-loading-overlay.active {
-            Exibir: flexível;
+            display: flex;
         }
 
         .app-loading-card {
-            largura-mínima: min(360px, 90vw);
-            largura máxima: 460px;
-            preenchimento: 1,6rem 1,8rem;
-            borda: 1px sólida rgba(25,118,210,.55);
-            raio da borda: 14px;
-            fundo: rgba(21,27,61,.97);
+            min-width: min(360px, 90vw);
+            max-width: 460px;
+            padding: 1.6rem 1.8rem;
+            border: 1px solid rgba(25,118,210,.55);
+            border-radius: 14px;
+            background: rgba(21,27,61,.97);
             box-shadow: 0 20px 70px rgba(0,0,0,.55);
-            alinhamento do texto: centralizado;
+            text-align: center;
         }
 
         .app-loading-hourglass {
-            exibição: inline-block;
-            margem-inferior: 0,55rem;
-            tamanho da fonte: 3,25rem;
-            altura da linha: 1;
-            origem-da-transformação: centro;
-            animação: ampulhetaGirar 1,15s entrada e saída suaves infinitas;
-            seleção do usuário: nenhuma;
+            display: inline-block;
+            margin-bottom: .55rem;
+            font-size: 3.25rem;
+            line-height: 1;
+            transform-origin: center;
+            animation: hourglassSpin 1.15s ease-in-out infinite;
+            user-select: none;
         }
 
-        @keyframes HourglassSpin {
+        @keyframes hourglassSpin {
             0%, 42% { transform: rotate(0deg) scale(1); }
             50%, 92% { transform: rotate(180deg) scale(1); }
             100% { transform: rotate(360deg) scale(1); }
         }
 
         .app-loading-title {
-            cor: var(--texto);
-            tamanho da fonte: 1,15rem;
-            peso da fonte: 700;
-            text-transform: maiúsculas;
-            espaçamento entre letras: 0,5px;
+            color: var(--text);
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
         }
 
-        .mensagem-de-carregamento-do-aplicativo {
-            margem superior: 0,35rem;
-            cor: var(--text-muted);
-            tamanho da fonte: 0,95rem;
+        .app-loading-message {
+            margin-top: .35rem;
+            color: var(--text-muted);
+            font-size: .95rem;
         }
 
         .app-loading-warning {
-            margem superior: 0,8rem;
-            cor: var(--secundário);
-            tamanho da fonte: 0,8rem;
-            peso da fonte: 600;
+            margin-top: .8rem;
+            color: var(--secondary);
+            font-size: .8rem;
+            font-weight: 600;
         }
 
         #appLoadingMini {
-            posição: fixa;
-            topo: 14px;
-            direita: 18px;
-            Índice z: 100000;
-            exibir: nenhum;
-            alinhamento-itens: centro;
-            intervalo: 0,45rem;
-            preenchimento: .42rem .7rem;
-            raio-da-borda: 999px;
-            fundo: rgba(21,27,61,.96);
-            borda: 1px sólida rgba(25,118,210,.65);
+            position: fixed;
+            top: 14px;
+            right: 18px;
+            z-index: 100000;
+            display: none;
+            align-items: center;
+            gap: .45rem;
+            padding: .42rem .7rem;
+            border-radius: 999px;
+            background: rgba(21,27,61,.96);
+            border: 1px solid rgba(25,118,210,.65);
             box-shadow: 0 8px 30px rgba(0,0,0,.35);
-            cor: var(--texto);
-            tamanho da fonte: 0,78rem;
-            peso da fonte: 700;
+            color: var(--text);
+            font-size: .78rem;
+            font-weight: 700;
         }
         #appLoadingMini.active { display: inline-flex; }
         #appLoadingMini .mini-hourglass { display:inline-block; animation: hourglassSpin .9s linear infinite; }
 
-        corpo.app-está-carregando {
-            overflow: oculto;
+        body.app-is-loading {
+            overflow: hidden;
         }
 
         @keyframes fadeIn {
-            de { opacidade: 0; }
-            para { opacidade: 1; }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         .modal-content {
-            fundo: var(--bg-card);
-            preenchimento: 2rem;
-            raio da borda: 12px;
-            largura máxima: 600px;
-            largura: 90%;
-            altura máxima: 90vh;
-            overflow-y: automático;
-            borda: 1px var sólido (--border);
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid var(--border);
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            animação: deslizar para cima 0,4s de facilidade;
+            animation: slideUp 0.4s ease;
         }
 
         .modal-header {
-            Exibir: flexível;
-            justify-content: espaço-entre;
-            alinhamento-itens: centro;
-            margem-inferior: 1,5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
             padding-bottom: 1rem;
-            borda-inferior: 2px sólida var(--primary);
+            border-bottom: 2px solid var(--primary);
         }
 
         .modal-header h2 {
-            tamanho da fonte: 1,5rem;
-            peso da fonte: 700;
-            text-transform: maiúsculas;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
         }
 
         .close-modal {
-            fundo: transparente;
-            fronteira: nenhuma;
-            cor: var(--texto);
-            tamanho da fonte: 1,5rem;
-            cursor: ponteiro;
-            transição: todos os 0,3s de facilidade;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
         .close-modal:hover {
-            cor: var(--perigo);
-            transformar: rotacionar(90 graus);
+            color: var(--danger);
+            transform: rotate(90deg);
         }
 
         .form-group {
-            margem-inferior: 1,5rem;
+            margin-bottom: 1.5rem;
         }
 
         .form-group label {
-            exibir: bloco;
-            margem-inferior: 0,5rem;
-            cor: var(--text-muted);
-            peso da fonte: 600;
-            text-transform: maiúsculas;
-            tamanho da fonte: 0,85rem;
-            espaçamento entre letras: 0,5px;
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
         }
 
-        Entrada .form-group,
-        .form-group selecionar {
-            largura: 100%;
-            preenchimento: 0,75rem;
-            fundo: var(--bg-dark);
-            borda: 1px var sólido (--border);
-            raio da borda: 8px;
-            cor: var(--texto);
-            família de fontes: 'Rajdhani', sem serifa;
-            tamanho da fonte: 1rem;
-            transição: todos os 0,3s de facilidade;
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
         }
 
         .form-group input:focus,
         .form-group select:focus {
-            Esboço: nenhum;
-            cor-da-borda: var(--primary);
+            outline: none;
+            border-color: var(--primary);
             box-shadow: 0 0 10px rgba(211, 47, 47, 0.3);
         }
 
         .form-actions {
-            Exibir: flexível;
-            intervalo: 1rem;
-            margem-superior: 2rem;
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
         }
 
         .alert {
-            preenchimento: 1rem;
-            raio da borda: 8px;
-            margem-inferior: 1rem;
-            exibir: nenhum;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
         }
 
         .alert.active {
-            exibir: bloco;
-            animação: deslizar para cima 0,3s com facilidade;
+            display: block;
+            animation: slideUp 0.3s ease;
         }
 
         .alert-success {
-            fundo: rgba(0, 200, 83, 0.2);
-            cor: var(--sucesso);
-            borda: 1px var sólido (--sucesso);
+            background: rgba(0, 200, 83, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
         }
 
         
 
 /* Login e perfis de usuário */
 .header-actions {
-    Exibir: flexível;
-    alinhamento-itens: centro;
-    intervalo: 0,75rem;
-    flex-wrap: envolver;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
     justify-content: flex-end;
 }
 
 .user-badge {
-    preenchimento: 0,55rem 0,9rem;
-    raio-da-borda: 999px;
-    fundo: rgba(7, 16, 38, 0.55);
-    borda: 1px sólida rgba(255,255,255,0.28);
-    cor: var(--branco);
-    peso da fonte: 700;
-    cursor: ponteiro;
+    padding: 0.55rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(7, 16, 38, 0.55);
+    border: 1px solid rgba(255,255,255,0.28);
+    color: var(--white);
+    font-weight: 700;
+    cursor: pointer;
     box-shadow: 0 8px 20px rgba(0,0,0,0.20);
-    espaço em branco: nowrap;
+    white-space: nowrap;
 }
 
 .user-badge:hover {
-    fundo: rgba(7, 16, 38, 0.78);
+    background: rgba(7, 16, 38, 0.78);
 }
 
 .login-header-btn {
-    preenchimento: 0,52rem 0,85rem;
-    tamanho da fonte: 0,86rem;
+    padding: 0.52rem 0.85rem;
+    font-size: 0.86rem;
 }
 
 .login-grid {
-    Exibir: grade;
+    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    intervalo: 1rem;
+    gap: 1rem;
 }
 
 .login-info-box {
-    fundo: rgba(25,118,210,0.12);
-    borda: 1px sólida rgba(25,118,210,0.35);
-    raio da borda: 10px;
-    preenchimento: 0,95rem;
-    cor: var(--text-muted);
-    altura da linha: 1,45;
+    background: rgba(25,118,210,0.12);
+    border: 1px solid rgba(25,118,210,0.35);
+    border-radius: 10px;
+    padding: 0.95rem;
+    color: var(--text-muted);
+    line-height: 1.45;
 }
 
 .login-profile-card {
-    fundo: var(--bg-dark);
-    borda: 1px var sólido (--border);
-    raio da borda: 10px;
-    preenchimento: 1rem;
-    margem-superior: 1rem;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-top: 1rem;
 }
 
 .login-status-line {
-    família de fontes: 'Roboto Mono', monoespaçada;
-    tamanho da fonte: 0,86rem;
-    margem superior: 0,35rem;
-    cor: var(--text-muted);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.86rem;
+    margin-top: 0.35rem;
+    color: var(--text-muted);
 }
 
 .login-status-online { color: var(--success); font-weight: 700; }
@@ -677,55 +677,55 @@
 .login-status-blocked { color: var(--danger); font-weight: 700; }
 
 .login-actions {
-    Exibir: flexível;
-    intervalo: 0,7rem;
-    flex-wrap: envolver;
-    margem-superior: 1rem;
+    display: flex;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
 }
 
 .login-small-note {
-    exibir: bloco;
-    cor: var(--text-muted);
-    margem superior: 0,45rem;
-    altura da linha: 1,35;
+    display: block;
+    color: var(--text-muted);
+    margin-top: 0.45rem;
+    line-height: 1.35;
 }
 
 @media (max-width: 768px) {
-            .painel {
+            .dashboard {
                 grid-template-columns: 1fr;
             }
 
             .controls {
-                flex-direction: coluna;
+                flex-direction: column;
             }
 
-            mesa {
-                tamanho da fonte: 0,85rem;
+            table {
+                font-size: 0.85rem;
             }
 
             th, td {
-                preenchimento: 0,5rem;
+                padding: 0.5rem;
             }
         }
 
-        .carregando {
-            alinhamento do texto: centralizado;
-            preenchimento: 3rem;
-            cor: var(--text-muted);
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
         }
 
         .spinner {
-            borda: 3px var sólido (--border);
-            borda superior: 3px sólida var(--primary);
-            raio-da-borda: 50%;
-            largura: 40px;
-            altura: 40px;
-            animação: rotação linear infinita de 1 segundo;
-            margem: 0 auto 1rem;
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
         }
 
-        @keyframes girar {
-            0% { transformar: rotacionar(0deg); }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
 
@@ -734,467 +734,467 @@
    =============================== */
 
 .header::after{
-    contente:"";
-    posição:absoluta;
-    esquerda:0; direita:0; inferior:-3px;
-    altura:6px;
+    content:"";
+    position:absolute;
+    left:0; right:0; bottom:-3px;
+    height:6px;
     background: linear-gradient(90deg, var(--accent-blue) 0%, rgba(255,255,255,0.85) 50%, var(--accent-blue) 100%);
-    opacidade: 0,85;
+    opacity: .85;
 }
 
-.logotipo{
-    cor: var(--branco);
+.logo{
+    color: var(--white);
     text-shadow: 0 2px 10px rgba(0,0,0,.35);
 }
 
 /* Indicador de confiança no cabeçalho */
 #syncStatus{
-    exibir:inline-flex;
-    alinhar-itens:centro;
-    intervalo: 0,5rem;
-    preenchimento: 0,25rem 0,6rem;
-    raio-da-borda: 999px;
-    fundo: rgba(255,255,255,.08);
-    borda: 1px sólida rgba(255,255,255,.18);
-    filtro de fundo: desfoque(6px);
+    display:inline-flex;
+    align-items:center;
+    gap:.5rem;
+    padding:.25rem .6rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.18);
+    backdrop-filter: blur(6px);
 }
 #syncStatus #lastSyncAt{ color: rgba(255,255,255,.9); }
 #syncStatus #lastSyncOk{ text-shadow: 0 1px 6px rgba(0,0,0,.25); }
 
 /* Botões */
 .btn-primary{
-    plano de fundo: gradiente linear (180 graus, var (--primário) 0%, var (--primário-escuro) 100%);
+    background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
     box-shadow: 0 8px 22px rgba(211,47,47,.35);
 }
 .btn-secondary{
-    fundo: gradiente-linear(180deg, rgba(25,118,210,.95) 0%, rgba(13,71,161,.95) 100%);
-    cor: var(--branco);
-    borda: 1px sólida rgba(255,255,255,.15);
+    background: linear-gradient(180deg, rgba(25,118,210,.95) 0%, rgba(13,71,161,.95) 100%);
+    color: var(--white);
+    border: 1px solid rgba(255,255,255,.15);
     box-shadow: 0 8px 22px rgba(25,118,210,.28);
 }
 .btn-secondary:hover{
-    transformar: translateY(-2px);
-    filtro: brilho(1.05);
+    transform: translateY(-2px);
+    filter: brightness(1.05);
 }
 
 .btn-icon:hover{
-    fundo: var(--accent-blue);
-    cor-da-borda: var(--accent-blue);
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
 }
 
-/* Cartões e trânsito */
+/* Cards e tabela */
 .stat-card::before{
-    plano de fundo: gradiente linear (180 graus, var (--primário) 0%, var (--secundário) 60%, var (--accent-blue) 100%);
+    background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 60%, var(--accent-blue) 100%);
 }
 
 thead{
     background: linear-gradient(90deg, rgba(25,118,210,.35) 0%, rgba(255,143,0,.25) 55%, rgba(211,47,47,.25) 100%);
 }
 
-mesa{
-    borda: 1px sólida rgba(25,118,210,.35);
+table{
+    border: 1px solid rgba(25,118,210,.35);
 }
 
 .badge-info{
-    fundo: rgba(25,118,210, 0.18);
-    cor: rgba(255,255,255,0.92);
-    borda: 1px sólida rgba(25,118,210, 0.65);
+    background: rgba(25,118,210, 0.18);
+    color: rgba(255,255,255,0.92);
+    border: 1px solid rgba(25,118,210, 0.65);
 }
 
 
 /* Layout de abas e relatórios */
 .tabs {
-    Exibir: flexível;
-    intervalo: 0,75rem;
-    flex-wrap: envolver;
-    margem-inferior: 1,5rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
 }
 
 .tab {
-    preenchimento: 0,85rem 1,2rem;
-    borda: 1px var sólido (--border);
-    raio da borda: 10px;
-    fundo: rgba(21, 27, 61, 0.9);
-    cor: var(--texto);
-    cursor: ponteiro;
-    família de fontes: 'Rajdhani', sem serifa;
-    peso da fonte: 700;
-    tamanho da fonte: 1rem;
-    transição: todos os 0,25s de suavização;
+    padding: 0.85rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(21, 27, 61, 0.9);
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    transition: all 0.25s ease;
 }
 
 .tab:hover {
-    transformar: translateY(-2px);
-    cor da borda: rgba(255, 143, 0, 0.6);
+    transform: translateY(-2px);
+    border-color: rgba(255, 143, 0, 0.6);
 }
 
-.tab.ativo {
-    fundo: gradiente-linear(180deg, rgba(211,47,47,.95) 0%, rgba(142,0,0,.95) 100%);
-    cor: var(--branco);
+.tab.active {
+    background: linear-gradient(180deg, rgba(211,47,47,.95) 0%, rgba(142,0,0,.95) 100%);
+    color: var(--white);
     box-shadow: 0 10px 24px rgba(211,47,47,.28);
 }
 
 .tab-content {
-    exibir: nenhum;
+    display: none;
 }
 
 .tab-content.active {
-    exibir: bloco;
+    display: block;
 }
 
 .report-section,
 .chart-card,
 .type-overview-card {
-    fundo: var(--bg-card);
-    borda: 1px var sólido (--border);
-    raio da borda: 14px;
-    preenchimento: 1,25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
     box-shadow: 0 12px 28px rgba(0,0,0,.16);
 }
 
 .report-header {
-    Exibir: flexível;
-    justify-content: espaço-entre;
-    alinhamento-itens: centro;
-    intervalo: 1rem;
-    flex-wrap: envolver;
-    margem-inferior: 1,25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
 }
 
-.título-do-relatório,
-.título-do-gráfico {
-    tamanho da fonte: 1,2rem;
-    peso da fonte: 700;
-    text-transform: maiúsculas;
-    espaçamento entre letras: 0,5px;
+.report-title,
+.chart-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .charts-grid {
-    Exibir: grade;
+    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    intervalo: 1rem;
+    gap: 1rem;
 }
 
 .report-filters {
-    Exibir: flexível;
-    intervalo: 0,75rem;
-    flex-wrap: envolver;
-    margem-inferior: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
 }
 
-Entrada .report-filters,
-.report-filters selecionar {
-    largura mínima: 220px;
+.report-filters input,
+.report-filters select {
+    min-width: 220px;
 }
 
 .report-table {
-    largura: 100%;
-    colapso de fronteira: colapso;
+    width: 100%;
+    border-collapse: collapse;
 }
 
 .report-table .total-row td {
-    peso da fonte: 700;
-    fundo: rgba(255,255,255,.04);
+    font-weight: 700;
+    background: rgba(255,255,255,.04);
 }
 
-.estado-vazio {
-    alinhamento do texto: centralizado;
-    preenchimento: 2,5rem 1rem;
-    cor: var(--text-muted);
+.empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--text-muted);
 }
 
-.ícone-de-estado-vazio {
-    tamanho da fonte: 2rem;
-    margem-inferior: 0,75rem;
+.empty-state-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
 }
 
 .type-overview-grid {
-    Exibir: grade;
+    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    intervalo: 1rem;
+    gap: 1rem;
 }
 
 .type-card {
-    fundo: gradiente-linear(180deg, rgba(11,22,54,.95) 0%, rgba(21,27,61,.95) 100%);
-    borda: 1px sólida rgba(25,118,210,.35);
-    raio da borda: 14px;
-    preenchimento: 1rem 1,1rem;
+    background: linear-gradient(180deg, rgba(11,22,54,.95) 0%, rgba(21,27,61,.95) 100%);
+    border: 1px solid rgba(25,118,210,.35);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
 }
 
 .type-card-header {
-    Exibir: flexível;
-    justify-content: espaço-entre;
-    alinhamento-itens: linha de base;
-    intervalo: 1rem;
-    margem-inferior: 0,65rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 0.65rem;
 }
 
 .type-card-name {
-    tamanho da fonte: 1,05rem;
-    peso da fonte: 700;
-    cor: var(--branco);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--white);
 }
 
 .type-card-total {
-    tamanho da fonte: 1,8rem;
-    peso da fonte: 700;
-    cor: var(--secundário);
-    família de fontes: 'Roboto Mono', monoespaçada;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--secondary);
+    font-family: 'Roboto Mono', monospace;
 }
 
 .type-card-meta {
-    cor: var(--text-muted);
-    tamanho da fonte: 0,92rem;
-    margem-inferior: 0,75rem;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    margin-bottom: 0.75rem;
 }
 
 .type-card-bars {
-    Exibir: grade;
-    intervalo: 0,45rem;
+    display: grid;
+    gap: 0.45rem;
 }
 
 .type-card-stat {
-    Exibir: flexível;
-    justify-content: espaço-entre;
-    alinhamento-itens: centro;
-    preenchimento: 0,55rem 0,7rem;
-    raio da borda: 10px;
-    fundo: rgba(255,255,255,.04);
-    tamanho da fonte: 0,92rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.55rem 0.7rem;
+    border-radius: 10px;
+    background: rgba(255,255,255,.04);
+    font-size: 0.92rem;
 }
 
-.type-card-stat forte {
-    cor: var(--branco);
+.type-card-stat strong {
+    color: var(--white);
 }
 
 .type-card-empty {
-    cor: var(--text-muted);
-    preenchimento: 1rem;
-    alinhamento do texto: centralizado;
+    color: var(--text-muted);
+    padding: 1rem;
+    text-align: center;
 }
 
 
 /* ===============================
-   Contratos
+   Módulo Contratos
    =============================== */
-.barra-de-orçamento {
-    Exibir: flexível;
-    intervalo: 0,75rem;
-    flex-wrap: envolver;
-    alinhamento-itens: centro;
-    margem-inferior: 1rem;
+.budget-toolbar {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 1rem;
 }
 
 .budget-search {
     flex: 1;
-    largura mínima: 260px;
+    min-width: 260px;
 }
 
-Entrada .budget-search,
-.budget-toolbar selecionar,
-Entrada .budget-form-grid,
-.budget-form-grid selecionar,
+.budget-search input,
+.budget-toolbar select,
+.budget-form-grid input,
+.budget-form-grid select,
 .budget-form-grid textarea {
-    largura: 100%;
-    preenchimento: 0,75rem;
-    fundo: var(--bg-dark);
-    borda: 1px var sólido (--border);
-    raio da borda: 8px;
-    cor: var(--texto);
-    família de fontes: 'Rajdhani', sem serifa;
-    tamanho da fonte: 1rem;
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
 }
 
 .budget-form-grid textarea {
-    Redimensionar: vertical;
-    altura mínima: 84px;
+    resize: vertical;
+    min-height: 84px;
 }
 
 .budget-form-grid {
-    Exibir: grade;
+    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    intervalo: 1rem;
+    gap: 1rem;
 }
 
 .budget-form-grid .full-row {
-    coluna-da-grade: 1 / -1;
+    grid-column: 1 / -1;
 }
 
 .budget-kpi-grid {
-    Exibir: grade;
+    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    intervalo: 1rem;
-    margem-inferior: 1rem;
+    gap: 1rem;
+    margin-bottom: 1rem;
 }
 
 .budget-kpi {
-    fundo: gradiente-linear(180deg, rgba(11,22,54,.95) 0%, rgba(21,27,61,.95) 100%);
-    borda: 1px sólida rgba(25,118,210,.35);
-    raio da borda: 14px;
-    preenchimento: 1rem 1,1rem;
+    background: linear-gradient(180deg, rgba(11,22,54,.95) 0%, rgba(21,27,61,.95) 100%);
+    border: 1px solid rgba(25,118,210,.35);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
 }
 
 .budget-kpi-label {
-    cor: var(--text-muted);
-    text-transform: maiúsculas;
-    espaçamento entre letras: 0,5px;
-    tamanho da fonte: 0,85rem;
-    margem-inferior: 0,4rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-size: .85rem;
+    margin-bottom: .4rem;
 }
 
 .budget-kpi-value {
-    cor: var(--branco);
-    família de fontes: 'Roboto Mono', monoespaçada;
-    tamanho da fonte: 1,45rem;
-    peso da fonte: 700;
+    color: var(--white);
+    font-family: 'Roboto Mono', monospace;
+    font-size: 1.45rem;
+    font-weight: 700;
 }
 
-.budget-contrato-título {
-    Exibir: flexível;
-    justify-content: espaço-entre;
-    alinhamento-itens: início-flexível;
-    intervalo: 1rem;
-    flex-wrap: envolver;
-    margem-inferior: 1rem;
+.budget-contract-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
 }
 
 .budget-contract-title h3 {
-    tamanho da fonte: 1,25rem;
-    margem-inferior: 0,35rem;
+    font-size: 1.25rem;
+    margin-bottom: .35rem;
 }
 
 .commitment-card {
-    fundo: var(--bg-dark);
-    borda: 1px var sólido (--border);
-    borda-esquerda: 5px sólida var(--secundário);
-    raio da borda: 12px;
-    preenchimento: 1rem;
-    margem-inferior: 1rem;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--secondary);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
 }
 
 .commitment-header {
-    Exibir: flexível;
-    justify-content: espaço-entre;
-    alinhamento-itens: início-flexível;
-    intervalo: 1rem;
-    flex-wrap: envolver;
-    margem-inferior: 0,85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
 }
 
 .commitment-number {
-    tamanho da fonte: 1,15rem;
-    peso da fonte: 700;
-    cor: var(--branco);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--white);
 }
 
 .commitment-meta {
-    cor: var(--text-muted);
-    margem superior: 0,25rem;
+    color: var(--text-muted);
+    margin-top: .25rem;
 }
 
 .commitment-summary {
-    Exibir: grade;
+    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    intervalo: 0,65rem;
-    margem: 0,85rem 0 1rem;
+    gap: .65rem;
+    margin: .85rem 0 1rem;
 }
 
 .commitment-summary-item {
-    fundo: rgba(255,255,255,.04);
-    raio da borda: 10px;
-    preenchimento: 0,65rem 0,75rem;
+    background: rgba(255,255,255,.04);
+    border-radius: 10px;
+    padding: .65rem .75rem;
 }
 
 .commitment-summary-item span {
-    exibir: bloco;
-    cor: var(--text-muted);
-    tamanho da fonte: 0,82rem;
-    text-transform: maiúsculas;
+    display: block;
+    color: var(--text-muted);
+    font-size: .82rem;
+    text-transform: uppercase;
 }
 
-.commitment-summary-item forte {
-    exibir: bloco;
-    margem superior: 0,25rem;
-    cor: var(--branco);
-    família de fontes: 'Roboto Mono', monoespaçada;
+.commitment-summary-item strong {
+    display: block;
+    margin-top: .25rem;
+    color: var(--white);
+    font-family: 'Roboto Mono', monospace;
 }
 
 .inline-form-box {
-    exibir: nenhum;
-    fundo: rgba(7,16,38,.92);
-    borda: 1px sólida rgba(255,143,0,.35);
-    raio da borda: 12px;
-    preenchimento: 1rem;
-    margem: 1rem 0;
+    display: none;
+    background: rgba(7,16,38,.92);
+    border: 1px solid rgba(255,143,0,.35);
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
 }
 
 .inline-form-box.active {
-    exibir: bloco;
+    display: block;
 }
 
-.nota-orçamentária {
-    cor: var(--text-muted);
-    tamanho da fonte: 0,92rem;
-    altura da linha: 1,35;
+.budget-note {
+    color: var(--text-muted);
+    font-size: .92rem;
+    line-height: 1.35;
 }
 
-.saldo-positivo { cor: var(--sucesso); }
+.saldo-positive { color: var(--success); }
 .saldo-warning { color: var(--warning); }
-.saldo-danger { cor: var(--danger); }
+.saldo-danger { color: var(--danger); }
 
 
-.caixa-de-busca-de-veículos-orçamentos {
-    posição: relativa;
+.budget-vehicle-search-box {
+    position: relative;
 }
 
 .budget-vehicle-results {
-    exibir: nenhum;
-    posição: absoluta;
-    topo: calc(100% + 4px);
-    esquerda: 0;
-    direita: 0;
-    altura máxima: 280px;
-    overflow-y: automático;
-    fundo: #071026;
-    borda: 1px sólida rgba(25,118,210,.65);
-    raio da borda: 10px;
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    background: #071026;
+    border: 1px solid rgba(25,118,210,.65);
+    border-radius: 10px;
     box-shadow: 0 14px 35px rgba(0,0,0,.45);
-    Índice z: 5000;
+    z-index: 5000;
 }
 
 .budget-vehicle-result {
-    largura: 100%;
-    exibir: bloco;
-    alinhamento de texto: esquerda;
-    fundo: transparente;
-    borda: 0;
-    borda-inferior: 1px sólida rgba(255,255,255,.08);
-    cor: var(--texto);
-    preenchimento: .7rem .8rem;
-    família de fontes: 'Rajdhani', sem serifa;
-    cursor: ponteiro;
+    width: 100%;
+    display: block;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    color: var(--text);
+    padding: .7rem .8rem;
+    font-family: 'Rajdhani', sans-serif;
+    cursor: pointer;
 }
 
 .budget-vehicle-result:hover,
 .budget-vehicle-result.active {
-    fundo: rgba(25,118,210,.22);
+    background: rgba(25,118,210,.22);
 }
 
-.budget-vehicle-result forte {
-    exibir: bloco;
-    cor: var(--branco);
-    tamanho da fonte: 1rem;
+.budget-vehicle-result strong {
+    display: block;
+    color: var(--white);
+    font-size: 1rem;
 }
 
-.budget-vehicle-result pequeno {
-    exibir: bloco;
-    margem superior: 0,15rem;
-    cor: var(--text-muted);
-    altura da linha: 1,25;
+.budget-vehicle-result small {
+    display: block;
+    margin-top: .15rem;
+    color: var(--text-muted);
+    line-height: 1.25;
 }
 
-.budget-vehicle-result.external forte {
-    cor: var(--aviso);
+.budget-vehicle-result.external strong {
+    color: var(--warning);
 }
 
 @media (max-width: 768px) {
@@ -1236,11 +1236,11 @@ Entrada .budget-form-grid,
         <div class="tabs">
             <button class="tab active" onclick="switchTab('frota', this)">🚒 Frota</button>
 <button class="tab" id="cadastroTab" onclick="switchTab('cadastro', this)" style="display:none;">👥 Cadastro</button>
-<button class="tab" onclick="switchTab('gráficos', this)">🚒 Tipos de Viatura</button>
-<button class="tab" onclick="switchTab('gestao', this)">📌Gestão</button>
+<button class="tab" onclick="switchTab('graficos', this)">🚒 Tipos de Viatura</button>
+<button class="tab" onclick="switchTab('gestao', this)">📌 Gestão</button>
 <button class="tab" onclick="switchTab('orcamentario', this)">📑 Contratos</button>
 <button class="tab" onclick="switchTab('orcamentos', this)">🧾 Orçamentos</button>
-            <button class="tab" onclick="switchTab('relatórios', this)">📈 Relatórios</button>
+            <button class="tab" onclick="switchTab('relatorios', this)">📈 Relatórios</button>
 <button class="tab" id="configTab" onclick="switchTab('config', this)" style="display: none;">⚙️ Configurações</button>
         </div>
 
@@ -1342,13 +1342,13 @@ Entrada .budget-form-grid,
         <div id="graficos" class="tab-content">
             <div class="report-section">
                 <div class="report-header">
-                    <div class="report-title">🚒 Tipos de viagem</div>
+                    <div class="report-title">🚒 Tipos de Viatura</div>
                     <div style="color: var(--text-muted); font-size: 0.95rem;">Visualização objetiva da composição da frota, sem gráficos de pizza.</div>
                 </div>
                 <div id="typeOverviewGrid" class="type-overview-grid"></div>
             </div>
         </div>
-        <!-- Fim Tab Tipos de viagem -->
+        <!-- Fim Tab Tipos de Viatura -->
 
 <!-- Tab Gestão (Relatório global 12 meses) -->
 <div id="gestao" class="tab-content">
@@ -1379,7 +1379,7 @@ Entrada .budget-form-grid,
         <div class="report-header">
             <div>
                 <div class="report-title">📑 Contratos</div>
-                <div class="budget-note">Controle por contrato, com compromissos como entrada de crédito e movimentações lançadas dentro de cada compromisso.</div>
+                <div class="budget-note">Controle por contrato, com empenhos como entrada de crédito e movimentações lançadas dentro de cada empenho.</div>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="btn btn-secondary" onclick="renderBudgetModule()">🔄 Atualizar</button>
@@ -1397,7 +1397,7 @@ Entrada .budget-form-grid,
                 <option value="">Todas Situações</option>
                 <option value="ATIVO">Ativo</option>
                 <option value="ENCERRADO">Encerrado</option>
-                <option value="SUSPENSO">Suspensão</option>
+                <option value="SUSPENSO">Suspenso</option>
                 <option value="RESCINDIDO">Rescindido</option>
             </select>
         </div>
@@ -1434,7 +1434,7 @@ Entrada .budget-form-grid,
         <div class="report-header">
             <div>
                 <div class="report-title">🧾 Orçamentos / Manutenções</div>
-                <div class="budget-note">Controle de orçamentos termos de contrato e compromissos. Números de orçamento podem ser repetidos sem substituir registros anteriores; cada lançamento possui um ID interno exclusivo. A nota fiscal atualiza somente o orçamento selecionado, evitando débito duplicado no compromisso.</div>
+                <div class="budget-note">Controle de orçamentos vinculados a contrato e empenho. Números de orçamento podem se repetir sem substituir registros anteriores; cada lançamento possui um ID interno exclusivo. A nota fiscal atualiza somente o orçamento selecionado, evitando débito duplicado no empenho.</div>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="btn btn-secondary" onclick="renderBudgetQuotesModule()">🔄 Atualizar</button>
@@ -1446,10 +1446,10 @@ Entrada .budget-form-grid,
 
         <div class="budget-toolbar">
             <div class="budget-search">
-                <input type="text" id="budgetQuoteSearchInput" placeholder="Buscar por orçamento, contrato, compromisso, viatura, descrição ou nota fiscal..." onkeyup="renderBudgetQuotesTable()">
+                <input type="text" id="budgetQuoteSearchInput" placeholder="Buscar por orçamento, contrato, empenho, viatura, descrição ou nota fiscal..." onkeyup="renderBudgetQuotesTable()">
             </div>
             <select id="budgetQuoteStatusFilter" onchange="renderBudgetQuotesTable()">
-                <option value="">Todos os Status</option>
+                <option value="">Todos Status</option>
                 <option value="EM ABERTO">Em aberto</option>
                 <option value="APROVADO / RESERVADO">Aprovado / reservado</option>
                 <option value="FATURADO PARCIAL">Faturado parcial</option>
@@ -1466,8 +1466,8 @@ Entrada .budget-form-grid,
                         <th>Contrato</th>
                         <th>Empenho</th>
                         <th>Viatura</th>
-                        <th>Dega</th>
-                        <th>Pesas</th>
+                        <th>Descrição</th>
+                        <th>Peças</th>
                         <th>Serviço</th>
                         <th>Total</th>
                         <th>Status</th>
@@ -1523,7 +1523,7 @@ Entrada .budget-form-grid,
         <!-- Fim Tab Relatórios -->
 
 
-        <!-- Aba Cadastro de Usuários (exclusiva para GESTOR) -->
+        <!-- Tab Cadastro de Usuários (exclusiva para GESTOR) -->
         <div id="cadastro" class="tab-content">
             <div class="report-section">
                 <div class="report-header">
@@ -1552,7 +1552,7 @@ Entrada .budget-form-grid,
                         <div class="form-group">
                             <label>Nº BM / Login *</label>
                             <input type="text" id="cadastroNewUserBombeiro" placeholder="6 números, sem ponto e sem dígito" maxlength="6" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)">
-                            <small class="login-small-note">O login será exatamente os seis primeiros números do BM, sem ponto e sem o dígito selecionado.</small>
+                            <small class="login-small-note">O login será exatamente os seis primeiros números do BM, sem ponto e sem o dígito verificador.</small>
                         </div>
                         <div class="form-group">
                             <label>Nível de acesso *</label>
@@ -1565,7 +1565,7 @@ Entrada .budget-form-grid,
                         <div class="form-group">
                             <label>Senha inicial</label>
                             <input type="text" id="cadastroNewUserPassword" value="snhrcf" readonly>
-                            <small class="login-small-note">A senha temporária <strong>snhrcf</strong> não diferenciais e minúsculas. No primeiro acesso o usuário deverá criar uma senha pessoal.</small>
+                            <small class="login-small-note">A senha temporária <strong>snhrcf</strong> não diferencia maiúsculas e minúsculas. No primeiro acesso o usuário deverá criar uma senha pessoal.</small>
                         </div>
                     </div>
                     <div class="login-actions">
@@ -1592,10 +1592,10 @@ Entrada .budget-form-grid,
                 <div class="google-sheets-config" style="margin-top: 1.5rem;">
                     <h3>🔐 Banco Online e Login de Usuários</h3>
                     <p style="color: var(--text-muted); margin: 1rem 0;">
-                        Use este campo para conectar o sistema ao Apps Script publicado. O login validará o nº de Bombeiro e a senha pessoal. O perfil será aplicado a partir da aba USUÁRIOS.
+                        Use este campo para conectar o sistema ao Apps Script publicado. O login validará o nº de Bombeiro e a senha pessoal. O perfil será aplicado a partir da aba USUARIOS.
                     </p>
                     <div class="form-group">
-                        <label>URL do aplicativo Web / Apps Script</label>
+                        <label>URL do Web App / Apps Script</label>
                         <input type="text" id="onlineDatabaseWebAppUrlConfig" placeholder="https://script.google.com/macros/s/.../exec" oninput="syncOnlineConfigMirror('config')">
                     </div>
                     <div class="form-group">
@@ -1606,34 +1606,34 @@ Entrada .budget-form-grid,
                     </div>
                     <button class="btn btn-primary" onclick="saveOnlineDatabaseSettingsFromConfig()">💾 Salvar Banco Online</button>
                     <button class="btn btn-secondary" onclick="openLoginModal()">🔐 Abrir Login</button>
-                    <button class="btn btn-secondary" onclick="openUserManagementModal()">👥 Gerenciar usuários</button>
+                    <button class="btn btn-secondary" onclick="openUserManagementModal()">👥 Gerenciar Usuários</button>
                     <button class="btn btn-secondary" onclick="setupOnlineDatabase()">🧱 Conferir Estrutura do Banco</button>
                     <button class="btn btn-secondary" onclick="openOnlineDatabaseSheet()">📄 Abrir Planilha do Banco</button>
                     <button class="btn btn-secondary" onclick="loadOnlineBudgetData(true)">⬇️ Carregar Dados Online</button>
                     <button class="btn btn-primary" onclick="migrateLocalBudgetDataToOnline()">⬆️ Enviar Dados Locais para o Banco Online</button>
-                    <div id="onlineDbSyncStatus" style="margin-top:.8rem; color: var(--text-muted); font-size:.9rem;">Banco online centralizado: alterações autenticadas são gravadas no Google Sheets e distribuídas a demais computadores. O armazenamento local funciona apenas como cache/fila temporária.</div>
+                    <div id="onlineDbSyncStatus" style="margin-top:.8rem; color: var(--text-muted); font-size:.9rem;">Banco online centralizado: alterações autenticadas são gravadas no Google Sheets e distribuídas aos demais computadores. O armazenamento local funciona apenas como cache/fila temporária.</div>
                 </div>
 
                 <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--secondary);">
                     <h4 style="margin-bottom: 1rem;">📋 Instruções de Configuração:</h4>
                     <ol style="line-height: 1.8; color: var(--text-muted);">
-                        <li>Crie uma planilha no Planilhas Google</li>
-                        <li>Acessar Extensões → Apps Script</li>
+                        <li>Crie uma planilha no Google Sheets</li>
+                        <li>Acesse Extensões → Apps Script</li>
                         <li>Cole o código fornecido</li>
-                        <li>Implante como Web App e copie uma URL terminada em /exec</li>
-                        <li>Cole uma URL no campo Banco Online e Login de Usuários</li>
-                        <li>Cadastre usuários pelo botão Gerenciar Usuários; informar Gmail, CPF e nº de Bombeiro. Senhas ficam em hash no banco, nunca em texto puro</li>
+                        <li>Implante como Web App e copie a URL terminada em /exec</li>
+                        <li>Cole a URL no campo Banco Online e Login de Usuários</li>
+                        <li>Cadastre usuários pelo botão Gerenciar Usuários; informe Gmail, CPF e nº de Bombeiro. Senhas ficam em hash no banco, nunca em texto puro</li>
                     </ol>
                 </div>
             </div>
         </div>
-        <!-- Configuração da aba Fim -->
+        <!-- Fim Tab Config -->
 
     </div>
-    <!-- Contêiner de Filme -->
+    <!-- Fim Container -->
 
 
-    <!-- Login Modal / Perfis de Usuário -->
+    <!-- Modal Login / Perfis de Usuário -->
     <div class="modal" id="systemLoginModal">
         <div class="modal-content" style="max-width: 820px;">
             <div class="modal-header">
@@ -1664,15 +1664,15 @@ Entrada .budget-form-grid,
                     <button type="button" class="btn btn-secondary" onclick="changeOwnPassword()">Alterar minha senha</button>
                     <button type="button" class="btn btn-secondary" onclick="doSystemLogout()">Sair</button>
                 </div>
-                <small class="login-small-note">Gestor inicial: usuário <strong>155258</strong> e senha temporária <strong>snhrcf</strong> (sem distinção entre secretas e minúsculas). No primeiro acesso, o gestor deverá completar Gmail, CPF e nº BM e, em seguida, criar a senha pessoal.</small>
+                <small class="login-small-note">Gestor inicial: usuário <strong>155258</strong> e senha temporária <strong>snhrcf</strong> (sem distinção entre maiúsculas e minúsculas). No primeiro acesso, o gestor deverá completar Gmail, CPF e nº BM e, em seguida, criar a senha pessoal.</small>
             </div>
 
             <div class="login-profile-card" id="onlineConfigCardInLogin">
                 <h3 style="margin-bottom: 1rem; color: var(--secondary);">🌐 Banco online</h3>
                 <div class="form-group">
-                    <label>URL do aplicativo Web / Apps Script</label>
+                    <label>URL do Web App / Apps Script</label>
                     <input type="text" id="onlineDatabaseWebAppUrl" placeholder="https://script.google.com/macros/s/.../exec">
-                    <small class="login-small-note">Esta versão já vem com a URL /exec definida. Use este campo apenas se a implantação mudar.</small>
+                    <small class="login-small-note">Esta versão já vem com a URL /exec configurada. Use este campo apenas se a implantação mudar.</small>
                 </div>
                 <div class="form-group">
                     <label style="display:flex; gap:.6rem; align-items:center; color: var(--text); cursor:pointer;">
@@ -1682,8 +1682,8 @@ Entrada .budget-form-grid,
                 </div>
                 <div class="login-actions">
                     <button type="button" class="btn btn-primary" onclick="saveOnlineDatabaseSettings()">Salvar configuração online</button>
-                    <button type="button" class="btn btn-secondary" onclick="setupOnlineDatabase()">Conferir prova do banco</button>
-                    <button type="button" class="btn btn-secondary" onclick="testOnlineDatabaseLogin()">Testar</button>
+                    <button type="button" class="btn btn-secondary" onclick="setupOnlineDatabase()">Conferir estrutura do banco</button>
+                    <button type="button" class="btn btn-secondary" onclick="testOnlineDatabaseLogin()">Testar conexão</button>
                     <button type="button" class="btn btn-secondary" onclick="openOnlineDatabaseSheet()">Abrir planilha do banco</button>
                 </div>
             </div>
@@ -1698,7 +1698,7 @@ Entrada .budget-form-grid,
                 <h2>👨‍💼 Completar Cadastro do Gestor</h2>
             </div>
             <div class="login-info-box">
-                Primeiro acesso do gestor identificado. Complete os dados abaixo antes de usar o sistema. O nº BM será a identificação do usuário e o login.
+                Primeiro acesso do gestor identificado. Complete os dados abaixo antes de utilizar o sistema. O nº BM será a identificação do usuário e o login.
             </div>
             <form onsubmit="completeBootstrapManagerProfile(event)">
                 <div class="login-grid" style="margin-top:1rem;">
@@ -1713,18 +1713,18 @@ Entrada .budget-form-grid,
                     <div class="form-group">
                         <label>Nº BM / Login *</label>
                         <input type="text" id="bootstrapManagerBm" value="155258" readonly maxlength="6" inputmode="numeric">
-                        <small class="login-small-note">Login: seis números, sem ponto e sem o dígito selecionado.</small>
+                        <small class="login-small-note">Login: seis números, sem ponto e sem o dígito verificador.</small>
                     </div>
                 </div>
                 <div class="login-actions">
                     <button type="submit" class="btn btn-primary">Salvar cadastro e continuar</button>
                 </div>
-                <small class="login-small-note">Depois de salvar estes dados, será aberta uma tela obrigatória para criação de sua senha pessoal.</small>
-            </formulário>
+                <small class="login-small-note">Após salvar estes dados, será aberta a tela obrigatória para criação da sua senha pessoal.</small>
+            </form>
         </div>
     </div>
 
-    <!-- Alteração Modal Obrigatória de Senha -->
+    <!-- Modal Alteração Obrigatória de Senha -->
     <div class="modal" id="forcePasswordChangeModal">
         <div class="modal-content" style="max-width: 720px;">
             <div class="modal-header">
@@ -1732,18 +1732,18 @@ Entrada .budget-form-grid,
                 <button class="close-modal" id="forcePasswordCloseButton" onclick="closeForcePasswordChangeModal()">✕</button>
             </div>
             <div class="login-info-box" id="forcePasswordInfo">
-                Seu acesso é com senha inicial temporária. Para continuar usando o sistema, crie uma senha pessoal.
+                Seu acesso está com senha inicial temporária. Para continuar usando o sistema, crie uma senha pessoal.
             </div>
             <form onsubmit="submitForcedPasswordChange(event)">
                 <input type="hidden" id="forcePasswordRequired" value="SIM">
                 <div class="login-grid">
                     <div class="form-group">
                         <label>Senha atual *</label>
-                        <input type="password" id="forceOldPassword" obrigatório autocomplete="current-password" placeholder="Senha inicial ou senha atual">
+                        <input type="password" id="forceOldPassword" required autocomplete="current-password" placeholder="Senha inicial ou senha atual">
                     </div>
                     <div class="form-group">
                         <label>Nova senha *</label>
-                        <input type="senha" id="forceNewPassword" obrigatório autocomplete="nova-senha" placeholder="Mínimo 8 caracteres, com letras e números">
+                        <input type="password" id="forceNewPassword" required autocomplete="new-password" placeholder="Mínimo 8 caracteres, com letras e números">
                     </div>
                     <div class="form-group">
                         <label>Confirmar nova senha *</label>
@@ -1754,16 +1754,16 @@ Entrada .budget-form-grid,
                     <button type="submit" class="btn btn-primary">Salvar nova senha</button>
                     <button type="button" class="btn btn-secondary" onclick="closeForcePasswordChangeModal()">Cancelar</button>
                 </div>
-                <small class="login-small-note">Uma nova senha deve ter no mínimo 8 caracteres, contendo letras e números.</small>
-            </formulário>
+                <small class="login-small-note">A nova senha deve ter no mínimo 8 caracteres, contendo letras e números.</small>
+            </form>
         </div>
     </div>
 
-    <!-- Modal de adicionar/Editar viatura removida: frota em modo somente leitura pela planilha verdade. -->
+    <!-- Modal de Adicionar/Editar viatura removido: frota em modo somente leitura pela planilha verdade. -->
 
 
 
-    <!-- Contratos Modais: Contrato -->
+    <!-- Modal Contratos: Contrato -->
     <div class="modal" id="budgetContractModal">
         <div class="modal-content" style="max-width: 920px;">
             <div class="modal-header">
@@ -1782,7 +1782,7 @@ Entrada .budget-form-grid,
                         <select id="budgetContractStatus" required>
                             <option value="ATIVO">Ativo</option>
                             <option value="ENCERRADO">Encerrado</option>
-                            <option value="SUSPENSO">Suspensão</option>
+                            <option value="SUSPENSO">Suspenso</option>
                             <option value="RESCINDIDO">Rescindido</option>
                         </select>
                     </div>
@@ -1808,7 +1808,7 @@ Entrada .budget-form-grid,
                     </div>
                     <div class="form-group full-row">
                         <label>Objeto *</label>
-                        <textarea id="budgetContractObject" require placeholder="Descreva o objeto do contrato"></textarea>
+                        <textarea id="budgetContractObject" required placeholder="Descreva o objeto do contrato"></textarea>
                     </div>
                     <div class="form-group full-row">
                         <label>Observações</label>
@@ -1819,11 +1819,11 @@ Entrada .budget-form-grid,
                     <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Contrato</button>
                     <button type="button" class="btn btn-secondary" onclick="closeBudgetContractForm()">Cancelar</button>
                 </div>
-            </formulário>
+            </form>
         </div>
     </div>
 
-    <!-- Contratos Modais: Detalhe do Contrato -->
+    <!-- Modal Contratos: Detalhe do Contrato -->
     <div class="modal" id="budgetDetailModal">
         <div class="modal-content" style="max-width: 1100px;">
             <div class="modal-header">
@@ -1865,7 +1865,7 @@ Entrada .budget-form-grid,
                         </div>
                         <div class="form-group">
                             <label>Responsável pelo Lançamento *</label>
-                            <input type="text" id="budgetAddendumResponsible" required placeholder="Nome e Esp">
+                            <input type="text" id="budgetAddendumResponsible" required placeholder="Nome e matrícula">
                         </div>
                         <div class="form-group full-row">
                             <label>Observação</label>
@@ -1876,7 +1876,7 @@ Entrada .budget-form-grid,
                         <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Aditivo</button>
                         <button type="button" class="btn btn-secondary" onclick="hideBudgetAddendumForm()">Cancelar</button>
                     </div>
-                </formulário>
+                </form>
             </div>
 
             <div style="margin: 1rem 0; display:flex; gap:10px; flex-wrap:wrap;">
@@ -1901,7 +1901,7 @@ Entrada .budget-form-grid,
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Dados do Empenho *</label>
+                            <label>Data do Empenho *</label>
                             <input type="date" id="budgetCommitmentDate" required>
                         </div>
                         <div class="form-group">
@@ -1918,14 +1918,14 @@ Entrada .budget-form-grid,
                         </div>
                         <div class="form-group full-row">
                             <label>Observação</label>
-                            <textarea id="budgetCommitmentNotes" placeholder="Detalhes do compromisso ou reforço"></textarea>
+                            <textarea id="budgetCommitmentNotes" placeholder="Detalhes do empenho ou reforço"></textarea>
                         </div>
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Empenho</button>
                         <button type="button" class="btn btn-secondary" onclick="hideBudgetCommitmentForm()">Cancelar</button>
                     </div>
-                </formulário>
+                </form>
             </div>
 
             <div id="budgetMovementFormBox" class="inline-form-box">
@@ -1940,7 +1940,7 @@ Entrada .budget-form-grid,
                                 <option value="PAGAMENTO DE NF">Pagamento de NF</option>
                                 <option value="ANULAÇÃO DE CRÉDITO">Anulação de crédito</option>
                                 <option value="CANCELAMENTO DE RESTOS A PAGAR">Cancelamento de restos a pagar</option>
-                                <option value="REFORÇO DE EMPENHO">Reforço de envolvimento</option>
+                                <option value="REFORÇO DE EMPENHO">Reforço de empenho</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -1948,7 +1948,7 @@ Entrada .budget-form-grid,
                             <input type="text" id="budgetMovementDocument" required placeholder="Ex: NF 1452">
                         </div>
                         <div class="form-group">
-                            <label>Dados da Movimentação *</label>
+                            <label>Data da Movimentação *</label>
                             <input type="date" id="budgetMovementDate" required>
                         </div>
                         <div class="form-group">
@@ -1961,14 +1961,14 @@ Entrada .budget-form-grid,
                         </div>
                         <div class="form-group full-row">
                             <label>Observação</label>
-                            <textarea id="budgetMovementNotes" placeholder="Detalhes de pagamento, anulação ou documento"></textarea>
+                            <textarea id="budgetMovementNotes" placeholder="Detalhes do pagamento, anulação ou documento"></textarea>
                         </div>
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Movimentação</button>
                         <button type="button" class="btn btn-secondary" onclick="hideBudgetMovementForm()">Cancelar</button>
                     </div>
-                </formulário>
+                </form>
             </div>
 
             <div id="budgetCommitmentsContainer"></div>
@@ -1977,7 +1977,7 @@ Entrada .budget-form-grid,
 
 
 
-    <!-- Contratos Modais: Orçamento/Manutenção -->
+    <!-- Modal Contratos: Orçamento/Manutenção -->
     <div class="modal" id="budgetQuoteModal">
         <div class="modal-content" style="max-width: 1100px;">
             <div class="modal-header">
@@ -1990,7 +1990,7 @@ Entrada .budget-form-grid,
                     <div class="form-group">
                         <label>Número da Nota Branca / Orçamento Inicial *</label>
                         <input type="text" id="budgetQuoteNumber" required placeholder="Ex: NOTA BRANCA 145/2026">
-                        <small class="budget-note" style="display:block; margin-top:.45rem;">O número pode ser repetido. Cada orçamento é armazenado como um registro independente pelo ID interno do sistema.</small>
+                        <small class="budget-note" style="display:block; margin-top:.45rem;">O número pode se repetir. Cada orçamento é armazenado como um registro independente pelo ID interno do sistema.</small>
                     </div>
                     <div class="form-group">
                         <label>Orçamento Oficial de Peças</label>
@@ -1998,14 +1998,14 @@ Entrada .budget-form-grid,
                     </div>
                     <div class="form-group">
                         <label>Orçamento Oficial de Mão de Obra</label>
-                        <input type="text" id="budgetQuoteOfficialService" placeholder="Ex: ORÇAMENTO SERVIÇO 456/2026">
+                        <input type="text" id="budgetQuoteOfficialService" placeholder="Ex: ORÇ SERVIÇO 456/2026">
                     </div>
                     <div class="form-group">
-                        <label>Dados do Orçamento *</label>
+                        <label>Data do Orçamento *</label>
                         <input type="date" id="budgetQuoteDate" required onchange="syncBudgetQuoteMaintenanceDate()">
                     </div>
                     <div class="form-group">
-                        <label>Dados de Manutenção *</label>
+                        <label>Data da Manutenção *</label>
                         <input type="date" id="budgetQuoteMaintenanceDate" required>
                     </div>
                     <div class="form-group">
@@ -2023,7 +2023,7 @@ Entrada .budget-form-grid,
                             <div id="budgetQuoteVehicleResults" class="budget-vehicle-results"></div>
                         </div>
                         <datalist id="budgetQuoteVehicleOptions"></datalist>
-                        <small id="budgetQuoteVehicleHint" class="budget-note" style="display:block; margin-top:.45rem;">Digite a placa ou prefixo. O sistema aceita viatura cadastrada ou via externa/não pertencente à unidade.</small>
+                        <small id="budgetQuoteVehicleHint" class="budget-note" style="display:block; margin-top:.45rem;">Digite a placa ou prefixo. O sistema aceita viatura cadastrada ou viatura externa/não pertencente à unidade.</small>
                     </div>
                     <div class="form-group">
                         <label>Status</label>
@@ -2035,7 +2035,7 @@ Entrada .budget-form-grid,
                     </div>
                     <div class="form-group full-row">
                         <label>Descrição do Serviço / Manutenção *</label>
-                        <textarea id="budgetQuoteDescription" exigido placeholder="Descreva os serviços, peças, manutenção, revisão, freios, viatura e observações iniciais"></textarea>
+                        <textarea id="budgetQuoteDescription" required placeholder="Descreva os serviços, peças, manutenção, revisão, freios, viatura e observações iniciais"></textarea>
                     </div>
                     <div class="form-group">
                         <label>Valor de Peças (R$)</label>
@@ -2056,7 +2056,7 @@ Entrada .budget-form-grid,
                             Revisão: foi realizada troca de óleo do motor
                         </label>
                         <small id="budgetQuoteEngineOilHint" style="display:none; color: var(--secondary); margin-top: 0.6rem; line-height: 1.35;">
-                            Marque somente quando o orçamento/manutenção envolve troca de óleo de lançamento do motor. Este marcador alimenta a coluna Óleo e não se mistura com óleo de freio, hidráulico, câmbio ou diferencial.
+                            Marque somente quando o orçamento/manutenção envolver troca do óleo lubrificante do motor. Este marcador alimenta a coluna Óleo e não se mistura com óleo de freio, hidráulico, câmbio ou diferencial.
                         </small>
                     </div>
                     <div class="form-group full-row" style="background: rgba(255,160,0,0.10); border: 1px solid rgba(255,160,0,0.45); border-radius: 8px; padding: 0.85rem;">
@@ -2065,7 +2065,7 @@ Entrada .budget-form-grid,
                             Manutenção de freios: pastilhas, lonas, disco, tambor ou sistema de freio
                         </label>
                         <small style="display:block; color: var(--secondary); margin-top: 0.6rem; line-height: 1.35;">
-                            Marque quando o orçamento/manutenção envolve freios. Também é reconhecido automaticamente quando a descrição contém termos como freio, pastilha, lona, ​​disco ou tambor.
+                            Marque quando o orçamento/manutenção envolver freios. Também é reconhecido automaticamente quando a descrição contiver termos como freio, pastilha, lona, disco ou tambor.
                         </small>
                     </div>
                     <div class="form-group">
@@ -2082,7 +2082,7 @@ Entrada .budget-form-grid,
                         <input type="number" id="budgetQuoteMaintenanceKm" placeholder="0">
                     </div>
                     <div class="form-group">
-                        <label>Custo de Manutenção (R$)</label>
+                        <label>Custo da Manutenção (R$)</label>
                         <input type="number" id="budgetQuoteMaintenanceCost" step="0.01" min="0" placeholder="Será preenchido pelo total do orçamento se ficar em branco" oninput="this.dataset.manual='true'">
                     </div>
                     <div class="form-group">
@@ -2095,11 +2095,11 @@ Entrada .budget-form-grid,
                     </div>
                     <div class="form-group full-row">
                         <label>Observações da Manutenção</label>
-                        <textarea id="budgetQuoteMaintenanceNotes" placeholder="Observações técnicas de manutenção, revisão, pendências ou conferência"></textarea>
+                        <textarea id="budgetQuoteMaintenanceNotes" placeholder="Observações técnicas da manutenção, revisão, pendências ou conferência"></textarea>
                     </div>
                     <div class="form-group">
                         <label>NF de Peças</label>
-                        <input type="text" id="budgetQuoteNfParts" placeholder="Preencher quando houver peças fornecidas" oninput="toggleBudgetQuoteSeiDocument()" onchange="toggleBudgetQuoteSeiDocument()">
+                        <input type="text" id="budgetQuoteNfParts" placeholder="Preencher quando houver fornecimento de peças" oninput="toggleBudgetQuoteSeiDocument()" onchange="toggleBudgetQuoteSeiDocument()">
                     </div>
                     <div class="form-group">
                         <label>NF de Serviços</label>
@@ -2109,22 +2109,22 @@ Entrada .budget-form-grid,
                         <label>Número do Documento SEI do Lançamento da NF *</label>
                         <input type="text" id="budgetQuoteSeiDocument" placeholder="Ex: 147123456 ou SEI nº 147123456">
                         <small style="display:block; color: var(--secondary); margin-top: 0.45rem; line-height: 1.35;">
-                            Este campo é exigido quando há lançamento de NF de peças ou NF de serviços. O número fica vinculado ao mesmo orçamento, sem criar novo subsídio no extrato.
+                            Este campo é exigido quando houver lançamento de NF de peças ou NF de serviços. O número fica vinculado ao mesmo orçamento, sem criar novo débito no extrato.
                         </small>
                     </div>
                     <div class="form-group full-row">
                         <label>Observações</label>
-                        <textarea id="budgetQuoteNotes" placeholder="Informações complementares, justificativas, SEI, conferência etc."></textarea>
+                        <textarea id="budgetQuoteNotes" placeholder="Informações complementares, justificativa, SEI, conferência etc."></textarea>
                     </div>
                 </div>
                 <div class="budget-note" style="margin-top: .5rem;">
-                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O mesmo lançamento alimenta a manutenção da viatura e o controle de contratos: debita uma única vez o saldo do compromisso, primeiro como nota branca, depois como orçamento oficial e, por fim, como NF vinculada ao documento SEI do lançamento, sem duplicidade no extrato.
+                    Ao salvar ou editar, será solicitada a identificação de quem realizou a alteração. O mesmo lançamento alimenta a manutenção da viatura e o controle de contratos: debita uma única vez o saldo do empenho, primeiro como nota branca, depois como orçamento oficial e, por fim, como NF vinculada ao documento SEI do lançamento, sem duplicidade no extrato.
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Orçamento/Manutenção</button>
                     <button type="button" class="btn btn-secondary" onclick="closeBudgetQuoteForm()">Cancelar</button>
                 </div>
-            </formulário>
+            </form>
         </div>
     </div>
 
@@ -2152,12 +2152,12 @@ Entrada .budget-form-grid,
                             Revisão: foi realizada troca de óleo do motor
                         </label>
                         <small id="engineOilHint" style="display:none; color: var(--secondary); margin-top: 0.6rem; line-height: 1.35;">
-                            Marque somente quando houver troca de óleo de lavagem do motor. Este marcador alimenta a coluna Óleo e não se mistura com óleo de freio, óleo hidráulico, câmbio, diferencial ou outras áreas.
+                            Marque somente quando houver troca do óleo lubrificante do motor. Este marcador alimenta a coluna Óleo e não se mistura com óleo de freio, óleo hidráulico, câmbio, diferencial ou outras áreas.
                         </small>
                     </div>
 
                     <div class="form-group">
-                        <label>Dados de Manutenção *</label>
+                        <label>Data da Manutenção *</label>
                         <input type="date" id="maintenanceDate" required>
                     </div>
 
@@ -2174,7 +2174,7 @@ Entrada .budget-form-grid,
 
                     <div class="form-group">
                         <label>Descrição do Serviço *</label>
-                        <input type="text" id="maintenanceDescription" require placeholder="Ex: Revisão, freios, suspensão, elétrica, óleo hidráulico">
+                        <input type="text" id="maintenanceDescription" required placeholder="Ex: Revisão, freios, suspensão, elétrica, óleo hidráulico">
                     </div>
 
                     <div class="form-group">
@@ -2188,7 +2188,7 @@ Entrada .budget-form-grid,
                     </div>
 
                     <div class="form-group">
-                        <label>Resposta</label>
+                        <label>Responsável</label>
                         <input type="text" id="maintenanceResponsible" placeholder="Nome do responsável">
                     </div>
 
@@ -2206,7 +2206,7 @@ Entrada .budget-form-grid,
                         <button type="submit" class="btn btn-primary app-save-action">💾 Salvar Manutenção</button>
                         <button type="button" class="btn btn-secondary" onclick="hideAddMaintenance()">Cancelar</button>
                     </div>
-                </formulário>
+                </form>
             </div>
 
             <!-- Lista de manutenções -->
@@ -2219,21 +2219,21 @@ Entrada .budget-form-grid,
 
     <script>
         // Dados iniciais da frota (carregados da planilha)
-        seja veículos = [];
-        seja manutenções = {};
+        let vehicles = [];
+        let maintenances = {};
         const syncGate = {
-  fleetReady: falso,
-  maintReady: falso,
+  fleetReady: false,
+  maintReady: false,
   isReady() { return this.fleetReady && this.maintReady; }
 };
         let userIsAuthorized = false;
-seja userMatricula = '';
+let userMatricula = '';
 let maintenanceUserMatricula = '';
 let budgetContracts = [];
 let budgetCommitments = [];
-seja budgetMovements = [];
+let budgetMovements = [];
 let budgetAddenda = [];
-seja budgetQuotes = [];
+let budgetQuotes = [];
 let budgetHistory = [];
 let currentBudgetContractId = null;
 let currentBudgetCommitmentId = null;
@@ -2244,21 +2244,21 @@ let budgetQuoteVehicleHighlightedIndex = -1;
 // =============================================================
 // PROCESSAMENTO GLOBAL / BLOQUEIO ANTI-DUPLICIDADE
 // A ampulheta aparece somente durante operações iniciadas pelo usuário
-// que desativa a gravação, sincronização ou carregamento inicial.
+// que exigem gravação, sincronização ou carregamento inicial.
 // =============================================================
 let appLoadingDepth = 0;
 let appLoadingWatchdog = null;
 
-função setAppLoadingMessage(título, mensagem) {
+function setAppLoadingMessage(title, message) {
     const titleEl = document.getElementById('appLoadingTitle');
     const messageEl = document.getElementById('appLoadingMessage');
     const miniText = document.getElementById('appLoadingMiniText');
-    se (titleEl) titleEl.textContent = title || 'Processando';
-    if (messageEl) messageEl.textContent = mensagem || 'Aguarde a conclusão da operação.';
-    se (miniTexto) miniTexto.textoConteúdo = título || 'Processando...';
+    if (titleEl) titleEl.textContent = title || 'Processando';
+    if (messageEl) messageEl.textContent = message || 'Aguarde a conclusão da operação.';
+    if (miniText) miniText.textContent = title || 'Processando...';
 }
 
-function BeginAppLoading(title = 'Processando', message = 'Aguarde a conclusão da operação.') {
+function beginAppLoading(title = 'Processando', message = 'Aguarde a conclusão da operação.') {
     appLoadingDepth += 1;
     const overlay = document.getElementById('appLoadingOverlay');
     document.querySelectorAll('.app-save-action').forEach(function(btn) {
@@ -2267,100 +2267,100 @@ function BeginAppLoading(title = 'Processando', message = 'Aguarde a conclusão 
         if (!btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
         btn.innerHTML = '⌛ Processando...';
     });
-    se (sobreposição) {
-        setAppLoadingMessage(título, mensagem);
+    if (overlay) {
+        setAppLoadingMessage(title, message);
         overlay.classList.add('active');
         overlay.setAttribute('aria-hidden', 'false');
     }
     const mini = document.getElementById('appLoadingMini');
-    se (mini) mini.classList.add('ativo');
+    if (mini) mini.classList.add('active');
     document.body.classList.add('app-is-loading');
 
-    // Proteção contra uma operação que, por erro externo, nunca é concluída.
-    // Não encerra o processo antes do prazo; apenas impeça o bloqueio infinito.
-    se (appLoadingWatchdog) limparTimeout(appLoadingWatchdog);
+    // Proteção contra uma operação que, por erro externo, nunca conclua.
+    // Não encerra o processo antes do prazo; apenas impede o bloqueio infinito.
+    if (appLoadingWatchdog) clearTimeout(appLoadingWatchdog);
     appLoadingWatchdog = setTimeout(() => {
-        se (appLoadingDepth > 0) {
+        if (appLoadingDepth > 0) {
             console.warn('[Processamento] watchdog acionado; liberando a interface.');
             appLoadingDepth = 0;
-            ocultarCarregamentoAplicativo();
+            hideAppLoading();
             showAlert('A operação demorou além do esperado. Confira o resultado antes de tentar novamente.', 'error');
         }
     }, 120000);
 }
 
-função ocultarCarregamentoAplicativo() {
+function hideAppLoading() {
     appLoadingDepth = Math.max(0, appLoadingDepth - 1);
-    se (appLoadingDepth > 0) retorne;
+    if (appLoadingDepth > 0) return;
 
-    se (appLoadingWatchdog) {
+    if (appLoadingWatchdog) {
         clearTimeout(appLoadingWatchdog);
-        appLoadingWatchdog = nulo;
+        appLoadingWatchdog = null;
     }
 
     const overlay = document.getElementById('appLoadingOverlay');
-    se (sobreposição) {
+    if (overlay) {
         overlay.classList.remove('active');
         overlay.setAttribute('aria-hidden', 'true');
     }
     const mini = document.getElementById('appLoadingMini');
-    se (mini) mini.classList.remove('ativo');
+    if (mini) mini.classList.remove('active');
     document.body.classList.remove('app-is-loading');
     document.querySelectorAll('.app-save-action').forEach(function(btn) {
-        btn.desativado = falso;
+        btn.disabled = false;
         btn.removeAttribute('aria-busy');
         if (btn.dataset.originalText) {
             btn.innerHTML = btn.dataset.originalText;
-            excluir btn.dataset.originalText;
+            delete btn.dataset.originalText;
         }
     });
 }
 
-função forceHideAppLoading() {
+function forceHideAppLoading() {
     appLoadingDepth = 0;
-    se (appLoadingWatchdog) {
+    if (appLoadingWatchdog) {
         clearTimeout(appLoadingWatchdog);
-        appLoadingWatchdog = nulo;
+        appLoadingWatchdog = null;
     }
     const overlay = document.getElementById('appLoadingOverlay');
-    se (sobreposição) {
+    if (overlay) {
         overlay.classList.remove('active');
         overlay.setAttribute('aria-hidden', 'true');
     }
     const mini = document.getElementById('appLoadingMini');
-    se (mini) mini.classList.remove('ativo');
+    if (mini) mini.classList.remove('active');
     document.body.classList.remove('app-is-loading');
     document.querySelectorAll('.app-save-action').forEach(function(btn) {
-        btn.desativado = falso;
+        btn.disabled = false;
         btn.removeAttribute('aria-busy');
         if (btn.dataset.originalText) {
             btn.innerHTML = btn.dataset.originalText;
-            excluir btn.dataset.originalText;
+            delete btn.dataset.originalText;
         }
     });
 }
 
 // Evita que Enter/Espaço dispare outro submit enquanto uma gravação está em curso.
 document.addEventListener('keydown', function(event) {
-    se (appLoadingDepth <= 0) retorne;
-    se (event.key === 'Enter' || event.key === ' ') {
-        evento.prevenirPadrão();
-        evento.pararPropagação();
+    if (appLoadingDepth <= 0) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        event.stopPropagation();
     }
-}, verdadeiro);
+}, true);
 
 // Banco de dados online / autenticação por perfil
-// Para ativar a sincronização on-line, publique o Apps Script fornecido e cole o URL em webAppUrl.
+// Para ativar a sincronização online, publique o Apps Script fornecido e cole a URL em webAppUrl.
 const ONLINE_DATABASE_CONFIG = {
-    ID da planilha: '1xjCIvNNQApEKLEp0R_lrdYShmbIhxItr1zAoy6nfcFw',
-    URL da planilha: 'https://docs.google.com/spreadsheets/d/1xjCIvNNQApEKLEp0R_lrdYShmbIhxItr1zAoy6nfcFw/edit',
+    spreadsheetId: '1xjCIvNNQApEKLEp0R_lrdYShmbIhxItr1zAoy6nfcFw',
+    spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/1xjCIvNNQApEKLEp0R_lrdYShmbIhxItr1zAoy6nfcFw/edit',
     webAppUrl: 'https://script.google.com/macros/s/AKfycby8U_Xt82Rv0mbRxOMQEKDFJ03nZFgk3t60PP3lAFgDchzmzL56r9hjie9Z7GWUxEvH/exec',
-    ativado: verdadeiro
+    enabled: true
 };
 
 let currentSystemUser = {
-    e-mail: '',
-    usuário: '',
+    email: '',
+    usuario: '',
     numero_bombeiro: '',
     cpf: '',
     nome: 'Visitante',
@@ -2377,72 +2377,72 @@ const MIN_PASSWORD_LENGTH = 8;
 let pendingForcedPasswordChangeOldPassword = '';
 
 const USER_PROFILE_RULES = {
-    GESTOR: { nível: 3, visualizar: true, incluir: true, alterar: true, excluir_cancelar: true, gerenciar_usuarios: true },
-    OPERADOR: { nível: 2, visualizar: true, incluir: true, alterar: false, excluir_cancelar: false, gerenciar_usuarios: false },
-    VISITANTE: { nível: 1, visualizar: true, incluir: false, alterar: false, excluir_cancelar: false, gerenciar_usuarios: false }
+    GESTOR: { level: 3, visualizar: true, incluir: true, alterar: true, excluir_cancelar: true, gerenciar_usuarios: true },
+    OPERADOR: { level: 2, visualizar: true, incluir: true, alterar: false, excluir_cancelar: false, gerenciar_usuarios: false },
+    VISITANTE: { level: 1, visualizar: true, incluir: false, alterar: false, excluir_cancelar: false, gerenciar_usuarios: false }
 };
 
-função normalizarPerfilDoSistema(perfil) {
+function normalizeSystemProfile(profile) {
     const p = String(profile || 'VISITANTE').toUpperCase().trim();
-    retornar USER_PROFILE_RULES[p] ? p : 'VISITANTE';
+    return USER_PROFILE_RULES[p] ? p : 'VISITANTE';
 }
 
-função obterDicaDePerfil(perfil) {
+function getProfileHint(profile) {
     const p = normalizeSystemProfile(profile);
     if (p === 'GESTOR') return 'GESTOR: visualiza, inclui, altera, cancela/exclui e gerencia usuários.';
     if (p === 'OPERADOR') return 'OPERADOR: visualiza e inclui novos lançamentos, mas não altera registros já salvos.';
     return 'VISITANTE: somente visualiza os lançamentos.';
 }
 
-função onlyDigits(valor) {
-    retornar String(valor || '').replace(/\D/g, '');
+function onlyDigits(value) {
+    return String(value || '').replace(/\D/g, '');
 }
 
-função normalizeBombeiroLogin(valor) {
-    retornar apenasDígitos(valor).slice(0, 6);
+function normalizeBombeiroLogin(value) {
+    return onlyDigits(value).slice(0, 6);
 }
 
-função validateBombeiroLogin(valor) {
-    const usuário = normalizeBombeiroLogin(valor);
-    return /^\d{6}$/.test(usuário) ? usuário : '';
+function validateBombeiroLogin(value) {
+    const usuario = normalizeBombeiroLogin(value);
+    return /^\d{6}$/.test(usuario) ? usuario : '';
 }
 
-função normalizarCpf(valor) {
-    retornar apenasDigits(valor).slice(0, 11);
+function normalizeCpf(value) {
+    return onlyDigits(value).slice(0, 11);
 }
 
-função formatCpfInput(input) {
+function formatCpfInput(input) {
     const d = normalizeCpf(input?.value || '');
-    deixar sair = d;
-    se (d.length > 9) out = d.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, '$1.$2.$3-$4');
-    senão se (d.length > 6) out = d.replace(/(\d{3})(\d{3})(\d{0,3}).*/, '$1.$2.$3');
-    senão se (d.length > 3) out = d.replace(/(\d{3})(\d{0,3}).*/, '$1.$2');
-    se (entrada) input.value = saída;
+    let out = d;
+    if (d.length > 9) out = d.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, '$1.$2.$3-$4');
+    else if (d.length > 6) out = d.replace(/(\d{3})(\d{3})(\d{0,3}).*/, '$1.$2.$3');
+    else if (d.length > 3) out = d.replace(/(\d{3})(\d{0,3}).*/, '$1.$2');
+    if (input) input.value = out;
 }
 
-função validateSystemPassword(senha) {
-    const p = String(senha || '');
+function validateSystemPassword(password) {
+    const p = String(password || '');
     if (p.length < MIN_PASSWORD_LENGTH) return `A senha deve ter no mínimo ${MIN_PASSWORD_LENGTH} caracteres.`;
     if (!/[A-Za-zÀ-ÿ]/.test(p) || !/\d/.test(p)) return 'A senha deve conter letras e números.';
-    retornar '';
+    return '';
 }
 
-função carregarConfiguraçõesDoBancoDeDadosOnline() {
-    tentar {
+function loadOnlineDatabaseSettings() {
+    try {
         const embeddedUrl = String(ONLINE_DATABASE_CONFIG.webAppUrl || '').trim();
         const saved = JSON.parse(localStorage.getItem(ONLINE_DATABASE_STORAGE_KEY) || '{}');
         const savedUrl = String(saved?.webAppUrl || '').trim();
 
-        // Fonte única: quando o índice já vem com URL /exec embutido, ela tem prioridade.
+        // Fonte única: quando o index já vem com URL /exec embutida, ela tem prioridade.
         // Isso impede que uma configuração antiga do navegador deixe outra máquina em modo local/offline.
-        se (embeddedUrl && embeddedUrl.includes('/exec')) {
+        if (embeddedUrl && embeddedUrl.includes('/exec')) {
             ONLINE_DATABASE_CONFIG.webAppUrl = embeddedUrl;
             ONLINE_DATABASE_CONFIG.enabled = true;
             persistOnlineDatabaseSettings();
-            retornar ONLINE_DATABASE_CONFIG;
+            return ONLINE_DATABASE_CONFIG;
         }
 
-        se (Urlsalvo) {
+        if (savedUrl) {
             ONLINE_DATABASE_CONFIG.webAppUrl = savedUrl;
             ONLINE_DATABASE_CONFIG.enabled = saved.enabled === true || saved.enabled === 'true';
         } else if (ONLINE_DATABASE_CONFIG.webAppUrl) {
@@ -2451,227 +2451,227 @@ função carregarConfiguraçõesDoBancoDeDadosOnline() {
     } catch (e) {
         console.warn('Não foi possível carregar configuração online:', e);
     }
-    retornar ONLINE_DATABASE_CONFIG;
+    return ONLINE_DATABASE_CONFIG;
 }
 
-função persistOnlineDatabaseSettings() {
+function persistOnlineDatabaseSettings() {
     localStorage.setItem(ONLINE_DATABASE_STORAGE_KEY, JSON.stringify({
-        ID da planilha: ONLINE_DATABASE_CONFIG.spreadsheetId,
-        URL da planilha: ONLINE_DATABASE_CONFIG.url da planilha,
+        spreadsheetId: ONLINE_DATABASE_CONFIG.spreadsheetId,
+        spreadsheetUrl: ONLINE_DATABASE_CONFIG.spreadsheetUrl,
         webAppUrl: ONLINE_DATABASE_CONFIG.webAppUrl || '',
-        ativado: ONLINE_DATABASE_CONFIG.enabled === true
+        enabled: ONLINE_DATABASE_CONFIG.enabled === true
     }));
 }
 
-função salvarConfiguraçõesDoBancoDeDadosOnline() {
+function saveOnlineDatabaseSettings() {
     const urlInput = document.getElementById('onlineDatabaseWebAppUrl');
     const enabledInput = document.getElementById('onlineDatabaseEnabled');
     ONLINE_DATABASE_CONFIG.webAppUrl = String(urlInput?.value || '').trim();
     ONLINE_DATABASE_CONFIG.enabled = enabledInput?.checked === true;
 
-    se (ONLINE_DATABASE_CONFIG.enabled && !ONLINE_DATABASE_CONFIG.webAppUrl) {
+    if (ONLINE_DATABASE_CONFIG.enabled && !ONLINE_DATABASE_CONFIG.webAppUrl) {
         ONLINE_DATABASE_CONFIG.enabled = false;
-        se (entrada habilitada) entrada habilitada.marcada = falso;
+        if (enabledInput) enabledInput.checked = false;
         showBudgetError('Banco online não ativado: cole a URL do Web App / Apps Script antes de ativar.');
-        retornar;
+        return;
     }
     persistOnlineDatabaseSettings();
-    atualizarInformaçõesDeConexãoDeLogin();
-    showAlert('Configuração online salva esta máquina.');
+    updateLoginConnectionInfo();
+    showAlert('Configuração online salva nesta máquina.');
 }
 
-função isOnlineDatabaseReady() {
-    retornar ONLINE_DATABASE_CONFIG.enabled === true && !!ONLINE_DATABASE_CONFIG.webAppUrl;
+function isOnlineDatabaseReady() {
+    return ONLINE_DATABASE_CONFIG.enabled === true && !!ONLINE_DATABASE_CONFIG.webAppUrl;
 }
-função carregarSessãoDoUsuárioDoSistema() {
-    tentar {
+function loadSystemUserSession() {
+    try {
         const saved = JSON.parse(sessionStorage.getItem(SYSTEM_USER_STORAGE_KEY) || 'null');
-        se (salvo && token de autenticação salvo && usuário salvo && perfil salvo) aplicarUsuárioOnline(salvo);
-        caso contrário, limpe a sessão do usuário do sistema();
+        if (saved && saved.authToken && saved.usuario && saved.perfil) applyOnlineUser(saved);
+        else clearSystemUserSession();
         // Remove o token legado compartilhado pelas versões anteriores.
         localStorage.removeItem(SYSTEM_USER_STORAGE_KEY);
     } catch (e) { clearSystemUserSession(); }
 }
 
-função salvarSessãoUsuárioDoSistema(usuário) {
-    se (!usuário) retornar;
+function saveSystemUserSession(user) {
+    if (!user) return;
     sessionStorage.setItem(SYSTEM_USER_STORAGE_KEY, JSON.stringify(user));
     localStorage.removeItem(SYSTEM_USER_STORAGE_KEY);
 }
 
-função limparSessãoDoUsuárioDoSistema() {
+function clearSystemUserSession() {
     try { sessionStorage.removeItem(SYSTEM_USER_STORAGE_KEY); } catch (e) {}
     try { localStorage.removeItem(SYSTEM_USER_STORAGE_KEY); } catch (e) {}
 }
 
-função atualizarInterfaceDoUsuárioDoSistema() {
+function updateSystemUserInterface() {
     const user = getCurrentSystemUser();
     const profile = normalizeSystemProfile(user.perfil);
     const badge = document.getElementById('userBadge');
     const loginBtn = document.getElementById('loginHeaderButton');
     const configTab = document.getElementById('configTab');
     const cadastroTab = document.getElementById('cadastroTab');
-    const nome = usuário.nome || usuário.usuario || usuário.e-mail || 'Visitante';
+    const name = user.nome || user.usuario || user.email || 'Visitante';
     const gestorAtivo = profile === 'GESTOR' && String(user.status || '').toUpperCase() === 'ATIVO' && !!user.authToken;
 
-    se (emblema) {
+    if (badge) {
         const icon = profile === 'GESTOR' ? '👨‍💼' : (profile === 'OPERADOR' ? '🧑‍🔧' : '👤');
         badge.textContent = `${icon} ${name} · ${profile}`;
         badge.title = getProfileHint(profile) + ' Clique para entrar ou trocar usuário.';
     }
-    if (loginBtn) loginBtn.textContent = user.email? 'Trocar usuário' : 'Entrar';
+    if (loginBtn) loginBtn.textContent = user.email ? 'Trocar usuário' : 'Entrar';
     if (configTab) configTab.style.display = gestorAtivo ? 'block' : 'none';
     if (cadastroTab) cadastroTab.style.display = gestorAtivo ? 'block' : 'none';
 
     isManager = profile === 'GESTOR';
-    atualizarInformaçõesDeConexãoDeLogin();
+    updateLoginConnectionInfo();
 }
 
-função atualizarInformaçõesDeConexãoDeLogin() {
+function updateLoginConnectionInfo() {
     const info = document.getElementById('loginConnectionInfo');
     const urlInput = document.getElementById('onlineDatabaseWebAppUrl');
     const enabledInput = document.getElementById('onlineDatabaseEnabled');
     const configUrl = document.getElementById('onlineDatabaseWebAppUrlConfig');
     const configEnabled = document.getElementById('onlineDatabaseEnabledConfig');
-    se (urlInput) urlInput.value = ONLINE_DATABASE_CONFIG.webAppUrl || '';
-    se (enabledInput) enabledInput.checked = ONLINE_DATABASE_CONFIG.enabled === true;
-    se (configUrl) configUrl.value = ONLINE_DATABASE_CONFIG.webAppUrl || '';
-    se (configEnabled) configEnabled.checked = ONLINE_DATABASE_CONFIG.enabled === true;
-    se (!info) retornar;
-    se (isOnlineDatabaseReady()) {
-        info.innerHTML = '<span class="login-status-online">Banco online ativo</span> — o login será validado na planilha USUÁRIOS.';
+    if (urlInput) urlInput.value = ONLINE_DATABASE_CONFIG.webAppUrl || '';
+    if (enabledInput) enabledInput.checked = ONLINE_DATABASE_CONFIG.enabled === true;
+    if (configUrl) configUrl.value = ONLINE_DATABASE_CONFIG.webAppUrl || '';
+    if (configEnabled) configEnabled.checked = ONLINE_DATABASE_CONFIG.enabled === true;
+    if (!info) return;
+    if (isOnlineDatabaseReady()) {
+        info.innerHTML = '<span class="login-status-online">Banco online ativo</span> — login será validado na planilha USUARIOS.';
     } else if (ONLINE_DATABASE_CONFIG.webAppUrl) {
         info.innerHTML = '<span class="login-status-offline">Banco online configurado, mas desativado nesta máquina</span>.';
-    } outro {
+    } else {
         info.innerHTML = '<span class="login-status-offline">Banco online não configurado</span> — o login depende do banco central.';
     }
 }
 
 
-função syncOnlineConfigMirror(origin) {
+function syncOnlineConfigMirror(origin) {
     const modalUrl = document.getElementById('onlineDatabaseWebAppUrl');
     const modalEnabled = document.getElementById('onlineDatabaseEnabled');
     const configUrl = document.getElementById('onlineDatabaseWebAppUrlConfig');
     const configEnabled = document.getElementById('onlineDatabaseEnabledConfig');
-    se (origem === 'config') {
-        Se (modalUrl && configUrl) modalUrl.value = configUrl.value;
-        se (modalEnabled && configEnabled) modalEnabled.checked = configEnabled.checked;
-    } outro {
-        Se (configUrl && modalUrl) configUrl.value = modalUrl.value;
+    if (origin === 'config') {
+        if (modalUrl && configUrl) modalUrl.value = configUrl.value;
+        if (modalEnabled && configEnabled) modalEnabled.checked = configEnabled.checked;
+    } else {
+        if (configUrl && modalUrl) configUrl.value = modalUrl.value;
         if (configEnabled && modalEnabled) configEnabled.checked = modalEnabled.checked;
     }
 }
 
-função salvarConfiguraçõesDoBancoDeDadosOnlineDaConfiguração() {
+function saveOnlineDatabaseSettingsFromConfig() {
     const configUrl = document.getElementById('onlineDatabaseWebAppUrlConfig');
     const configEnabled = document.getElementById('onlineDatabaseEnabledConfig');
     ONLINE_DATABASE_CONFIG.webAppUrl = String(configUrl?.value || '').trim();
     ONLINE_DATABASE_CONFIG.enabled = configEnabled?.checked === true;
-    se (ONLINE_DATABASE_CONFIG.enabled && !ONLINE_DATABASE_CONFIG.webAppUrl) {
+    if (ONLINE_DATABASE_CONFIG.enabled && !ONLINE_DATABASE_CONFIG.webAppUrl) {
         ONLINE_DATABASE_CONFIG.enabled = false;
-        se (configEnabled) configEnabled.checked = falso;
+        if (configEnabled) configEnabled.checked = false;
         showBudgetError('Banco online não ativado: cole a URL do Web App / Apps Script antes de ativar.');
-        retornar;
+        return;
     }
     persistOnlineDatabaseSettings();
-    atualizarInformaçõesDeConexãoDeLogin();
-    sincronizarOnlineConfigMirror('login');
+    updateLoginConnectionInfo();
+    syncOnlineConfigMirror('login');
     showAlert('Banco online salvo. Use o botão Abrir Login para entrar com o usuário cadastrado.');
 }
 
-função abrirModalDeLogin() {
-    carregarConfiguraçõesDoBancoDeDadosOnline();
+function openLoginModal() {
+    loadOnlineDatabaseSettings();
     const modal = document.getElementById('systemLoginModal');
     const user = getCurrentSystemUser();
     const emailInput = document.getElementById('systemLoginEmail');
     const passwordInput = document.getElementById('systemLoginPassword');
-    se (emailInput) emailInput.value = user.usuario || user.numero_bombeiro || DEFAULT_GESTOR_LOGIN;
-    se (passwordInput) passwordInput.value = '';
-    atualizarInformaçõesDeConexãoDeLogin();
-    se (modal) modal.classList.add('ativo');
+    if (emailInput) emailInput.value = user.usuario || user.numero_bombeiro || DEFAULT_GESTOR_LOGIN;
+    if (passwordInput) passwordInput.value = '';
+    updateLoginConnectionInfo();
+    if (modal) modal.classList.add('active');
 }
 
-função closeLoginModal() {
+function closeLoginModal() {
     const modal = document.getElementById('systemLoginModal');
-    se (modal) modal.classList.remove('ativo');
+    if (modal) modal.classList.remove('active');
 }
 
-função atualizarDicaDePerfilDeLogin() {
+function updateLoginProfileHint() {
     // Mantida apenas para compatibilidade com versões anteriores do HTML.
 }
-função hasValidOnlineSession() {
+function hasValidOnlineSession() {
     const user = getCurrentSystemUser();
-    return !!(isOnlineDatabaseReady() && usuário?.authToken && String(usuário?.status || '').toUpperCase() === 'ATIVO' && (usuário?.usuario || usuário?.numero_bombeiro));
+    return !!(isOnlineDatabaseReady() && user?.authToken && String(user?.status || '').toUpperCase() === 'ATIVO' && (user?.usuario || user?.numero_bombeiro));
 }
-função assíncrona doSystemLogin() {
-    carregarConfiguraçõesDoBancoDeDadosOnline();
+async function doSystemLogin() {
+    loadOnlineDatabaseSettings();
     const usuario=validateBombeiroLogin(document.getElementById('systemLoginEmail')?.value || '');
     const password=String(document.getElementById('systemLoginPassword')?.value || '');
-    if(!usuário||!password){showBudgetError('Informe o usuário com 6 números e senha.');return;}
+    if(!usuario||!password){showBudgetError('Informe o usuário com 6 números e a senha.');return;}
     if(!isOnlineDatabaseReady()){showBudgetError('Banco online não está ativo.');return;}
 
-    // Cancela logicamente qualquer validação/polling que tenha sido iniciada
+    // Cancela logicamente qualquer validação/polling que tenha sido iniciado
     // antes deste login. A resposta antiga não poderá sobrescrever o novo token.
     sessionGenerationV9 += 1;
     const loginGeneration = sessionGenerationV9;
-    BeginAppLoading('Autenticando','Validando usuário no banco central.');
-    tentar{
+    beginAppLoading('Autenticando','Validando o usuário no banco central.');
+    try{
         const res=await onlineDbPost({action:'login',usuario,password,requestId:newClientOperationIdV9('LOGIN')},45000);
         if(!res||res.success!==true||!res.user)throw new Error(res?.message||'Resposta inválida do banco central.');
         if(loginGeneration!==sessionGenerationV9)throw new Error('Outra tentativa de login foi iniciada.');
-        aplicarUsuárioOnline(res.usuário);
-        salvarSessãoUsuárioDoSistema(obterUsuárioAtualDoSistema());
-        atualizarInterfaceUsuárioDoSistema();
-        fecharModalDeLogin();
-        aguardar loadOnlineBudgetData(false);
-        aguardar carregarManutenaçõesDaPlanilha();
+        applyOnlineUser(res.user);
+        saveSystemUserSession(getCurrentSystemUser());
+        updateSystemUserInterface();
+        closeLoginModal();
+        await loadOnlineBudgetData(false);
+        await loadMaintenancesFromSheet();
         await syncQueuedMutationsV9({silent:true});
-        if(String(res.user.cadastro_incompleto||'').toUpperCase()==='SIM'){openManagerProfileCompletionModal();showAlert('Primeiro acesso identificado. Cadastro completo do gestor.');}
+        if(String(res.user.cadastro_incompleto||'').toUpperCase()==='SIM'){openManagerProfileCompletionModal();showAlert('Primeiro acesso identificado. Complete o cadastro do gestor.');}
         else if(String(res.user.precisa_trocar_senha||'').toUpperCase()==='SIM'){pendingForcedPasswordChangeOldPassword=password;openForcePasswordChangeModal(true,password);showAlert('Primeiro acesso identificado. Crie sua senha pessoal.');}
         else showAlert(`Login realizado como ${currentSystemUser.nome||currentSystemUser.usuario} (${currentSystemUser.perfil}).`);
-    }catch(err){showBudgetError('Falha sem login: '+(err.message||err));}
-    finalmente{ocultarCarregamentoAplicativo();}
+    }catch(err){showBudgetError('Falha no login: '+(err.message||err));}
+    finally{hideAppLoading();}
 }
 
 
-função assíncrona doSystemLogout() {
+async function doSystemLogout() {
     const oldToken=String(getCurrentSystemUser()?.authToken||'');
     sessionGenerationV9 += 1;
-    limparSessãoUsuárioDoSistema();
-    currentSystemUser={email:'',usuário:'',numero_bombeiro:'',nome:'Visitante',perfil:'VISITANTE',status:'LOCAL',authToken:'',authMode:'LOCAL'};
-    atualizarInterfaceUsuárioDoSistema();
-    fecharModalDeLogin();
+    clearSystemUserSession();
+    currentSystemUser={email:'',usuario:'',numero_bombeiro:'',nome:'Visitante',perfil:'VISITANTE',status:'LOCAL',authToken:'',authMode:'LOCAL'};
+    updateSystemUserInterface();
+    closeLoginModal();
     // O logout remoto é disparado com o token capturado, mas a interface já é
     // imediatamente independente de qualquer resposta tardia do servidor.
-    se(isOnlineDatabaseReady()&&oldToken){
+    if(isOnlineDatabaseReady()&&oldToken){
         try{await onlineDbRequest({action:'logout',authToken:oldToken},1,10000);}catch(e){console.warn('Falha ao encerrar sessão no backend:',e);}
     }
     showAlert('Usuário desconectado. Faça login para acessar os dados online.');
 }
 
 
-função loginComoVisitante() {
-    showBudgetError('O acesso visitante também deve ser cadastrado pelo gestor. Use usuário de 6 números e senha de um perfil VISITANTE.');
+function loginAsVisitor() {
+    showBudgetError('Acesso visitante também deve ser cadastrado pelo gestor. Use usuário de 6 números e senha de um perfil VISITANTE.');
 }
 
-função assíncrona testOnlineDatabaseLogin() {
-    salvarConfiguraçõesDoBancoDeDadosOnline();
-    Se (!isOnlineDatabaseReady()) retornar;
-    tentar {
+async function testOnlineDatabaseLogin() {
+    saveOnlineDatabaseSettings();
+    if (!isOnlineDatabaseReady()) return;
+    try {
         const url = buildUrl(ONLINE_DATABASE_CONFIG.webAppUrl, { action: 'ping', _: Date.now() });
         const res = await jsonpRequestWithRetry(url, 3, 20000);
         if (!res || res.success !== true) throw new Error((res && res.message) ? res.message : 'Sem resposta válida.');
-        showAlert('Conexão com o banco online testado com sucesso.');
-    } catch (erro) {
+        showAlert('Conexão com o banco online testada com sucesso.');
+    } catch (err) {
         showBudgetError('Falha ao testar o banco online: ' + (err.message || err));
     }
 }
 
 
-função openForcePasswordChangeModal(required = false, oldPassword = '') {
-    se (!hasValidOnlineSession()) {
+function openForcePasswordChangeModal(required = false, oldPassword = '') {
+    if (!hasValidOnlineSession()) {
         showBudgetError('Faça login antes de alterar a senha.');
-        retornar;
+        return;
     }
     const modal = document.getElementById('forcePasswordChangeModal');
     const requiredInput = document.getElementById('forcePasswordRequired');
@@ -2680,80 +2680,80 @@ função openForcePasswordChangeModal(required = false, oldPassword = '') {
     const confirmInput = document.getElementById('forceNewPasswordConfirm');
     const closeButton = document.getElementById('forcePasswordCloseButton');
     const info = document.getElementById('forcePasswordInfo');
-    se (entradaObrigatória) entradaObrigatória.valor = obrigatório ? 'SIM' : 'NAO';
-    se (oldInput) oldInput.value = oldPassword || '';
-    se (newInput) newInput.value = '';
-    se (confirmInput) confirmInput.value = '';
-    se (closeButton) closeButton.style.display = required ? 'none' : 'inline-flex';
-    se (info) info.innerHTML = obrigatório
-        ? 'Seu acesso é com senha inicial temporária. Para continuar usando o sistema, crie uma senha pessoal.'
+    if (requiredInput) requiredInput.value = required ? 'SIM' : 'NAO';
+    if (oldInput) oldInput.value = oldPassword || '';
+    if (newInput) newInput.value = '';
+    if (confirmInput) confirmInput.value = '';
+    if (closeButton) closeButton.style.display = required ? 'none' : 'inline-flex';
+    if (info) info.innerHTML = required
+        ? 'Seu acesso está com senha inicial temporária. Para continuar usando o sistema, crie uma senha pessoal.'
         : 'Informe a senha atual e cadastre uma nova senha pessoal.';
-    se (modal) modal.classList.add('ativo');
+    if (modal) modal.classList.add('active');
 }
 
-função closeForcePasswordChangeModal() {
+function closeForcePasswordChangeModal() {
     const required = String(document.getElementById('forcePasswordRequired')?.value || '').toUpperCase() === 'SIM';
-    se (obrigatório) {
+    if (required) {
         showBudgetError('A alteração da senha é obrigatória no primeiro acesso.');
-        retornar;
+        return;
     }
     const modal = document.getElementById('forcePasswordChangeModal');
-    se (modal) modal.classList.remove('ativo');
+    if (modal) modal.classList.remove('active');
 }
 
-função assíncrona submitForcedPasswordChange(event) {
-    se (evento) evento.preventDefault();
-    se (!hasValidOnlineSession()) {
+async function submitForcedPasswordChange(event) {
+    if (event) event.preventDefault();
+    if (!hasValidOnlineSession()) {
         showBudgetError('Sessão inválida. Faça login novamente.');
-        retornar;
+        return;
     }
     const oldPassword = String(document.getElementById('forceOldPassword')?.value || pendingForcedPasswordChangeOldPassword || '');
-    const novaSenha = String(document.getElementById('forceNewPassword')?.value || '');
+    const newPassword = String(document.getElementById('forceNewPassword')?.value || '');
     const confirmPassword = String(document.getElementById('forceNewPasswordConfirm')?.value || '');
-    if (!oldPassword || !newPassword || !confirmPassword) { showBudgetError('Preencha uma senha atual, uma nova senha e uma confirmação.'); retornar; }
-    if (newPassword !== confirmPassword) { showBudgetError('As senhas não conferênciam.'); retornar; }
+    if (!oldPassword || !newPassword || !confirmPassword) { showBudgetError('Preencha a senha atual, a nova senha e a confirmação.'); return; }
+    if (newPassword !== confirmPassword) { showBudgetError('As senhas não conferem.'); return; }
     const validationError = validateSystemPassword(newPassword);
-    if (validationError) { showBudgetError(validationError); retornar; }
-    if (oldPassword === newPassword) { showBudgetError('Uma nova senha deve ser diferente da senha inicial/atual.'); retornar; }
-    tentar {
+    if (validationError) { showBudgetError(validationError); return; }
+    if (oldPassword === newPassword) { showBudgetError('A nova senha deve ser diferente da senha inicial/atual.'); return; }
+    try {
         const res = await onlineDbPost({ action: 'changePassword', oldPassword, newPassword, requestId: newClientOperationIdV9('PWD') }, 30000);
         if (!res || res.success !== true) throw new Error(res?.message || 'Falha ao alterar senha.');
         pendingForcedPasswordChangeOldPassword = '';
         currentSystemUser.precisa_trocar_senha = 'NAO';
-        salvarSessãoUsuárioDoSistema(obterUsuárioAtualDoSistema());
+        saveSystemUserSession(getCurrentSystemUser());
         const modal = document.getElementById('forcePasswordChangeModal');
-        se (modal) modal.classList.remove('ativo');
-        atualizarInterfaceUsuárioDoSistema();
+        if (modal) modal.classList.remove('active');
+        updateSystemUserInterface();
         showAlert('Senha alterada com sucesso.');
-    } catch (erro) {
+    } catch (err) {
         showBudgetError('Falha ao alterar senha: ' + (err.message || err));
     }
 }
 
-função alterarPrópriaSenha() {
+function changeOwnPassword() {
     openForcePasswordChangeModal(false, '');
 }
 
-função abrirModalDeGerenciamentoDeUsuários() {
+function openUserManagementModal() {
     if (!requireBudgetPermission('gerenciar_usuarios', 'gerenciar usuários')) return;
     const btn = document.getElementById('cadastroTab');
     switchTab('cadastro', btn || null);
-    carregarUsuáriosCadastro();
+    loadCadastroUsers();
 }
 
-função fecharModalDeGerenciamentoDeUsuários() {
+function closeUserManagementModal() {
     const modal = document.getElementById('userManagementModal');
-    se (modal) modal.classList.remove('ativo');
+    if (modal) modal.classList.remove('active');
 }
 
-função assíncrona carregarDadosDeGerenciamentoDeUsuários() {
-    se (typeof loadCadastroUsers === 'function') retorne loadCadastroUsers();
+async function loadUserManagementData() {
+    if (typeof loadCadastroUsers === 'function') return loadCadastroUsers();
     throw new Error('Módulo de cadastro de usuários não está disponível.');
 }
 
-função renderizarPainelDeGerenciamentoDeUsuários(usuários, solicitações) {
+function renderUserManagementPanel(users, requests) {
     const content = document.getElementById('userManagementContent');
-    se (!conteúdo) retorne;
+    if (!content) return;
     const pending = (requests || []).filter(r => String(r.status || '').toUpperCase() === 'PENDENTE');
     const reqHtml = pending.length ? pending.map(r => `
         <tr>
@@ -2788,7 +2788,7 @@ função renderizarPainelDeGerenciamentoDeUsuários(usuários, solicitações) {
                 <button class="btn btn-secondary" style="padding:.35rem .6rem;" onclick="resetPasswordFromAdmin('${escapeHTML(u.email)}')">Senha</button>
             </td>
         </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);">Nenhum usuário cadastrado.</td></tr>';
-    conteúdo.innerHTML = `
+    content.innerHTML = `
         <div class="login-profile-card">
             <h3 style="color:var(--secondary);margin-bottom:.8rem;">Solicitações pendentes</h3>
             <small class="login-small-note">Fluxo principal: acessos criados diretamente pelo gestor. Solicitações antigas continuam visíveis se existirem.</small>
@@ -2799,73 +2799,73 @@ função renderizarPainelDeGerenciamentoDeUsuários(usuários, solicitações) {
             <div style="overflow:auto;"><table class="budget-table"><thead><tr><th>Nome</th><th>Usuário</th><th>Gmail</th><th>CPF</th><th>Perfil</th><th>Status</th><th>Senha</th><th>Trocar senha?</th><th>Último login</th><th>Ações</th></tr></thead><tbody>${usersHtml}</tbody></table></div>
         </div>`;
 }
-função assíncrona approveSignupRequest(id) {
+async function approveSignupRequest(id) {
     if (!requireBudgetPermission('gerenciar_usuarios','aprovar usuários')) return;
     const perfil=prompt('Perfil final do usuário: GESTOR, OPERADOR ou VISITANTE','OPERADOR');if(!perfil)return;
-    BeginAppLoading('Aprovando usuário','Gravando aprovação no banco central.');
-    try{const res=await onlineDbPost({action:'approveSignup',id,perfil:String(perfil).toUpperCase(),requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)lançar novo erro(res?.message||'Falha ao aprovar.');showAlert('Solicitação aprovada.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao aprovar usuário: '+(err.message||err));}finally{hideAppLoading();}
+    beginAppLoading('Aprovando usuário','Gravando a aprovação no banco central.');
+    try{const res=await onlineDbPost({action:'approveSignup',id,perfil:String(perfil).toUpperCase(),requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao aprovar.');showAlert('Solicitação aprovada.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao aprovar usuário: '+(err.message||err));}finally{hideAppLoading();}
 }
-função assíncrona rejeitar solicitação de inscrição(id) {
+async function rejectSignupRequest(id) {
     if (!requireBudgetPermission('gerenciar_usuarios','rejeitar usuários')) return;
-    const motivo=prompt('Motivo/observação da exclusão:','Rejeitada pelo gestor.');if(motivo===null)return;
-    BeginAppLoading('Rejeitando solicitação','Gravando a decisão no banco central.');
+    const motivo=prompt('Motivo/observação da rejeição:','Rejeitada pelo gestor.');if(motivo===null)return;
+    beginAppLoading('Rejeitando solicitação','Gravando a decisão no banco central.');
     try{const res=await onlineDbPost({action:'rejectSignup',id,motivo,requestId:newClientOperationIdV9('USR')},30000);if(!res||res.success!==true)throw new Error(res?.message||'Falha ao rejeitar.');showAlert('Solicitação rejeitada.');await loadUserManagementData();}catch(err){showBudgetError('Falha ao rejeitar usuário: '+(err.message||err));}finally{hideAppLoading();}
 }
 
 
-função abrirPlanilhaDoBancoDeDadosOnline() {
-    janela.abrir(ONLINE_DATABASE_CONFIG.spreadsheetUrl, '_blank');
+function openOnlineDatabaseSheet() {
+    window.open(ONLINE_DATABASE_CONFIG.spreadsheetUrl, '_blank');
 }
 
-função assíncrona carregarManutenaçõesDaPlanilha() {
-    se (!isOnlineDatabaseReady() || !hasValidOnlineSession()) {
+async function loadMaintenancesFromSheet() {
+    if (!isOnlineDatabaseReady() || !hasValidOnlineSession()) {
         syncGate.maintReady = false;
-        retornar falso;
+        return false;
     }
-    tentar {
+    try {
         const data = await onlineDbRequest({ action: 'listMaint', _: Date.now() }, 3, 30000);
         if (!data || data.success !== true) throw new Error(data?.message || 'Falha ao carregar manutenções do banco central.');
         const raw = Array.isArray(data.items) ? data.items : [];
         const map = {};
         const pushUnderKeys = (it, keys) => {
-            chaves.forEach(k => {
-                se (!map[k]) map[k] = [];
+            keys.forEach(k => {
+                if (!map[k]) map[k] = [];
                 map[k].push(it);
             });
         };
         raw.forEach(it => {
             const keys = getMaintenanceKeyCandidates(it);
-            se (!keys.length) retorne;
-            empurrarSobAsTeclas(isso, teclas);
+            if (!keys.length) return;
+            pushUnderKeys(it, keys);
         });
         Object.keys(map).forEach(k => {
             map[k].sort((a, b) => {
-                const da = parseDateValue(a.dataManutencao || a.data_manutencao || a.data || a.date || a.criado_em) || nova Data(0);
-                const db = parseDateValue(b.dataManutencao || b.data_manutencao || b.data || b.date || b.criado_em) || nova Data(0);
-                retornar db.getTime() - da.getTime();
+                const da = parseDateValue(a.dataManutencao || a.data_manutencao || a.data || a.date || a.criado_em) || new Date(0);
+                const db = parseDateValue(b.dataManutencao || b.data_manutencao || b.data || b.date || b.criado_em) || new Date(0);
+                return db.getTime() - da.getTime();
             });
         });
-        manutenções = mapa;
-        window.maintenances = manutenções;
+        maintenances = map;
+        window.maintenances = maintenances;
         const total = Object.values(map).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
-        console.log(`Manutenções centrais investimentos: ${total} registros.`);
+        console.log(`Manutenções centrais carregadas: ${total} registros.`);
         syncGate.maintReady = true;
-        retornar verdadeiro;
-    } catch (erro) {
+        return true;
+    } catch (err) {
         console.warn('Falha ao carregar manutenções do banco central:', err);
         syncGate.maintReady = false;
-        retornar falso;
+        return false;
     }
 }
 
 
-// { vehicleId: [registros de manutenção] }
+// { vehicleId: [maintenance records] }
         let editingId = null;
-        seja currentMaintenanceVehicleId = nulo;
-        seja currentMaintenanceVehicle = null;
+        let currentMaintenanceVehicleId = null;
+        let currentMaintenanceVehicle = null;
         
-        // Novas variáveis ​​para recursos adicionados
-        seja isManager = falso;
+        // Novas variáveis para recursos adicionados
+        let isManager = false;
                 let charts = {};
 
 // =====================================
@@ -2873,12 +2873,12 @@ função assíncrona carregarManutenaçõesDaPlanilha() {
 // =====================================
 const FLEET_API = "https://script.google.com/macros/s/AKfycbz-Wdo8vAl3tpNnKBH_m3iYpjN6Am6vGZoGxbDEb0MWPUSk6mzZAIWwP1BH6pQpcbbGjQ/exec";
 
-função assíncrona syncFleetFromSheet(force = true) {
+async function syncFleetFromSheet(force = true) {
     const statusEl = document.getElementById("syncStatus");
-    tentar {
-        se (statusEl) {
+    try {
+        if (statusEl) {
             const syncButton = statusEl.querySelector('button');
-            se (syncButton) syncButton.disabled = true;
+            if (syncButton) syncButton.disabled = true;
             statusEl.querySelector('#lastSyncOk').textContent = "● sincronizando...";
         }
         
@@ -2889,14 +2889,14 @@ função assíncrona syncFleetFromSheet(force = true) {
         const data = await jsonpRequestWithRetry(url, 3, 30000);
             
         
-        console.log('Dados analisados:', {
-            sucesso: dados.sucesso,
+        console.log('Dados parseados:', {
+            success: data.success,
             vehiclesCount: (data.vehicles || []).length,
-            atualizadoEm: dados.atualizadoEm
+            updatedAt: data.updatedAt
         });
         
         // LOG: Mostrar dados brutos da primeira viatura COM TODOS OS CAMPOS
-        se (dados.veículos && dados.veículos.comprimento > 0) {
+        if (data.vehicles && data.vehicles.length > 0) {
             console.log('=== DADOS BRUTOS DA PRIMEIRA VIATURA (TODOS OS CAMPOS) ===');
             console.log('Chaves disponíveis:', Object.keys(data.vehicles[0]));
             console.log('Dados completos:', data.vehicles[0]);
@@ -2987,45 +2987,45 @@ função assíncrona syncFleetFromSheet(force = true) {
             console.warn('Erro ao salvar cache local:', e);
         }
 
-        se (typeof renderVehicles === "function") {
-            renderVeículos();
-            atualizarEstatísticas();
+        if (typeof renderVehicles === "function") {
+            renderVehicles();
+            updateStats();
             populateCityFilter();
             console.log('Interface atualizada');
         }
 
         const upd = data.updatedAt ? new Date(data.updatedAt) : new Date();
-        se (statusEl) {
+        if (statusEl) {
             statusEl.querySelector('#lastSyncAt').textContent = upd.toLocaleString("pt-BR");
             statusEl.querySelector('#lastSyncOk').textContent = "● sincronizado ✓";
             statusEl.querySelector('#lastSyncOk').style.color = 'lightgreen';
             const syncButton = statusEl.querySelector('button');
-            se (syncButton) syncButton.disabled = false;
+            if (syncButton) syncButton.disabled = false;
         }
         console.log('Sincronização concluída com sucesso');
-        retornar verdadeiro;
-    } catch (erro) {
+        return true;
+    } catch (err) {
         console.error("Erro ao sincronizar frota:", err);
         syncGate.fleetReady = false;
-        se (statusEl) {
+        if (statusEl) {
             statusEl.querySelector('#lastSyncOk').textContent = `● falha (${err.message})`;
             statusEl.querySelector('#lastSyncOk').style.color = 'crimson';
             const syncButton = statusEl.querySelector('button');
-            se (syncButton) syncButton.disabled = false;
+            if (syncButton) syncButton.disabled = false;
         }
         
         // Tenta usar cache local como fallback
-        tentar {
+        try {
             const cached = JSON.parse(localStorage.getItem("vehicles_cache") || "null");
-            se (cached && Array.isArray(cached.vehicles) && cached.vehicles.length) {
-                veículos = veículos.em.cache;
-                se (typeof renderVehicles === "function") {
-                    renderVeículos();
-                    atualizarEstatísticas();
+            if (cached && Array.isArray(cached.vehicles) && cached.vehicles.length) {
+                vehicles = cached.vehicles;
+                if (typeof renderVehicles === "function") {
+                    renderVehicles();
+                    updateStats();
                     populateCityFilter();
                 }
-                se (statusEl) {
-                    statusEl.querySelector('#lastSyncOk').textContent += '[cache local]';
+                if (statusEl) {
+                    statusEl.querySelector('#lastSyncOk').textContent += ' [cache local]';
                     statusEl.querySelector('#lastSyncOk').style.color = 'orange';
                 }
                 console.log('Usando dados do cache local');
@@ -3034,28 +3034,28 @@ função assíncrona syncFleetFromSheet(force = true) {
             console.error('Erro ao carregar cache:', cacheErr);
         }
         
-        retornar falso;
+        return false;
     }
 }
 
-função assíncrona bootSyncPlanilhaVerdade() {
-    // Carrega cache rápido (opcional) e sincronizado com a planilha verdade
-    tentar {
+async function bootSyncPlanilhaVerdade() {
+    // Carrega cache rápido (opcional) e sincroniza com a planilha verdade
+    try {
         const cached = JSON.parse(localStorage.getItem("vehicles_cache") || "null");
-        se (cached && Array.isArray(cached.vehicles) && cached.vehicles.length) {
-            veículos = veículos.em.cache;
-            se (typeof renderVehicles === "function") {
-                renderVeículos();
-                atualizarEstatísticas();
+        if (cached && Array.isArray(cached.vehicles) && cached.vehicles.length) {
+            vehicles = cached.vehicles;
+            if (typeof renderVehicles === "function") {
+                renderVehicles();
+                updateStats();
                 populateCityFilter();
             }
-            console.log('Cache suspenso temporariamente');
+            console.log('Cache carregado temporariamente');
         }
     } catch (e) {
-        console.warn('Cache Nenhum disponível');
+        console.warn('Nenhum cache disponível');
     }
 
-    aguardar syncFleetFromSheet(true);
+    await syncFleetFromSheet(true);
 
     
     console.log("Carregando manutenções da planilha...");
@@ -3136,94 +3136,94 @@ async function ensureMaintenanceAuthorization(actionLabel = 'executar esta açã
       expiresAt: Date.now() + MAINT_AUTH_TTL_MS
     };
     maintenanceUserMatricula = cleanMat;
-    retornar tapete limpo;
-  } catch (erro) {
+    return cleanMat;
+  } catch (err) {
     clearMaintenanceAuthorization();
     console.error(err);
     showAlert('Não foi possível validar a matrícula: ' + (err.message || err), 'error');
-    retornar nulo;
+    return null;
   }
 }
 
 // Compatibilidade com versões anteriores do arquivo.
-função assíncrona requestMaintenanceAuthorization(actionLabel = 'registrar-se') {
-  retornar ensureMaintenanceAuthorization(actionLabel);
+async function requestMaintenanceAuthorization(actionLabel = 'registrar manutenção') {
+  return ensureMaintenanceAuthorization(actionLabel);
 }
 
-função buildUrl(baseUrl, params) {
+function buildUrl(baseUrl, params) {
     const u = new URL(baseUrl);
     Object.entries(params || {}).forEach(([k, v]) => {
-        se (v === indefinido || v === nulo) retorne;
-        seja o valor;
-        se (tipo de v === 'objeto') {
-            valor = JSON.stringify(v);
-        } outro {
-            valor = String(v);
+        if (v === undefined || v === null) return;
+        let value;
+        if (typeof v === 'object') {
+            value = JSON.stringify(v);
+        } else {
+            value = String(v);
         }
-        u.searchParams.set(k, valor);
+        u.searchParams.set(k, value);
     });
-    retornar u.toString();
+    return u.toString();
 }
 
-função assíncrona jsonpRequestWithRetry(url, tries = 3, timeoutMs = 30000) {
-    seja lastErr = nulo;
-    para (seja i = 0; i < tentativas; i++) {
-        tentar {
-            // nível de jitter/recuo
-            se (i > 0) aguarde nova Promise(r => setTimeout(r, 500 * i));
-            retornar await jsonpRequest(url, timeoutMs);
-        } catch (erro) {
-            últimoErro = erro;
+async function jsonpRequestWithRetry(url, tries = 3, timeoutMs = 30000) {
+    let lastErr = null;
+    for (let i = 0; i < tries; i++) {
+        try {
+            // jitter/backoff leve
+            if (i > 0) await new Promise(r => setTimeout(r, 500 * i));
+            return await jsonpRequest(url, timeoutMs);
+        } catch (err) {
+            lastErr = err;
         }
     }
-    lançar lastErr || novo Erro('Falha JSONP');
+    throw lastErr || new Error('Falha JSONP');
 }
 
 
-        função setSyncIndicator(ok, updatedAtIso) {
+        function setSyncIndicator(ok, updatedAtIso) {
             const at = document.getElementById('lastSyncAt');
             const okEl = document.getElementById('lastSyncOk');
-            se (!at || !okEl) retorne;
+            if (!at || !okEl) return;
         
-            se (atualizadoEmIso) {
+            if (updatedAtIso) {
                 const d = new Date(updatedAtIso);
                 at.textContent = isNaN(d.getTime())
-                    ? String(atualizadoEmIso)
+                    ? String(updatedAtIso)
                     : d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
             }
         
-            okEl.textContent = ok? '● sincronizado' : '● falha ao sincronizar';
-            okEl.style.color = ok ? 'verde' : 'carmesim';
+            okEl.textContent = ok ? '● sincronizado' : '● falha ao sincronizar';
+            okEl.style.color = ok ? 'green' : 'crimson';
         }
 
-        função assíncrona syncAllOnlineData(force = true) {
+        async function syncAllOnlineData(force = true) {
             let fleetOk = false;
-            tentar {
-                fleetOk = aguarde syncFleetFromSheet(force);
-            } catch (erro) {
+            try {
+                fleetOk = await syncFleetFromSheet(force);
+            } catch (err) {
                 console.warn('Falha ao sincronizar frota:', err);
             }
 
             let budgetOk = false;
-            tentar {
-                carregarConfiguraçõesDoBancoDeDadosOnline();
-                se (isOnlineDatabaseReady() && hasValidOnlineSession()) {
-                    budgetOk = aguarde carregarDadosOrçamentoOnline(true);
+            try {
+                loadOnlineDatabaseSettings();
+                if (isOnlineDatabaseReady() && hasValidOnlineSession()) {
+                    budgetOk = await loadOnlineBudgetData(true);
                 } else if (isOnlineDatabaseReady()) {
                     setOnlineDbSyncStatus('Banco online ativo. Faça login para carregar contratos/orçamentos.');
                 }
-            } catch (erro) {
+            } catch (err) {
                 console.warn('Falha ao sincronizar banco online:', err);
             }
 
-            retornar frotaOK || orçamentoOK;
+            return fleetOk || budgetOk;
         }
 
         // === AUTENTICAÇÃO / LOGIN POR PERFIL ===
-função verificarAutenticação() {
-    carregarConfiguraçõesDoBancoDeDadosOnline();
-    carregarSessãoUsuárioDoSistema();
-    atualizarInterfaceUsuárioDoSistema();
+function checkAuth() {
+    loadOnlineDatabaseSettings();
+    loadSystemUserSession();
+    updateSystemUserInterface();
     // A validação remota é executada uma única vez no boot, depois que todas as
     // rotinas V9 de sessão já estão carregadas. Isso elimina a corrida de inicialização.
 }
@@ -3501,88 +3501,88 @@ function budgetQuoteToMaintenanceRecord(q) {
         custo: Number(q.maintenanceCost || total || 0) || 0,
         cost: Number(q.maintenanceCost || total || 0) || 0,
         responsavel: q.maintenanceResponsible || q.lastChangedBy || '',
-        responsável: q.maintenanceResponsible || q.lastChangedBy || '',
-        matrícula: q.maintenanceMatricula || q.lastChangedMatricula || '',
-        observatórios: notas,
-        notas,
+        responsible: q.maintenanceResponsible || q.lastChangedBy || '',
+        matricula: q.maintenanceMatricula || q.lastChangedMatricula || '',
+        observacoes: notes,
+        notes,
         timestamp: `ORC_${q.id}`
     };
 }
 
-função obterRegistrosDeManutençãoDoOrçamento() {
+function getBudgetQuoteMaintenanceRecords() {
     if (!Array.isArray(budgetQuotes)) return [];
-    retornar budgetQuotes.map(budgetQuoteToMaintenanceRecord).filter(Boolean);
+    return budgetQuotes.map(budgetQuoteToMaintenanceRecord).filter(Boolean);
 }
 
-função obterRegistroDeManutençãoDoOrçamentoParaVeículo(vOrId) {
-    se (!vOrId) retorne [];
+function getBudgetQuoteMaintenanceRecordsForVehicle(vOrId) {
+    if (!vOrId) return [];
     const keys = typeof vOrId === 'string'
         ? [normalizeKey(vOrId)]
         : getVehicleKeyCandidates(vOrId);
-    se (!keys.length) retorne [];
-    retornar getBudgetQuoteMaintenanceRecords().filter(item => {
+    if (!keys.length) return [];
+    return getBudgetQuoteMaintenanceRecords().filter(item => {
         const itemKeys = getMaintenanceKeyCandidates(item);
         return itemKeys.some(k => keys.some(vk => k === vk || k.includes(vk) || vk.includes(k)));
     });
 }
 
 // Retorna lista de manutenções para uma viatura, tentando por placa e por prefixo
-função obterManutenaçõesParaVeículo(vOrId) {
-    const store = window.maintenances || manutenções || {};
+function getMaintenancesForVehicle(vOrId) {
+    const store = window.maintenances || maintenances || {};
     const coerce = (val) => {
-        se (!val) retorne [];
-        retornar Array.isArray(val)? val: [val];
+        if (!val) return [];
+        return Array.isArray(val) ? val : [val];
     };
 
-    se (!vOrId) retorne [];
+    if (!vOrId) return [];
 
     const keys = typeof vOrId === "string"
         ? [normalizeKey(vOrId)]
         : getVehicleKeyCandidates(vOrId);
 
-    const visto = novo Conjunto();
+    const seen = new Set();
     const out = [];
 
-    chaves.forEach(k => {
+    keys.forEach(k => {
         coerce(store[k]).forEach(item => {
-            const único = chaveúnicademanutenção(item);
-            se (visto.tem(único)) retorne;
-            visto.adicionar(único);
-            fora.empurrar(item);
+            const unique = maintenanceUniqueKey(item);
+            if (seen.has(unique)) return;
+            seen.add(unique);
+            out.push(item);
         });
     });
 
     getBudgetQuoteMaintenanceRecordsForVehicle(vOrId).forEach(item => {
-        const único = chaveúnicademanutenção(item);
-        se (visto.tem(único)) retorne;
-        visto.adicionar(único);
-        fora.empurrar(item);
+        const unique = maintenanceUniqueKey(item);
+        if (seen.has(unique)) return;
+        seen.add(unique);
+        out.push(item);
     });
 
-    retornar para fora;
+    return out;
 }
-janela.getMaintenancesForVehicle = getMaintenancesForVehicle;
+window.getMaintenancesForVehicle = getMaintenancesForVehicle;
 // =========================
 // Padronização de "Cidade de Lotação" (coluna G da planilha verdade)
 // Regras definidas pela Seção de Transporte
 // =========================
-função mapearLotacaoParaPadrao(lotacaoRaw) {
+function mapLotacaoToPadrao(lotacaoRaw) {
     const s = String(lotacaoRaw || "")
         .normalize("NFD")
         .replace(/[̀-ͯ]/g, "")
-        .paraMaiúsculas();
+        .toUpperCase();
 
     if (s.includes("ARACUAI")) return "6º BBM - PELOTÃO ARAÇUAÍ";
     if (s.includes("ITAOBIM")) return "6º BBM - PELOTÃO ITAOBIM";
     if (s.includes("GUANHAES")) return "6º BBM - POSTO AVANÇADO DE GUANHÃES";
     if (s.includes("RESPLENDOR")) return "6º BBM - PELOTÃO RESPLENDOR";
     if (s.includes("SAO J. EVANGELISTA") || s.includes("SAO J EVANGELISTA") || s.includes("SAO JOAO EVANGELISTA")) {
-        voltar "6º BBM - PELOTÃO SÃO JOÃO EVANGELISTA";
+        return "6º BBM - PELOTÃO SÃO JOÃO EVANGELISTA";
     }
     if (s.includes("TEOFILO OTONI")) return "6º BBM - COMPANHIA TEÓFILO OTONI";
     if (s.includes("ALMENARA")) return "6º BBM - PELOTÃO ALMENARA";
 
-    retornar "6º BBM - SEDE";
+    return "6º BBM - SEDE";
 }
 
 function getMaintenanceSystemCategory(m) {
@@ -3666,68 +3666,68 @@ function parseDateValue(val) {
 
     if (typeof val === 'number') {
         const d = new Date(val);
-        retornar isNaN(d.getTime()) ? nulo: d;
+        return isNaN(d.getTime()) ? null : d;
     }
 
     const s = String(val).trim();
-    se (!s) retornar nulo;
+    if (!s) return null;
 
-    se (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
         const [dd, mm, yyyy] = s.split('/').map(Number);
         const d = new Date(yyyy, mm - 1, dd);
-        retornar isNaN(d.getTime()) ? nulo: d;
+        return isNaN(d.getTime()) ? null : d;
     }
 
-    se (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
         const [yyyy, mm, dd] = s.split('-').map(Number);
         const d = new Date(yyyy, mm - 1, dd);
-        retornar isNaN(d.getTime()) ? nulo: d;
+        return isNaN(d.getTime()) ? null : d;
     }
 
-    const d = novo Date(s);
-    retornar isNaN(d.getTime()) ? nulo: d;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
 }
 
-função adicionarAnos(dateObj, anos) {
+function addYears(dateObj, years) {
     const d = new Date(dateObj.getTime());
-    d.setFullYear(d.getFullYear() + anos);
-    retornar d;
+    d.setFullYear(d.getFullYear() + years);
+    return d;
 }
 
-função diasEntre(a, b) {
+function daysBetween(a, b) {
     const ms = b.getTime() - a.getTime();
-    retornar Math.ceil(ms / (1000 * 60 * 60 * 24));
+    return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
-função obterÚltimaTrocaDeÓleoDoVeículo(veículo) {
-    const lista = obterManutenaçõesParaVeículo(veículo);
-    const óleos = lista.filter(éManutençãoDeTrocaDeÓleo);
-    se (!oils.length) retorne nulo;
+function getLastOilChangeForVehicle(vehicle) {
+    const list = getMaintenancesForVehicle(vehicle);
+    const oils = list.filter(isOilChangeMaintenance);
+    if (!oils.length) return null;
 
-    óleos.classificar((x, y) => {
+    oils.sort((x, y) => {
         const dx = parseDateValue((x && (x.dataManutencao || x.data || x.date || x.timestamp))) || new Date(0);
-        const dy = parseDateValue((y && (y.dataManutencao || y.data || y.date || y.timestamp))) || nova Data(0);
+        const dy = parseDateValue((y && (y.dataManutencao || y.data || y.date || y.timestamp))) || new Date(0);
         const t = dx.getTime() - dy.getTime();
-        se (t !== 0) retorne t;
+        if (t !== 0) return t;
         const kx = parseKmValue((x && (x.km || x.hodometro)) || 0);
         const ky = parseKmValue((y && (y.km || y.hodometro)) || 0);
-        retornar (kx || 0) - (ky || 0);
+        return (kx || 0) - (ky || 0);
     });
 
-    retornar óleos[comprimento dos óleos - 1];
+    return oils[oils.length - 1];
 }
 
-função obterStatusDoÓleoDoVeículo(v) {
-    const último = obterÚltimaTrocaDeÓleoParaVeículo(v);
-    se (!último) {
-        retornar {
-            nível: 'desconhecido',
-            rótulo: 'SEM REGISTRO',
-            título: 'Sem registro de troca de óleo do motor. Em Adicionar Manutenção, marque o item "Revisão: foi realizada troca de óleo do motor" para alimentação este indicador.'
+function getOilStatusForVehicle(v) {
+    const last = getLastOilChangeForVehicle(v);
+    if (!last) {
+        return {
+            level: 'unknown',
+            label: 'SEM REGISTRO',
+            title: 'Sem registro de troca de óleo do motor. Em Adicionar Manutenção, marque o item "Revisão: foi realizada troca de óleo do motor" para alimentar este indicador.'
         };
     }
 
-    const últimoKm = parseKmValue(último.km) || parseKmValue(v.hodometro) || 0;
+    const lastKm = parseKmValue(last.km) || parseKmValue(v.hodometro) || 0;
     const lastDate = parseDateValue(last.dataManutencao || last.data || last.date || last.date || last.timestamp) || new Date();
 
     const dueKm = lastKm + OIL_INTERVAL_KM;
@@ -3740,13 +3740,13 @@ função obterStatusDoÓleoDoVeículo(v) {
     const overdueByDate = now.getTime() >= dueDate.getTime();
 
     const kmLeft = dueKm - currentKm;
-    const diasRestantes = diasEntre(agora, dataDeVencimento);
+    const daysLeft = daysBetween(now, dueDate);
 
     let level = 'ok';
-    se (overdueByKm || overdueByDate) nível = 'atrasado';
-    senão se (kmLeft <= OIL_WARN_KM || daysLeft <= OIL_WARN_DAYS) nível = 'aviso';
+    if (overdueByKm || overdueByDate) level = 'overdue';
+    else if (kmLeft <= OIL_WARN_KM || daysLeft <= OIL_WARN_DAYS) level = 'warn';
 
-    const title = `Última: ${lastKm.toLocaleString('pt-BR')} km em ${lastDate.toLocaleDateString('pt-BR')} | Próximo: ${dueKm.toLocaleString('pt-BR')} km ou ${dueDate.toLocaleDateString('pt-BR')} (o que ocorrer primeiro)`;
+    const title = `Última: ${lastKm.toLocaleString('pt-BR')} km em ${lastDate.toLocaleDateString('pt-BR')} | Próxima: ${dueKm.toLocaleString('pt-BR')} km ou ${dueDate.toLocaleDateString('pt-BR')} (o que ocorrer primeiro)`;
     const label = (level === 'overdue') ? 'VENCIDO' : (level === 'warn') ? 'ATENÇÃO' : 'OK';
 
     return { level, label, title };
@@ -3880,31 +3880,31 @@ function getExternalBudgetQuoteVehicles() {
             modeloAno: '',
             valorVenal: '',
             tempoParada: 0,
-            dataUltimaSituação: '',
+            dataUltimaSituacao: '',
             anoFabricacao: '',
             marcaModelo: '',
-            combustível: '',
+            combustivel: '',
             comando: '',
-            Unidade Principal: '',
+            unidadePrincipal: '',
             isExternalBudgetVehicle: true
         };
 
         const km = Number(item.km || item.hodometro || 0) || 0;
-        se (km > hodômetro atual) hodômetro atual = km;
+        if (km > current.hodometro) current.hodometro = km;
         const date = item.dataManutencao || item.data || item.date || '';
-        se (data) current.dataUltimaMovimentacao = data;
-        grupos.definir(chave, atual);
+        if (date) current.dataUltimaMovimentacao = date;
+        groups.set(key, current);
     });
 
     return Array.from(groups.values()).sort((a, b) => String(a.placa || '').localeCompare(String(b.placa || ''), 'pt-BR'));
 }
 
-função obterVeículosExibidosDaFrota() {
+function getFleetDisplayVehicles() {
     const base = Array.isArray(vehicles) ? vehicles : [];
     return [...base, ...getExternalBudgetQuoteVehicles()];
 }
 
-        função renderizarVeículos() {
+        function renderVehicles() {
             const tbody = document.getElementById('vehicleTableBody');
             const search = document.getElementById('searchInput').value.toLowerCase();
             const filterSit = document.getElementById('filterSituation').value;
@@ -3913,7 +3913,7 @@ função obterVeículosExibidosDaFrota() {
             const groupCmp = document.getElementById('groupByCompany') ? document.getElementById('groupByCompany').checked : false;
 
             let filtered = getFleetDisplayVehicles().filter(v => {
-                const matchSearch = !search ||
+                const matchSearch = !search || 
                     v.placa.toLowerCase().includes(search) ||
                     v.prefixo.toLowerCase().includes(search) ||
                     (v.subclasse || '').toLowerCase().includes(search) ||
@@ -3922,16 +3922,16 @@ função obterVeículosExibidosDaFrota() {
                 const matchSituation = !filterSit || v.situacao === filterSit;
                 const matchCity = !filterCty || (v.cidade || '').includes(filterCty);
                 const matchCompany = matchCompanyFilter(v, filterCmp);
-                retornar matchSearch && matchSituation && matchCity && matchCompany;
+                return matchSearch && matchSituation && matchCity && matchCompany;
             });
 
 // Ordenação: Disponíveis -> Baixadas/Acidentadas -> Processo de Descarga
-filtrado.ordenar((a, b) => {
+filtered.sort((a, b) => {
     const ra = situacaoRank(a.situacao);
     const rb = situacaoRank(b.situacao);
-    se (ra !== rb) retorne ra - rb;
+    if (ra !== rb) return ra - rb;
 
-    // Dentro do mesmo grupo, ordenar por Companhia (1ª primeiro), depois por loteação e prefixo
+    // Dentro do mesmo grupo, ordenar por Companhia (1ª primeiro), depois por lotação e prefixo
     const ca = getCompanyLabel(a);
     const cb = getCompanyLabel(b);
     const cRankA = ca.startsWith('1') ? 0 : 1;
@@ -4009,64 +4009,64 @@ filtrado.ordenar((a, b) => {
 `;
 };
 
-se (!groupCmp) {
+if (!groupCmp) {
     tbody.innerHTML = filtered.map(rowHtml).join('');
-    retornar;
+    return;
 }
 
-// Agrupado por Companhia (inserir linhas-separador)
+// Agrupado por Companhia (insere linhas-separador)
 const groups = { '1ª Companhia': [], '2ª Companhia': [] };
-para (const v de filtrado) {
-    grupos[getCompanyLabel(v)].push(v);
+for (const v of filtered) {
+    groups[getCompanyLabel(v)].push(v);
 }
 
 const order = ['1ª Companhia', '2ª Companhia'];
 let htmlRows = '';
-para (const g de ordem) {
-    se (!grupos[g] || grupos[g].comprimento === 0) continue;
+for (const g of order) {
+    if (!groups[g] || groups[g].length === 0) continue;
     htmlRows += `<tr><td colspan="10" style="background:#0d47a1; color:#fff; font-weight:700; padding:10px;">${g}</td></tr>`;
     htmlRows += groups[g].map(rowHtml).join('');
 }
 tbody.innerHTML = htmlRows;
         }
 
-        function getBadgeClass(situação) {
+        function getBadgeClass(situacao) {
             if (situacao === 'DISPONÍVEL') return 'badge-success';
-            if (situacao === 'BAIXADA') return 'crachá-perigo';
+            if (situacao === 'BAIXADA') return 'badge-danger';
             if (situacao === 'ACIDENTADA') return 'badge-danger';
             if (situacao === 'EM MANUTENÇÃO') return 'badge-warning';
-            retornar 'informação-do-distintivo';
+            return 'badge-info';
         }
 
 
-função obterEtiquetaDaEmpresa(v) {
-    const lote = String(v.cidade || '').toUpperCase();
+function getCompanyLabel(v) {
+    const lot = String(v.cidade || '').toUpperCase();
     // Regra informada: São João Evangelista, Resplendor e Sede pertencem à 1ª Companhia
-    if (lot.includes('SÃO JOÃO EVANGELISTA') || lot.includes('SÃO JOÃO EVANGELISTA') || lot.includes('RESPLENDOR') || lot.includes('GUANHÃES') || lot.includes('GUANHAES') || lot.includes('SEDE')) {
-        retornar '1ª Companhia';
+    if (lot.includes('SÃO JOÃO EVANGELISTA') || lot.includes('SAO JOAO EVANGELISTA') || lot.includes('RESPLENDOR') || lot.includes('GUANHÃES') || lot.includes('GUANHAES') || lot.includes('SEDE')) {
+        return '1ª Companhia';
     }
-    retornar '2ª Companhia';
+    return '2ª Companhia';
 }
 
-função matchCompanyFilter(v, filterCompanyValue) {
-    Se (!filterCompanyValue) retornar verdadeiro;
+function matchCompanyFilter(v, filterCompanyValue) {
+    if (!filterCompanyValue) return true;
     const label = getCompanyLabel(v);
     return (filterCompanyValue === '1' && label === '1ª Companhia') ||
            (filterCompanyValue === '2' && label === '2ª Companhia');
 }
 
-função situacaoRank(s) {
+function situacaoRank(s) {
     const t = String(s || '').toUpperCase();
-    se (t.include('DISPON')) retorne 0;
-    se (t.includes('BAIX') || t.includes('ACIDENT')) retorne 1;
+    if (t.includes('DISPON')) return 0;
+    if (t.includes('BAIX') || t.includes('ACIDENT')) return 1;
     if (t.includes('PROCESSO') || t.includes('DESCARGA')) return 2;
-    retornar 1;
+    return 1;
 }
 
 
         // Atualizar estatísticas
-        função atualizarEstatísticas() {
-            const total = veículos.comprimento;
+        function updateStats() {
+            const total = vehicles.length;
             const available = vehicles.filter(v => v.situacao === 'DISPONÍVEL').length;
             const maintenance = vehicles.filter(v => v.situacao === 'EM MANUTENÇÃO').length;
             const inactive = vehicles.filter(v => v.situacao === 'BAIXADA' || v.situacao === 'PROCESSO DE DESCARGA' || v.situacao === 'ACIDENTADA' || v.situacao === 'ACIDENTADO').length;
@@ -4122,29 +4122,29 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? [vehi
             renderMaintenanceList();
         }
 
-        função fecharModalDeManutenção() {
+        function closeMaintenanceModal() {
             document.getElementById('maintenanceModal').classList.remove('active');
-            currentMaintenanceVehicleId = nulo;
-            veículoDeManutençãoAtual = nulo;
-            renderVeículos();
+            currentMaintenanceVehicleId = null;
+            currentMaintenanceVehicle = null;
+            renderVehicles();
         }
 
-        função prepareMaintenanceForm(authorizedMatricula) {
+        function prepareMaintenanceForm(authorizedMatricula) {
             const form = document.getElementById('addMaintenanceForm').querySelector('form');
-            se (formulário) formulário.reset();
+            if (form) form.reset();
 
             document.getElementById('addMaintenanceForm').style.display = 'block';
             document.getElementById('maintenanceDate').valueAsDate = new Date();
 
             const matriculaInput = document.getElementById('maintenanceMatricula');
-            se (matrículaInput) {
+            if (matriculaInput) {
                 matriculaInput.value = formatMatriculaText(authorizedMatricula);
                 matriculaInput.readOnly = true;
-                matrículaInput.title = 'Matrícula validada na planilha USUÁRIOS';
+                matriculaInput.title = 'Matrícula validada na planilha USUARIOS';
             }
         }
 
-        função alternarRevisãoDoÓleoDoEngine(marcado) {
+        function toggleEngineOilRevision(checked) {
             const categoryInput = document.getElementById('maintenanceSystemCategory');
             const typeInput = document.getElementById('maintenanceType');
             const descInput = document.getElementById('maintenanceDescription');
@@ -4152,53 +4152,53 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? [vehi
             const notesInput = document.getElementById('maintenanceNotes');
             const hint = document.getElementById('engineOilHint');
 
-            se (categoryInput) categoryInput.value = checked ? ENGINE_OIL_SYSTEM_CATEGORY : '';
-            se (dica) dica.estilo.exibir = marcado ? 'bloco' : 'nenhum';
+            if (categoryInput) categoryInput.value = checked ? ENGINE_OIL_SYSTEM_CATEGORY : '';
+            if (hint) hint.style.display = checked ? 'block' : 'none';
 
-            se (marcado) {
-                se (typeInput) typeInput.value = 'REVISÃO';
+            if (checked) {
+                if (typeInput) typeInput.value = 'REVISÃO';
                 if (descInput && !descInput.value.trim()) descInput.value = 'Revisão - troca de óleo do motor';
 
                 const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
-                se (kmInput && !kmInput.value && vehicle && vehicle.hodometro) kmInput.value = vehicle.hodometro;
+                if (kmInput && !kmInput.value && vehicle && vehicle.hodometro) kmInput.value = vehicle.hodometro;
 
-                se (notesInput && !notesInput.value.trim()) {
-                    notesInput.value = 'Revisão com troca de óleo do motor. Não utilize este marcador para óleo de freio, óleo hidráulico, câmbio, diferencial ou outras áreas.';
+                if (notesInput && !notesInput.value.trim()) {
+                    notesInput.value = 'Revisão com troca de óleo do motor. Não utilizar este marcador para óleo de freio, óleo hidráulico, câmbio, diferencial ou outras áreas.';
                 }
             }
         }
 
-        função definirFormulárioDeManutenção(modo) {
-            const isEngineOil = modo === ENGINE_OIL_SYSTEM_CATEGORY;
+        function setMaintenanceFormMode(mode) {
+            const isEngineOil = mode === ENGINE_OIL_SYSTEM_CATEGORY;
             const check = document.getElementById('maintenanceEngineOilCheck');
-            se (verificar) verificação.verificado = éÓleoDeMotor;
-            alternarMotorOilRevision(isEngineOil);
+            if (check) check.checked = isEngineOil;
+            toggleEngineOilRevision(isEngineOil);
         }
 
-        função assíncrona mostrarAdicionarManutenção() {
+        async function showAddMaintenance() {
             if (!requireBudgetPermission('incluir', 'incluir manutenção')) return;
-            const autorizadoMatricula = aguarda garantirMaintenanceAuthorization('registrar manutenção');
-            se (!authorizedMatricula) retornar;
+            const authorizedMatricula = await ensureMaintenanceAuthorization('registrar manutenção');
+            if (!authorizedMatricula) return;
 
             prepareMaintenanceForm(authorizedMatricula);
             setMaintenanceFormMode('');
         }
 
 
-        função ocultarAdicionarManutenção() {
+        function hideAddMaintenance() {
             document.getElementById('addMaintenanceForm').style.display = 'none';
             const form = document.getElementById('addMaintenanceForm').querySelector('form');
-            se (formulário) formulário.reset();
+            if (form) form.reset();
             setMaintenanceFormMode('');
 
             const matriculaInput = document.getElementById('maintenanceMatricula');
-            se (matrículaInput) {
+            if (matriculaInput) {
                 matriculaInput.readOnly = false;
                 matriculaInput.title = '';
             }
         }
 
-        função abrirCotaçãoOrçamentáriaDaManutenção() {
+        function openBudgetQuoteFromMaintenance() {
             const vehicle = currentMaintenanceVehicle || vehicles.find(v => String(v.id) === String(currentMaintenanceVehicleId)) || null;
             const vehicleLabel = vehicle ? [vehicle.prefixo, vehicle.placa].filter(Boolean).join(' / ') : '';
 
@@ -4208,53 +4208,53 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? [vehi
             openBudgetQuoteForm(null, null);
 
             populateBudgetQuoteVehicles(vehicle ? (vehicle.placa || vehicle.id || vehicle.prefixo || '') : vehicleLabel);
-            se (veículo && veículo.hodômetro) document.getElementById('budgetQuoteMaintenanceKm').value = veículo.hodômetro;
+            if (vehicle && vehicle.hodometro) document.getElementById('budgetQuoteMaintenanceKm').value = vehicle.hodometro;
             const desc = document.getElementById('budgetQuoteDescription');
-            if (desc && !desc.value.trim() && VehicleLabel) desc.value = `Manutenção da viatura ${vehicleLabel}`;
+            if (desc && !desc.value.trim() && vehicleLabel) desc.value = `Manutenção da viatura ${vehicleLabel}`;
         }
 
-        função syncBudgetQuoteMaintenanceCost() {
+        function syncBudgetQuoteMaintenanceCost() {
             const costInput = document.getElementById('budgetQuoteMaintenanceCost');
-            se (!custoInput) retornar;
+            if (!costInput) return;
             if (costInput.dataset.manual === 'true' && String(costInput.value || '').trim()) return;
             const parts = parseFloat(document.getElementById('budgetQuotePartsValue')?.value || '0') || 0;
-            serviço const = parseFloat(document.getElementById('budgetQuoteServiceValue')?.value || '0') || 0;
-            constante total = peças + serviço;
-            se (total > 0) custoEntrada.valor = total.paraFixado(2);
+            const service = parseFloat(document.getElementById('budgetQuoteServiceValue')?.value || '0') || 0;
+            const total = parts + service;
+            if (total > 0) costInput.value = total.toFixed(2);
         }
 
-        função toggleBudgetQuoteEngineOilRevision(checked) {
+        function toggleBudgetQuoteEngineOilRevision(checked) {
             const typeInput = document.getElementById('budgetQuoteMaintenanceType');
             const descInput = document.getElementById('budgetQuoteDescription');
             const notesInput = document.getElementById('budgetQuoteMaintenanceNotes');
             const hint = document.getElementById('budgetQuoteEngineOilHint');
-            se (dica) dica.estilo.exibir = marcado ? 'bloco' : 'nenhum';
-            se (marcado) {
-                se (typeInput) typeInput.value = 'REVISÃO';
-                if (descInput && !normalizeText(descInput.value).includes('óleo do motor')) {
+            if (hint) hint.style.display = checked ? 'block' : 'none';
+            if (checked) {
+                if (typeInput) typeInput.value = 'REVISÃO';
+                if (descInput && !normalizeText(descInput.value).includes('oleo do motor')) {
                     descInput.value = descInput.value.trim()
                         ? `${descInput.value.trim()} - troca de óleo do motor`
                         : 'Revisão - troca de óleo do motor';
                 }
-                se (notesInput && !notesInput.value.trim()) {
-                    notesInput.value = 'Revisão com troca de óleo do motor. Não utilize este marcador para óleo de freio, óleo hidráulico, câmbio, diferencial ou outras áreas.';
+                if (notesInput && !notesInput.value.trim()) {
+                    notesInput.value = 'Revisão com troca de óleo do motor. Não utilizar este marcador para óleo de freio, óleo hidráulico, câmbio, diferencial ou outras áreas.';
                 }
             }
         }
 
-        função toggleBudgetQuoteSeiDocument() {
+        function toggleBudgetQuoteSeiDocument() {
             const group = document.getElementById('budgetQuoteSeiDocumentGroup');
             const input = document.getElementById('budgetQuoteSeiDocument');
             const hasNfParts = String(document.getElementById('budgetQuoteNfParts')?.value || '').trim().length > 0;
             const hasNfService = String(document.getElementById('budgetQuoteNfService')?.value || '').trim().length > 0;
             const shouldShow = hasNfParts || hasNfService;
-            se (grupo) grupo.estilo.exibir = deveMostrar ? 'bloco' : 'nenhum';
-            se (entrada) entrada.obrigatório = deveMostrar;
+            if (group) group.style.display = shouldShow ? 'block' : 'none';
+            if (input) input.required = shouldShow;
             if (!shouldShow && input) input.value = '';
         }
 
-        função assíncrona salvarRegistroDeManutenção(evento) {
-  evento.prevenirPadrão();
+        async function saveMaintenanceRecord(event) {
+  event.preventDefault();
   if (!requireBudgetPermission('incluir', 'incluir manutenção')) return;
 
   const isEngineOilChecked = document.getElementById('maintenanceEngineOilCheck')?.checked === true;
@@ -4262,86 +4262,86 @@ document.getElementById('maintenanceVehiclePlate').textContent = vehicle ? [vehi
 
   const maintenanceIdInput = document.getElementById('maintenanceRecordId');
   const maintenanceId = maintenanceIdInput?.value || Date.now();
-  se (maintenanceIdInput) maintenanceIdInput.value = maintenanceId;
+  if (maintenanceIdInput) maintenanceIdInput.value = maintenanceId;
 
-  manutenção constante = {
-    id: id de manutenção,
-    data: document.getElementById('maintenanceDate').value,
-    tipo: document.getElementById('maintenanceType').value,
-    categoria do sistema,
-    descrição: document.getElementById('maintenanceDescription').value,
+  const maintenance = {
+    id: maintenanceId,
+    date: document.getElementById('maintenanceDate').value,
+    type: document.getElementById('maintenanceType').value,
+    systemCategory,
+    description: document.getElementById('maintenanceDescription').value,
     km: parseInt(document.getElementById('maintenanceKm').value) || 0,
-    custo: parseFloat(document.getElementById('maintenanceCost').value) || 0,
-    responsável: document.getElementById('maintenanceResponsible').value,
-    matrícula: document.getElementById('maintenanceMatricula').value,
-    notas: document.getElementById('maintenanceNotes').value
+    cost: parseFloat(document.getElementById('maintenanceCost').value) || 0,
+    responsible: document.getElementById('maintenanceResponsible').value,
+    matricula: document.getElementById('maintenanceMatricula').value,
+    notes: document.getElementById('maintenanceNotes').value
   };
 
-  se (óleo do motor verificado) {
-    manutenção.type = 'REVISÃO';
-    if (!maintenance.description.trim()) Maintenance.description = 'Revisão - troca de óleo do motor';
-    const marcador = 'Marcador técnico: revisão com troca de óleo do motor.';
-    notas.de.manutenção = notas.de.manutenção ? `${notas.de.manutenção}
-${marker}` : marcador;
+  if (isEngineOilChecked) {
+    maintenance.type = 'REVISÃO';
+    if (!maintenance.description.trim()) maintenance.description = 'Revisão - troca de óleo do motor';
+    const marker = 'Marcador técnico: revisão com troca de óleo do motor.';
+    maintenance.notes = maintenance.notes ? `${maintenance.notes}
+${marker}` : marker;
   }
 
-  // matrícula obrigatória e validada antes de dezembro.
+  // matrícula obrigatória e validada antes de gravar.
   // Não confia no valor digitado no input: usa a matrícula autorizada na sessão.
-  const autorizadoMatricula = aguarda garantirMaintenanceAuthorization('registrar manutenção');
-  se (!authorizedMatricula) retornar;
+  const authorizedMatricula = await ensureMaintenanceAuthorization('registrar manutenção');
+  if (!authorizedMatricula) return;
 
-  manutenção.matrícula = matriz autorizada;
+  maintenance.matricula = authorizedMatricula;
 
-  BeginAppLoading('Salvando manutenção', 'Gravando na planilha de transporte e conferindo o resultado.');
-  //sincroniza primeiro (fonte da verdade)
-  tentar {
+  beginAppLoading('Salvando manutenção', 'Gravando na planilha de transporte e conferindo o resultado.');
+  // sincroniza primeiro (fonte da verdade)
+  try {
     const vehicle = currentMaintenanceVehicle || vehicles.find(v => v.id === currentMaintenanceVehicleId) || null;
-    aguardar syncMaintenanceToTransportSheet(manutenção, veículo);
+    await syncMaintenanceToTransportSheet(maintenance, vehicle);
 
-    //recarrega o Planilhas (agora a lista é 100% verdade)
-    aguardar carregarManutenaçõesDaPlanilha();
-    renderVeículos();
+    // recarrega do Sheets (agora a lista é 100% verdade)
+    await loadMaintenancesFromSheet();
+    renderVehicles();
     renderMaintenanceList();
 
-    ocultarCarregamentoAplicativo();
-    ocultarManutençãoAdicionada();
+    hideAppLoading();
+    hideAddMaintenance();
     showAlert('Manutenção registrada com sucesso!');
-  } catch (erro) {
+  } catch (err) {
     console.error(err);
     showAlert('Não foi possível registrar: ' + (err.message || err), 'error');
-    // não salva localmente
-  } finalmente {
-    ocultarCarregamentoAplicativo();
+    // NÃO salva localmente
+  } finally {
+    hideAppLoading();
   }
 }
 
-        função renderizarListaDeManutenção() {
+        function renderMaintenanceList() {
     const container = document.getElementById('maintenanceRecords');
-    const veículo = currentMaintenanceVehicle || (window.vehicles || vehicles || []).find(v => v.id === currentMaintenanceVehicleId) || null;
-    const registros = obterManutenânciasParaVeículo(veículo) || [];
+    const vehicle = currentMaintenanceVehicle || (window.vehicles || vehicles || []).find(v => v.id === currentMaintenanceVehicleId) || null;
+    const records = getMaintenancesForVehicle(vehicle) || [];
 
-    se (registros.comprimento === 0) {
+    if (records.length === 0) {
         container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma manutenção registrada ainda.</div>';
-        retornar;
+        return;
     }
 
     const safeText = (v, fallback = '') => {
         const s = (v === null || v === undefined) ? '' : String(v);
         const t = s.trim();
-        retornar t ? t : fallback;
+        return t ? t : fallback;
     };
 
     const getDateLabel = (item) => {
         const raw = item.data || item.date || item.dataManutencao || item.timestamp;
         const d = parseDateValue(raw);
-        if (!d || isNaN(d.getTime())) retornar 'N/D';
-        retornar (typeof formatDate === 'function') ? formatDate(d) : d.toLocaleDateString('pt-BR');
+        if (!d || isNaN(d.getTime())) return 'N/D';
+        return (typeof formatDate === 'function') ? formatDate(d) : d.toLocaleDateString('pt-BR');
     };
 
-    const sorted = [...registros].sort((a, b) => {
+    const sorted = [...records].sort((a, b) => {
         const da = parseDateValue(a.data || a.date || a.dataManutencao || a.timestamp) || new Date(0);
         const db = parseDateValue(b.data || b.date || b.dataManutencao || b.timestamp) || new Date(0);
-        retornar db.getTime() - da.getTime();
+        return db.getTime() - da.getTime();
     });
 
     container.innerHTML = sorted.map(item => {
@@ -4450,53 +4450,53 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
             alert.textContent = message;
 
             const t = (type || 'success').toString().toLowerCase();
-            // redefinir estilos
+            // reset estilos
             alert.classList.remove('alert-success');
             alert.style.border = '';
             alert.style.background = '';
             alert.style.color = '';
 
-            se (t === 'erro' || t === 'perigo') {
+            if (t === 'error' || t === 'danger') {
                 alert.style.background = 'rgba(211, 47, 47, 0.2)';
                 alert.style.border = '1px solid rgba(211, 47, 47, 0.9)';
                 alert.style.color = 'rgba(255,255,255,0.95)';
-            } outro {
+            } else {
                 alert.classList.add('alert-success');
             }
 
-            alert.classList.add('ativo');
+            alert.classList.add('active');
             setTimeout(() => alert.classList.remove('active'), 3500);
         }
 
 
-        função renderizarVisãoGeralDoTipo() {
+        function renderTypeOverview() {
             const grid = document.getElementById('typeOverviewGrid');
-            se (!grade) retorne;
+            if (!grid) return;
 
-            const agrupado = {};
-            (veículos || []).forEach(v => {
+            const grouped = {};
+            (vehicles || []).forEach(v => {
                 const tipo = String(v.subclasse || v.tipo || 'Não informado').trim() || 'Não informado';
-                se (!agrupado[tipo]) {
-                    agrupado[tipo] = { total: 0, disponível: 0, manutenção: 0, indisponivel: 0 };
+                if (!grouped[tipo]) {
+                    grouped[tipo] = { total: 0, disponivel: 0, manutencao: 0, indisponivel: 0 };
                 }
-                agrupado[tipo].total += 1;
+                grouped[tipo].total += 1;
 
                 const sit = String(v.situacao || '').toUpperCase();
-                if (sit === 'DISPONÍVEL') agrupado[tipo].disponivel += 1;
-                senão if (sit === 'EM MANUTENÇÃO') agrupado[tipo].manutencao += 1;
-                senão agrupado[tipo].indisponivel += 1;
+                if (sit === 'DISPONÍVEL') grouped[tipo].disponivel += 1;
+                else if (sit === 'EM MANUTENÇÃO') grouped[tipo].manutencao += 1;
+                else grouped[tipo].indisponivel += 1;
             });
 
             const rows = Object.entries(grouped)
                 .map(([tipo, vals]) => ({ tipo, ...vals }))
                 .sort((a, b) => {
-                    se (b.total !== a.total) retorne b.total - a.total;
+                    if (b.total !== a.total) return b.total - a.total;
                     return a.tipo.localeCompare(b.tipo, 'pt-BR');
                 });
 
-            se (!rows.length) {
+            if (!rows.length) {
                 grid.innerHTML = '<div class="type-card type-card-empty">Nenhum dado de viatura disponível.</div>';
-                retornar;
+                return;
             }
 
             grid.innerHTML = rows.map(row => `
@@ -4505,7 +4505,7 @@ async function deleteMaintenance(maintenanceKey, matriculaFromItem) {
                         <div class="type-card-name">${escapeHTML(row.tipo)}</div>
                         <div class="type-card-total">${row.total}</div>
                     </div>
-                    <div class="type-card-meta">Total de viagens deste tipo</div>
+                    <div class="type-card-meta">Total de viaturas deste tipo</div>
                     <div class="type-card-bars">
                         <div class="type-card-stat"><span>Disponíveis</span><strong>${row.disponivel}</strong></div>
                         <div class="type-card-stat"><span>Em manutenção</span><strong>${row.manutencao}</strong></div>
